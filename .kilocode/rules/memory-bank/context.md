@@ -84,4 +84,5 @@ export async function GET() {
 
 | Date | Changes |
 |------|---------|
+| 2026-03-16 | Verified build, typecheck, lint pass; committed tsconfig.json Next.js mandatory updates |
 | Initial | Template created with base setup |

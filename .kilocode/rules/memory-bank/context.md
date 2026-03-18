@@ -85,10 +85,17 @@ export async function GET() {
 - Sandbox preview (port 3000) shows placeholder "Hello from Bun server!" - Next.js app runs on port 3001
 - `public/` directory created but empty (standard Next.js setup)
 
+## Recently Completed
+
+- [x] Replaced blank starter page with visible CTS dashboard shell
+- [x] Added dashboard metadata and dark global surface styles
+- [x] Verified build, lint, and typecheck after dashboard init
+
 ## Session History
 
 | Date | Changes |
 |------|---------|
+| 2026-03-18 | Initialized CTS dashboard landing page with status cards, timeline, and visible loading state |
 | 2026-03-18 | Added visible content to home page (Welcome message), app works on port 3001 |
 | 2026-03-16 | Comprehensive project review: all configs correct, build/lint/typecheck pass, preview uses sandbox port 3000 |
 | 2026-03-16 | Verified build, typecheck, lint pass; committed tsconfig.json Next.js mandatory updates |

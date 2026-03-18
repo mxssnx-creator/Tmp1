@@ -112,6 +112,9 @@ export default function MainStrategySettings({
             </div>
           </div>
 
+          <div className="border-t pt-6 space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2">Adjustment Controls</h3>
+
             <div className="grid gap-4">
               <div className="flex items-center justify-between p-3 border rounded-lg bg-card">
                 <div>

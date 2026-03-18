@@ -1,4 +1,84 @@
+"use client";
+
+import ChatDisplay from "@/components/chat/ChatDisplay";
+
 export default function Home() {
+  // Sample chat data - in a real app this would come from an API
+  const sampleGroups = [
+    {
+      id: "trading-alerts",
+      title: "Trading System Alerts",
+      description: "Critical notifications from the trading engine",
+      type: "alert" as const,
+      priority: "high" as const,
+      messages: [
+        {
+          id: "alert-1",
+          sender: "Engine Monitor",
+          timestamp: new Date(Date.now() - 5 * 60 * 1000),
+          summary: "Market volatility spike detected",
+          content: "Market volatility has increased by 45% in the last 10 minutes. Consider adjusting risk parameters. The algorithm is still operational but monitoring closely.",
+          type: "warning" as const,
+          related: ["BTC/USD", "ETH/USD", "SPY"]
+        },
+        {
+          id: "alert-2",
+          sender: "Portfolio Manager",
+          timestamp: new Date(Date.now() - 15 * 60 * 1000),
+          summary: "Profit target reached on BTC position",
+          content: "The BTC trading position has reached its profit target of 3.2%. Position will be partially closed to lock in gains while maintaining exposure.",
+          type: "success" as const,
+          related: ["BTC/USD", "Profit-Loss"]
+        }
+      ]
+    },
+    {
+      id: "system-notifications",
+      title: "System Operations",
+      description: "Background system status and maintenance notifications",
+      type: "system" as const,
+      priority: "normal" as const,
+      messages: [
+        {
+          id: "system-1",
+          sender: "Scheduler",
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          summary: "Daily backup completed successfully",
+          content: "Automated backup of all trading data and configurations has been completed. Backup size: 2.4GB, stored on secure cloud storage.",
+          type: "info" as const,
+          related: ["Backups", "Data Safety"]
+        },
+        {
+          id: "system-2",
+          sender: "Performance Monitor",
+          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+          summary: "Memory optimization completed",
+          content: "System memory has been optimized, freeing up 1.2GB of RAM. Trading operations performance improved by 8%.",
+          type: "info" as const,
+          related: ["Performance", "Optimization"]
+        }
+      ]
+    },
+    {
+      id: "market-insights",
+      title: "Market Intelligence Feed",
+      description: "Real-time market analysis and insights",
+      type: "notification" as const,
+      priority: "low" as const,
+      messages: [
+        {
+          id: "market-1",
+          sender: "AI Analyst",
+          timestamp: new Date(Date.now() - 30 * 60 * 1000),
+          summary: "Ethereum bullish signals detected",
+          content: "Analysis shows strong buying momentum in Ethereum with positive on-chain metrics. Defi protocols showing increased activity. Consider ETH/USD as primary focus for next trading cycle.",
+          type: "info" as const,
+          related: ["ETH/USD", "DeFi", "On-Chain"]
+        }
+      ]
+    }
+  ];
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#142235_0%,#08111b_45%,#030712_100%)] text-white">
       <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-10 px-6 py-10 lg:px-10">
@@ -41,6 +121,9 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Chat Display Section */}
+        <ChatDisplay groups={sampleGroups} />
 
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="rounded-3xl border border-white/10 bg-slate-950/50 p-6">

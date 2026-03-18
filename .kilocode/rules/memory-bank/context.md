@@ -16,6 +16,7 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Fixed global error boundary HTML structure in app/global-error.tsx
 - [x] Added typecheck script to package.json and installed missing eslint-config-next
 - [x] Fixed incorrect imports in 3 API routes from redis-persistence to redis-db
+- [x] Created unified smart chat display system with collapsible messages, grouped by types and priorities, searchable and filterable, integrated into dashboard
 
 ## Current Structure
 

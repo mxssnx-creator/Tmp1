@@ -11,6 +11,11 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Restored original CTS v3 project files from upstream `v0/cts5`
 - [x] Reinstalled project dependencies and aligned Next.js runtime to 15.5.7
 - [x] Verified the original site loads in dev with title `CTS v3 - Crypto Trading System`
+- [x] **FIXED**: Resolved initial server error - app now responds with HTTP 200 and full HTML content
+- [x] Added missing function exports redisGetSettings and redisSetSettings in lib/redis-db.ts for API route compatibility
+- [x] Fixed global error boundary HTML structure in app/global-error.tsx
+- [x] Added typecheck script to package.json and installed missing eslint-config-next
+- [x] Fixed incorrect imports in 3 API routes from redis-persistence to redis-db
 
 ## Current Structure
 

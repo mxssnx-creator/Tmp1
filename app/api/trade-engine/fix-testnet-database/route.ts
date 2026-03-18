@@ -33,7 +33,7 @@ export async function POST() {
     console.log(`[v0] [FixTestnetAPI] Updated OKX: ${okxResult.rowCount} rows`)
 
     // Also update Redis cache for all active connections
-    const { getSettings, setSettings } = await import("@/lib/redis-persistence")
+    const { getSettings, setSettings } = await import("@/lib/redis-db")
     const { getAllConnections } = await import("@/lib/redis-db")
 
     const connections = await getAllConnections()

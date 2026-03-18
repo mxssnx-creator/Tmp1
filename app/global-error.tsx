@@ -33,7 +33,7 @@ export default function GlobalError({
   }, [error])
 
   return (
-    <html>
+    <html lang="en">
       <body>
         <div className="flex items-center justify-center min-h-screen p-6 bg-background">
           <Card className="max-w-2xl w-full border-destructive">

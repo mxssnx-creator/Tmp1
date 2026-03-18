@@ -590,6 +590,10 @@ export async function saveConnection(data: Record<string, any>): Promise<void> {
   return createConnection(data)
 }
 
+// Additional aliases for direct exports
+export const redisGetSettings = getSettings;
+export const redisSetSettings = setSettings;
+
 // ========== Additional operations for compatibility ==========
 
 export async function deleteSettings(key: string): Promise<void> {

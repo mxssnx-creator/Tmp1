@@ -1,0 +1,16 @@
+/**
+ * Application instrumentation - runs on app startup
+ * Initializes Redis, runs migrations, seeds data, and starts trade engine
+ * 
+ * IMPORTANT: Next.js calls register() twice (once per compilation).
+ * We use a globalThis guard to ensure startup only runs ONCE.
+ */
+
+const g = globalThis as any
+if (!g.__cts_register_guard) {
+  g.__cts_register_guard = { done: false, running: false }
+}
+
+// export async function register() {
+//   console.log("[v0] register() called - DISABLED for troubleshooting")
+// }

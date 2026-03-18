@@ -1,102 +1,43 @@
-# Active Context: Next.js Starter Template
+# Active Context: CTS v3 Website
 
 ## Current State
 
-**Template Status**: ✅ Ready for development
+**Project Status**: ✅ Original CTS website restored and loading
 
-The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. It's ready for AI-assisted expansion to build any type of application.
+The workspace now contains the restored CTS v3 application from the upstream `v0/cts5` branch. The original route structure, dashboard UI, API surface, and support modules are back in place and the application responds successfully in development.
 
 ## Recently Completed
 
-- [x] Base Next.js 16 setup with App Router
-- [x] TypeScript configuration with strict mode
-- [x] Tailwind CSS 4 integration
-- [x] ESLint configuration
-- [x] Memory bank documentation
-- [x] Recipe system for common features
+- [x] Restored original CTS v3 project files from upstream `v0/cts5`
+- [x] Reinstalled project dependencies and aligned Next.js runtime to 15.5.7
+- [x] Verified the original site loads in dev with title `CTS v3 - Crypto Trading System`
 
 ## Current Structure
 
 | File/Directory | Purpose | Status |
 |----------------|---------|--------|
-| `src/app/page.tsx` | Home page | ✅ Ready |
-| `src/app/layout.tsx` | Root layout | ✅ Ready |
-| `src/app/globals.css` | Global styles | ✅ Ready |
-| `.kilocode/` | AI context & recipes | ✅ Ready |
+| `app/` | Main Next.js app routes and pages | ✅ Restored |
+| `app/api/` | CTS API endpoints | ✅ Restored |
+| `components/` | Dashboard and UI components | ✅ Restored |
+| `lib/` | Trading, exchange, settings, and system logic | ✅ Restored |
 
 ## Current Focus
 
-The template is ready. Next steps depend on user requirements:
-
-1. What type of application to build
-2. What features are needed
-3. Design/branding preferences
-
-## Quick Start Guide
-
-### To add a new page:
-
-Create a file at `src/app/[route]/page.tsx`:
-```tsx
-export default function NewPage() {
-  return <div>New page content</div>;
-}
-```
-
-### To add components:
-
-Create `src/components/` directory and add components:
-```tsx
-// src/components/ui/Button.tsx
-export function Button({ children }: { children: React.ReactNode }) {
-  return <button className="px-4 py-2 bg-blue-600 text-white rounded">{children}</button>;
-}
-```
-
-### To add a database:
-
-Follow `.kilocode/recipes/add-database.md`
-
-### To add API routes:
-
-Create `src/app/api/[route]/route.ts`:
-```tsx
-import { NextResponse } from "next/server";
-
-export async function GET() {
-  return NextResponse.json({ message: "Hello" });
-}
-```
-
-## Available Recipes
-
-| Recipe | File | Use Case |
-|--------|------|----------|
-| Add Database | `.kilocode/recipes/add-database.md` | Data persistence with Drizzle + SQLite |
-
-## Pending Improvements
-
-- [ ] Add more recipes (auth, email, etc.)
-- [ ] Add example components
-- [ ] Add testing setup recipe
+Current focus is runtime correctness for the recovered CTS application and triaging upstream build/lint warnings that still exist in the restored source.
 
 ## Known Issues
 
-- Sandbox preview (port 3000) shows placeholder "Hello from Bun server!" - Next.js app runs on port 3001
-- `public/` directory created but empty (standard Next.js setup)
-
-## Recently Completed
-
-- [x] Replaced blank starter page with visible CTS dashboard shell
-- [x] Added dashboard metadata and dark global surface styles
-- [x] Verified build, lint, and typecheck after dashboard init
+- Sandbox preview routing still needs to target the real app process instead of the placeholder service on port `3000`
+- `bun run build` succeeds with upstream warnings about missing Redis-related exports in some API routes
+- `bun run lint` reports many upstream code-quality violations that were already present in the restored branch
 
 ## Session History
 
 | Date | Changes |
 |------|---------|
+| 2026-03-18 | Restored original CTS v3 project from `mxssnx-creator/v0-cts-v3-1` branch `v0/cts5`; confirmed dev site title loads |
 | 2026-03-18 | Initialized CTS dashboard landing page with status cards, timeline, and visible loading state |
 | 2026-03-18 | Added visible content to home page (Welcome message), app works on port 3001 |
 | 2026-03-16 | Comprehensive project review: all configs correct, build/lint/typecheck pass, preview uses sandbox port 3000 |
-| 2026-03-16 | Verified build, typecheck, lint pass; committed tsconfig.json Next.js mandatory updates |
+| 2026-03-16 | Verified build, typecheck, lint pass; committed tsconfig.json mandatory updates |
 | Initial | Template created with base setup |

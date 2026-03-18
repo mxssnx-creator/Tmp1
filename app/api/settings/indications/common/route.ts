@@ -1,0 +1,35 @@
+import { NextResponse } from "next/server"
+import { initRedis, getRedisClient } from "@/lib/redis-db"
+
+export async function GET() {
+  try {
+    await initRedis()
+    const client = getRedisClient()
+    const settings = await client.get("indications:common")
+    return NextResponse.json({ success: true, settings: settings || {} })
+  } catch (error) {
+    console.error("[v0] Error loading common indication settings:", error)
+    return NextResponse.json({ success: false, error: "Failed to load common indication settings" }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const { settings } = body
+
+    if (!settings) {
+      return NextResponse.json({ success: false, error: "Settings are required" }, { status: 400 })
+    }
+
+    await initRedis()
+    const client = getRedisClient()
+    // Settings stored with 30-day TTL (2592000 seconds)
+    await client.set("indications:common", settings, { EX: 2592000 })
+
+    return NextResponse.json({ success: true, message: "Common indication settings saved successfully" })
+  } catch (error) {
+    console.error("[v0] Error saving common indication settings:", error)
+    return NextResponse.json({ success: false, error: "Failed to save common indication settings" }, { status: 500 })
+  }
+}

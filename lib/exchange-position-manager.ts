@@ -469,7 +469,13 @@ export class ExchangePositionManager {
       await initRedis()
       const client = getRedisClient()
 
-      const logIds = await client.zrange(`coord_logs:${this.connectionId}`, -limit, -1)
+      // Use list-based approach
+      const coordLogsKey = `coord_logs:${this.connectionId}`
+      const existing = await client.get(coordLogsKey)
+      let logIds: string[] = []
+      if (existing) {
+        try { logIds = JSON.parse(existing) } catch { logIds = [] }
+      }
       const logs: any[] = []
 
       for (const logId of logIds.reverse()) {

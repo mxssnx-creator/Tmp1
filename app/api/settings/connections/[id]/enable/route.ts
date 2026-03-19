@@ -32,7 +32,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         console.log(`[v0] [Enable Connection] Testing connection ${id} before enabling...`)
         
         try {
-          const connector = createExchangeConnector(connection)
+          const credentials = {
+            apiKey: connection.api_key || "",
+            apiSecret: connection.api_secret || "",
+            apiPassphrase: connection.api_passphrase || undefined,
+            isTestnet: connection.is_testnet === "1" || connection.is_testnet === true,
+            apiType: connection.api_type,
+            marginType: connection.margin_type,
+            positionMode: connection.position_mode,
+          }
+          const connector = await createExchangeConnector(connection.exchange, credentials)
           const testResult = await connector.testConnection()
 
           if (!testResult.success) {

@@ -63,8 +63,8 @@ export async function GET() {
 async function testRedis() {
   try {
     const client = getRedisClient()
-    await client.hSet("test:redis", "key", "value")
-    const val = await client.hGet("test:redis", "key")
+    await client.hset("test:redis", { key: "value" })
+    const val = await client.hget("test:redis", "key")
     await client.del("test:redis")
     return { status: val === "value" ? "pass" : "fail" }
   } catch (e) {
@@ -74,10 +74,11 @@ async function testRedis() {
 
 async function testConnectionsCrud() {
   try {
-    const id = await createConnection({ exchange: "bybit", name: "test", api_key: "k", api_secret: "s" })
-    const conn = await getConnection(id)
+    const testId = "test_conn_" + Date.now()
+    await createConnection({ id: testId, exchange: "bybit", name: "test", api_key: "k", api_secret: "s" })
+    const conn = await getConnection(testId)
     const client = getRedisClient()
-    await client.del(`connection:${id}`)
+    await client.del(`connection:${testId}`)
     return { status: conn ? "pass" : "fail" }
   } catch (e) {
     return { status: "fail", error: String(e) }
@@ -87,8 +88,8 @@ async function testConnectionsCrud() {
 async function testTrades() {
   try {
     const tid = `trade_${Date.now()}`
-    await RedisTrades.saveTrade(tid, { symbol: "BTC", side: "buy", quantity: 1, price: 30000 })
-    const trade = await RedisTrades.getTrade(tid, tid)
+    await RedisTrades.createTrade(tid, { id: tid, symbol: "BTC", side: "buy", quantity: 1, price: 30000 })
+    const trade = await RedisTrades.getTrade(tid)
     const client = getRedisClient()
     await client.del(`trade:${tid}`)
     return { status: trade ? "pass" : "fail" }
@@ -100,8 +101,8 @@ async function testTrades() {
 async function testPositions() {
   try {
     const pid = `pos_${Date.now()}`
-    await RedisPositions.savePosition(pid, { symbol: "ETH", side: "long", quantity: 10 })
-    const pos = await RedisPositions.getPosition(pid, pid)
+    await RedisPositions.createPosition(pid, { id: pid, symbol: "ETH", side: "long", quantity: 10 })
+    const pos = await RedisPositions.getPosition(pid)
     const client = getRedisClient()
     await client.del(`position:${pid}`)
     return { status: pos ? "pass" : "fail" }

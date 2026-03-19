@@ -4,6 +4,7 @@
  */
 
 import { getSettings, setSettings } from "@/lib/redis-db"
+import { sql } from "@/lib/db"
 
 interface BacktestTrade {
   symbol: string

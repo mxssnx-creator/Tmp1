@@ -155,7 +155,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const client = getRedisClient()
 
     // Get position for final calculation
-    const position = await client.hgetall(`position:${connection_id}:${positionId}`)
+    const position = await client.hgetall(`position:${connectionId}:${positionId}`)
     if (!position || Object.keys(position).length === 0) {
       return NextResponse.json({ success: false, error: "Position not found" }, { status: 404 })
     }
@@ -166,7 +166,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const qty = parseFloat(position.quantity)
     const finalPnL = (finalPrice - entry) * qty
 
-    await client.hset(`position:${connection_id}:${positionId}`, {
+    await client.hset(`position:${connectionId}:${positionId}`, {
       status: "closed",
       close_price: String(finalPrice),
       final_pnl: String(finalPnL.toFixed(2)),

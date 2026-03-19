@@ -203,4 +203,29 @@ export class RealtimeProcessor {
   getStatus(): string {
     return "redis_polling"
   }
+
+  /**
+   * Initialize real-time data stream (placeholder for WebSocket-based streams)
+   */
+  async initializeStream(): Promise<void> {
+    console.log(`[v0] [RealtimeProcessor] Stream initialized for ${this.connectionId} (using Redis polling)`)
+  }
+
+  /**
+   * Stop real-time data stream
+   */
+  async stopStream(): Promise<void> {
+    console.log(`[v0] [RealtimeProcessor] Stream stopped for ${this.connectionId}`)
+  }
+
+  /**
+   * Get current stream status
+   */
+  getStreamStatus(): { active: boolean; type: string; lastUpdate?: number } {
+    return {
+      active: true,
+      type: "redis_polling",
+      lastUpdate: Date.now(),
+    }
+  }
 }

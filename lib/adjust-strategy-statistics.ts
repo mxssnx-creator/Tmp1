@@ -12,6 +12,7 @@
  */
 
 import { getSettings, setSettings } from "@/lib/redis-db"
+import { sql } from "@/lib/db"
 
 export interface AdjustStrategyStatistics {
   strategy_type: "block" | "dca"

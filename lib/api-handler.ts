@@ -46,7 +46,7 @@ export async function withErrorHandling<T extends any[], R extends NextResponse 
       // Handle ApiError instances
       if (error instanceof ApiError) {
         try {
-          await SystemLogger.logError(error, userId || "system", operation, {
+          await SystemLogger.logError("api_error", error, { userId: userId || "system", operation,
             endpoint,
             method,
             statusCode: error.statusCode,
@@ -68,7 +68,7 @@ export async function withErrorHandling<T extends any[], R extends NextResponse 
       // Handle regular Error instances
       if (error instanceof Error) {
         try {
-          await SystemLogger.logError(error, userId || "system", operation, {
+          await SystemLogger.logError("api_error", error, { userId: userId || "system", operation,
             endpoint,
             method,
             stack: error.stack,
@@ -90,7 +90,7 @@ export async function withErrorHandling<T extends any[], R extends NextResponse 
       // Handle unknown error types
       const unknownError = new Error(String(error))
       try {
-        await SystemLogger.logError(unknownError, userId || "system", operation, {
+        await SystemLogger.logError("api_error", unknownError, { userId: userId || "system", operation,
           endpoint,
           method,
           originalError: String(error),

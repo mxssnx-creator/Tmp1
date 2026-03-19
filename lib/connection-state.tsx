@@ -88,7 +88,7 @@ export function ConnectionStateProvider({ children }: { children: ReactNode }) {
         data.connections?.forEach((conn: ExchangeConnection) => {
           const exchange = (conn.exchange || "").toLowerCase().trim()
           const isAutoInserted = AUTO_INSERTED.includes(exchange)
-          const isInserted = conn.is_inserted === "1" || conn.is_inserted === true
+          const isInserted = conn.is_inserted === true || conn.is_inserted === "true" || conn.is_inserted === "1"
           
           statusMap.set(conn.id, { 
             // Auto-inserted connections start enabled; others start disabled
@@ -100,7 +100,7 @@ export function ConnectionStateProvider({ children }: { children: ReactNode }) {
         
         // Also update Active connections if any are marked as visible on dashboard
         const activeConns = data.connections?.filter((c: ExchangeConnection) => 
-          c.is_enabled_dashboard === true || c.is_enabled_dashboard === "1"
+          c.is_enabled_dashboard === true || c.is_enabled_dashboard === "true" || c.is_enabled_dashboard === "1"
         ) || []
         
         if (activeConns.length > 0) {
@@ -212,7 +212,7 @@ export function ConnectionStateProvider({ children }: { children: ReactNode }) {
       
       // Find the connection to log its name
       const conn = exchangeConnectionsActive.find(c => c.id === `active-${id}`) || exchangeConnectionsActive.find(c => c.id === id)
-      const connName = conn?.name || conn?.connectionId || id
+      const connName = conn?.name || conn?.id || id
       console.log(`[v0] [ConnectionStateToggle] ${newStatus ? "✓ ENABLED" : "✗ DISABLED"}: ${connName} (${id})`)
       
       return next

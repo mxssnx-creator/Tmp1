@@ -24,7 +24,7 @@ export interface LivePosition {
   stopLoss: number
   takeProfit: number
   orderId?: string // Exchange order ID
-  status: "pending" | "open" | "partially_filled" | "filled" | "closed" | "error"
+  status: "pending" | "open" | "partially_filled" | "filled" | "closed" | "error" | "simulated"
   fills: {
     timestamp: number
     quantity: number

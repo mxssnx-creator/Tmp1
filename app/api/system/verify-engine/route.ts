@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const coordinator = getGlobalTradeEngineCoordinator()
     const connections = loadConnections()
-    const activeConnections = connections.filter((c) => c.is_active_inserted === "1" || c.is_active_inserted === true)
+    const activeConnections = connections.filter((c) => c.is_active === true)
 
     console.log("[v0] [SystemVerify] Starting comprehensive verification...")
 
@@ -66,7 +66,7 @@ export async function GET() {
         connectionName: conn.name,
         exchange: conn.exchange,
         engineRunning: engineStatus !== null,
-        isTestnet: conn.is_testnet === true || conn.is_testnet === "1",
+        isTestnet: conn.is_testnet === true,
         phases: {
           prehistoric: {
             completed: engineState?.prehistoric_data_loaded === true || engineState?.prehistoric_data_loaded === "1",

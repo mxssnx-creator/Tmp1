@@ -509,8 +509,8 @@ export class BingXConnector extends BaseExchangeConnector {
       }
 
       const signature = this.getSignature(params)
-      const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}/openApi/swap/v3/trade/positionSide/set?${queryString}`
+      const queryString = `${new URLSearchParams(this.toStringParams(params)).toString()}&signature=${signature}`
+      const url = `${this.getBaseUrl()}/openApi/swap/v3/trade/positionSide/set?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         method: "POST",
@@ -562,14 +562,14 @@ export class BingXConnector extends BaseExchangeConnector {
     try {
       this.log(`Fetching deposit address for ${coin}`)
 
-      const params = {
+      const params: Record<string, string> = {
         coin,
-        timestamp: Date.now(),
+        timestamp: String(Date.now()),
       }
 
       const signature = this.getSignature(params)
       const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}/openApi/wallet/v1/query_address?${queryString}`
+      const url = `${this.getBaseUrl()}/openApi/wallet/v1/query_address?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         headers: { "X-BX-APIKEY": this.credentials.apiKey },
@@ -596,16 +596,16 @@ export class BingXConnector extends BaseExchangeConnector {
     try {
       this.log(`Withdrawing ${amount} ${coin} to ${address.slice(0, 10)}...`)
 
-      const params = {
+      const params: Record<string, string> = {
         coin,
         address,
         amount: String(amount),
-        timestamp: Date.now(),
+        timestamp: String(Date.now()),
       }
 
       const signature = this.getSignature(params)
       const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}/openApi/wallet/v1/withdraw?${queryString}`
+      const url = `${this.getBaseUrl()}/openApi/wallet/v1/withdraw?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         method: "POST",
@@ -633,14 +633,14 @@ export class BingXConnector extends BaseExchangeConnector {
     try {
       this.log(`Fetching transfer history (limit: ${limit})`)
 
-      const params = {
-        limit,
-        timestamp: Date.now(),
+      const params: Record<string, string> = {
+        limit: String(limit),
+        timestamp: String(Date.now()),
       }
 
       const signature = this.getSignature(params)
       const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}/openApi/wallet/v1/query_withdraw_list?${queryString}`
+      const url = `${this.getBaseUrl()}/openApi/wallet/v1/query_withdraw_list?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         headers: { "X-BX-APIKEY": this.credentials.apiKey },
@@ -664,15 +664,15 @@ export class BingXConnector extends BaseExchangeConnector {
     try {
       this.log(`Setting leverage to ${leverage}x for ${symbol}`)
 
-      const params = {
+      const params: Record<string, string> = {
         symbol,
         leverage: String(leverage),
-        timestamp: Date.now(),
+        timestamp: String(Date.now()),
       }
 
       const signature = this.getSignature(params)
       const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}/openApi/swap/v3/trade/leverage?${queryString}`
+      const url = `${this.getBaseUrl()}/openApi/swap/v3/trade/leverage?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         method: "POST",
@@ -698,15 +698,15 @@ export class BingXConnector extends BaseExchangeConnector {
     try {
       this.log(`Setting margin type to ${marginType} for ${symbol}`)
 
-      const params = {
+      const params: Record<string, string> = {
         symbol,
         marginType: marginType === "cross" ? "CROSSED" : "ISOLATED",
-        timestamp: Date.now(),
+        timestamp: String(Date.now()),
       }
 
       const signature = this.getSignature(params)
       const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}/openApi/swap/v3/trade/marginType?${queryString}`
+      const url = `${this.getBaseUrl()}/openApi/swap/v3/trade/marginType?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         method: "POST",
@@ -732,14 +732,14 @@ export class BingXConnector extends BaseExchangeConnector {
     try {
       this.log(`Setting position mode to ${hedgeMode ? "hedge" : "one-way"}`)
 
-      const params = {
-        dualSidePosition: hedgeMode,
-        timestamp: Date.now(),
+      const params: Record<string, string> = {
+        dualSidePosition: String(hedgeMode),
+        timestamp: String(Date.now()),
       }
 
       const signature = this.getSignature(params)
       const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}/openApi/swap/v3/trade/positionSide/set?${queryString}`
+      const url = `${this.getBaseUrl()}/openApi/swap/v3/trade/positionSide/set?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         method: "POST",
@@ -758,6 +758,44 @@ export class BingXConnector extends BaseExchangeConnector {
       const errorMsg = error instanceof Error ? error.message : String(error)
       this.logError(`✗ Failed to set position mode: ${errorMsg}`)
       return { success: false, error: errorMsg }
+    }
+  }
+
+  async getTicker(symbol: string): Promise<{ bid: number; ask: number; last: number } | null> {
+    try {
+      this.log(`Fetching ticker for ${symbol}`)
+
+      const baseUrl = this.getBaseUrl()
+      const apiType = this.credentials.apiType || "perpetual_futures"
+      
+      let endpoint = ""
+      if (apiType === "spot") {
+        endpoint = `/openApi/spot/v1/ticker/price?symbol=${symbol}`
+      } else {
+        endpoint = `/openApi/swap/v3/quote/price?symbol=${symbol}`
+      }
+
+      const response = await this.rateLimitedFetch(`${baseUrl}${endpoint}`, {
+        headers: { "X-BX-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await response.json()
+
+      if (data.code !== 0 && data.code !== "0") {
+        return null
+      }
+
+      const tickerData = data.data || {}
+      const bid = Number.parseFloat(tickerData.bidPrice || tickerData.bid || "0")
+      const ask = Number.parseFloat(tickerData.askPrice || tickerData.ask || "0")
+      const last = Number.parseFloat(tickerData.lastPrice || tickerData.price || "0")
+
+      this.log(`✓ Ticker fetched: bid=${bid}, ask=${ask}, last=${last}`)
+      return { bid, ask, last }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch ticker: ${errorMsg}`)
+      return null
     }
   }
 }

@@ -263,18 +263,19 @@ export interface SystemSettingsResponse extends APIResponse {
 }
 
 // ============ TYPE REGISTRY ============
-export const APIResponseRegistry = {
-  'connections.status': ConnectionStatusResponse,
-  'connections.test': ConnectionTestResponse,
-  'connections.crud': ConnectionListResponse,
-  'trading.orders': OrderResponse,
-  'trading.positions': PositionResponse,
-  'trading.engine': TradeEngineStatusResponse,
-  'indication.config': ActiveIndicationsResponse,
-  'monitoring.alerts': AlertResponse,
-  'system.health': HealthCheckResponse,
-  'audit.logs': AuditLogResponse,
-  'system.settings': SystemSettingsResponse,
-} as const
+// Type-only registry for compile-time type checking
+export type APIResponseRegistry = {
+  'connections.status': ConnectionStatusResponse
+  'connections.test': ConnectionTestResponse
+  'connections.crud': ConnectionListResponse
+  'trading.orders': OrderResponse
+  'trading.positions': PositionResponse
+  'trading.engine': TradeEngineStatusResponse
+  'indication.config': ActiveIndicationsResponse
+  'monitoring.alerts': AlertResponse
+  'system.health': HealthCheckResponse
+  'audit.logs': AuditLogResponse
+  'system.settings': SystemSettingsResponse
+}
 
-export type APIResponseType = typeof APIResponseRegistry[keyof typeof APIResponseRegistry]
+export type APIResponseType = APIResponseRegistry[keyof APIResponseRegistry]

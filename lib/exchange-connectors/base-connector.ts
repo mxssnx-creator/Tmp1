@@ -29,6 +29,7 @@ export interface ExchangeCredentials {
   apiPassphrase?: string
   isTestnet: boolean
   apiType?: string // Contract type: spot, perpetual_futures, futures, unified, etc.
+  subType?: string // Exchange-specific subtype (e.g., BingX subType)
   marginType?: string
   positionMode?: string
   connectionMethod?: string
@@ -250,6 +251,12 @@ export abstract class BaseExchangeConnector {
   abstract setMarginType(symbol: string, marginType: "cross" | "isolated"): Promise<{ success: boolean; error?: string }>
 
   abstract setPositionMode(hedgeMode: boolean): Promise<{ success: boolean; error?: string }>
+
+  abstract getTicker(symbol: string): Promise<{ bid: number; ask: number; last: number } | null>
+
+  async getTopSymbols(_limit?: number): Promise<string[]> {
+    return []
+  }
 
   /**
    * Validate API type is supported for the exchange

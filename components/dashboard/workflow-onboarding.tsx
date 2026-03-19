@@ -27,6 +27,7 @@ export function WorkflowOnboarding() {
       action: {
         label: 'Go to Settings',
         href: '/settings?tab=connections',
+        onClick: () => {}, // Navigation handled via href
       }
     },
     {

@@ -886,6 +886,7 @@ export interface Connection {
   api_secret: string
   api_passphrase?: string
   api_type?: string
+  api_subtype?: string
   connection_method?: string
   connection_library?: string
   margin_type?: string
@@ -893,6 +894,7 @@ export interface Connection {
   is_testnet?: boolean
   is_enabled?: boolean
   is_enabled_dashboard?: boolean
+  is_live_trade?: boolean
   is_active?: boolean
   is_predefined?: boolean
   is_inserted?: boolean
@@ -900,6 +902,13 @@ export interface Connection {
   demo_mode?: boolean
   created_at?: string
   updated_at?: string
+  last_test_log?: string[]
+  last_test_status?: string
+  last_test_balance?: number
+  last_test_error?: string
+  last_test_timestamp?: string
+  last_test_btc_price?: number
+  last_test_at?: string
   [key: string]: any
 }
 

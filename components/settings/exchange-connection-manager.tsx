@@ -85,7 +85,9 @@ function EditConnectionDialog({ connection, onSave, exchangeName }: { connection
     is_testnet: connection.is_testnet || false,
     connection_method: connection.connection_method || "rest",
     connection_library: connection.connection_library || "native",
+    api_type: connection.api_type || "perpetual",
     api_subtype: connection.api_subtype || "perpetual",
+    is_live_trade: connection.is_live_trade ?? false,
   })
 
   const handleTestConnection = async () => {

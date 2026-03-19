@@ -144,7 +144,7 @@ export class PionexConnector extends BaseExchangeConnector {
       }
 
       const bodyStr = JSON.stringify(body)
-      const params = { timestamp }
+      const params: Record<string, string> = { timestamp }
       const signature = this.generateSignature(method, path, params, bodyStr)
 
       const sortedKeys = Object.keys(params).sort()
@@ -189,7 +189,7 @@ export class PionexConnector extends BaseExchangeConnector {
       }
 
       const bodyStr = JSON.stringify(body)
-      const params = { timestamp }
+      const params: Record<string, string> = { timestamp }
       const signature = this.generateSignature(method, path, params, bodyStr)
 
       const sortedKeys = Object.keys(params).sort()
@@ -227,7 +227,7 @@ export class PionexConnector extends BaseExchangeConnector {
       const timestamp = Date.now().toString()
       const method = "GET"
       const path = `/api/v1/trade/order?orderId=${orderId}`
-      const params = { timestamp }
+      const params: Record<string, string> = { timestamp }
       const signature = this.generateSignature(method, path, params)
 
       const sortedKeys = Object.keys(params).sort()
@@ -262,7 +262,7 @@ export class PionexConnector extends BaseExchangeConnector {
       if (symbol) {
         path += `?symbol=${symbol}`
       }
-      const params = { timestamp }
+      const params: Record<string, string> = { timestamp }
       const signature = this.generateSignature(method, path, params)
 
       const sortedKeys = Object.keys(params).sort()
@@ -297,7 +297,7 @@ export class PionexConnector extends BaseExchangeConnector {
       if (symbol) {
         path += `&symbol=${symbol}`
       }
-      const params = { timestamp }
+      const params: Record<string, string> = { timestamp }
       const signature = this.generateSignature(method, path, params)
 
       const sortedKeys = Object.keys(params).sort()
@@ -351,7 +351,7 @@ export class PionexConnector extends BaseExchangeConnector {
       const timestamp = Date.now().toString()
       const method = "GET"
       const path = `/api/v1/account/depositAddress?coin=${coin}`
-      const params = { timestamp }
+      const params: Record<string, string> = { timestamp }
       const signature = this.generateSignature(method, path, params)
 
       const sortedKeys = Object.keys(params).sort()
@@ -394,7 +394,7 @@ export class PionexConnector extends BaseExchangeConnector {
       }
 
       const bodyStr = JSON.stringify(body)
-      const params = { timestamp }
+      const params: Record<string, string> = { timestamp }
       const signature = this.generateSignature(method, path, params, bodyStr)
 
       const sortedKeys = Object.keys(params).sort()
@@ -434,7 +434,7 @@ export class PionexConnector extends BaseExchangeConnector {
       const timestamp = Date.now().toString()
       const method = "GET"
       const path = `/api/v1/account/withdrawHistory?limit=${limit}`
-      const params = { timestamp }
+      const params: Record<string, string> = { timestamp }
       const signature = this.generateSignature(method, path, params)
 
       const sortedKeys = Object.keys(params).sort()
@@ -468,5 +468,43 @@ export class PionexConnector extends BaseExchangeConnector {
 
   async setPositionMode(hedgeMode: boolean): Promise<{ success: boolean; error?: string }> {
     return { success: false, error: "Position mode not supported on Pionex (spot trading only)" }
+  }
+
+  async getTicker(symbol: string): Promise<{ bid: number; ask: number; last: number } | null> {
+    try {
+      this.log(`Fetching ticker for ${symbol}`)
+
+      const baseUrl = this.getBaseUrl()
+      const timestamp = Date.now().toString()
+      const method = "GET"
+      const path = `/api/v1/market/ticker?symbol=${symbol}`
+      const params: Record<string, string> = { timestamp }
+      const signature = this.generateSignature(method, path, params)
+
+      const sortedKeys = Object.keys(params).sort()
+      const queryString = sortedKeys.map((k) => `${k}=${params[k]}`).join("&")
+
+      const response = await this.rateLimitedFetch(`${baseUrl}${path}&${queryString}&signature=${signature}`, {
+        headers: { "PIONEX-KEY": this.credentials.apiKey },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.result === false || !data.data) {
+        return null
+      }
+
+      const ticker = data.data
+      const bid = Number.parseFloat(ticker.bid || ticker.bidPrice || "0")
+      const ask = Number.parseFloat(ticker.ask || ticker.askPrice || "0")
+      const last = Number.parseFloat(ticker.last || ticker.lastPrice || "0")
+
+      this.log(`✓ Ticker fetched: bid=${bid}, ask=${ask}, last=${last}`)
+      return { bid, ask, last }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch ticker: ${errorMsg}`)
+      return null
+    }
   }
 }

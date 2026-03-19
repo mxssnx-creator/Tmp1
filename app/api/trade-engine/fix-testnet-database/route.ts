@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
-import { query } from "@/lib/db"
+import { execute } from "@/lib/db"
 
 export async function POST() {
   try {
     console.log("[v0] [FixTestnetAPI] Starting testnet to mainnet conversion...")
 
     // Update all BingX connections to mainnet
-    const bingxResult = await query(
+    const bingxResult = await execute(
       `UPDATE exchange_connections 
        SET is_testnet = false, updated_at = NOW()
        WHERE exchange_name = 'BingX' OR exchange_name = 'bingx'`,
@@ -15,7 +15,7 @@ export async function POST() {
     console.log(`[v0] [FixTestnetAPI] Updated BingX: ${bingxResult.rowCount} rows`)
 
     // Update all Bybit connections to mainnet
-    const bybitResult = await query(
+    const bybitResult = await execute(
       `UPDATE exchange_connections 
        SET is_testnet = false, updated_at = NOW()
        WHERE exchange_name = 'Bybit' OR exchange_name = 'bybit'`,
@@ -24,7 +24,7 @@ export async function POST() {
     console.log(`[v0] [FixTestnetAPI] Updated Bybit: ${bybitResult.rowCount} rows`)
 
     // Update all OKX connections to mainnet
-    const okxResult = await query(
+    const okxResult = await execute(
       `UPDATE exchange_connections 
        SET is_testnet = false, updated_at = NOW()
        WHERE exchange_name = 'OKX' OR exchange_name = 'okx'`,
@@ -33,8 +33,7 @@ export async function POST() {
     console.log(`[v0] [FixTestnetAPI] Updated OKX: ${okxResult.rowCount} rows`)
 
     // Also update Redis cache for all active connections
-    const { getSettings, setSettings } = await import("@/lib/redis-db")
-    const { getAllConnections } = await import("@/lib/redis-db")
+    const { getSettings, setSettings, getAllConnections } = await import("@/lib/redis-db")
 
     const connections = await getAllConnections()
     for (const conn of connections) {

@@ -55,7 +55,7 @@ async function checkDatabaseIntegrity(): Promise<DatabaseAudit> {
     const stats = fs.statSync(DB_PATH)
     audit.size = `${(stats.size / 1024 / 1024).toFixed(2)} MB`
 
-    const db = getClient()
+    const db = await getClient()
 
     // Check critical PRAGMA settings
     const pragmas = [

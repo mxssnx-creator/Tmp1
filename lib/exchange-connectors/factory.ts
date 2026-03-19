@@ -20,6 +20,10 @@ export class ExchangeConnectorFactory {
     return ExchangeConnectorFactory.instance
   }
   
+  static getConnector(connectionId: string): BaseExchangeConnector | null {
+    return ExchangeConnectorFactory.getInstance().connectors.get(connectionId) || null
+  }
+  
   async createConnector(connection: Connection): Promise<BaseExchangeConnector | null> {
     try {
       const credentials: ExchangeCredentials = {

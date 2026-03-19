@@ -24,7 +24,7 @@ interface SiteLogEntry {
 
 class Logger {
   private static instance: Logger
-  private db: DatabaseManager
+  private db: typeof DatabaseManager
 
   private constructor() {
     this.db = DatabaseManager.getInstance()

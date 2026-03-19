@@ -877,3 +877,119 @@ export async function getConnectionTrades(connectionId: string): Promise<any[]> 
   }
   return trades
 }
+
+export interface Connection {
+  id: string
+  name: string
+  exchange: string
+  api_key: string
+  api_secret: string
+  api_passphrase?: string
+  api_type?: string
+  connection_method?: string
+  connection_library?: string
+  margin_type?: string
+  position_mode?: string
+  is_testnet?: boolean
+  is_enabled?: boolean
+  is_enabled_dashboard?: boolean
+  is_active?: boolean
+  is_predefined?: boolean
+  is_inserted?: boolean
+  is_active_inserted?: boolean
+  demo_mode?: boolean
+  created_at?: string
+  updated_at?: string
+  [key: string]: any
+}
+
+export const redisDb = {
+  get: async (key: string): Promise<string | null> => {
+    const client = getClient()
+    return client.get(key)
+  },
+  set: async (key: string, value: string, options?: { ex?: number }): Promise<void> => {
+    const client = getClient()
+    if (options?.ex) {
+      await client.setex(key, options.ex, value)
+    } else {
+      await client.set(key, value)
+    }
+  },
+  del: async (key: string): Promise<number> => {
+    const client = getClient()
+    return client.del(key)
+  },
+  hget: async (key: string, field: string): Promise<string | null> => {
+    const client = getClient()
+    return client.hget(key, field)
+  },
+  hset: async (key: string, data: Record<string, string>): Promise<number> => {
+    const client = getClient()
+    return client.hset(key, data)
+  },
+  hgetall: async (key: string): Promise<Record<string, string> | null> => {
+    const client = getClient()
+    return client.hgetall(key)
+  },
+  hdel: async (key: string, ...fields: string[]): Promise<number> => {
+    const client = getClient()
+    return client.hdel(key, ...fields)
+  },
+  sadd: async (key: string, ...members: string[]): Promise<number> => {
+    const client = getClient()
+    return client.sadd(key, ...members)
+  },
+  smembers: async (key: string): Promise<string[]> => {
+    const client = getClient()
+    return client.smembers(key)
+  },
+  srem: async (key: string, ...members: string[]): Promise<number> => {
+    const client = getClient()
+    return client.srem(key, ...members)
+  },
+  keys: async (pattern: string): Promise<string[]> => {
+    const client = getClient()
+    return client.keys(pattern)
+  },
+  expire: async (key: string, seconds: number): Promise<number> => {
+    const client = getClient()
+    return client.expire(key, seconds)
+  },
+  lpush: async (key: string, ...values: string[]): Promise<number> => {
+    const client = getClient()
+    return client.lpush(key, ...values)
+  },
+  rpush: async (key: string, ...values: string[]): Promise<number> => {
+    const client = getClient()
+    return client.rpush(key, ...values)
+  },
+  lrange: async (key: string, start: number, stop: number): Promise<string[]> => {
+    const client = getClient()
+    return client.lrange(key, start, stop)
+  },
+  zadd: async (key: string, score: number, member: string): Promise<number> => {
+    const client = getClient()
+    return client.zadd(key, score, member)
+  },
+  zrangebyscore: async (key: string, min: number | string, max: number | string): Promise<string[]> => {
+    const client = getClient()
+    return client.zrangebyscore(key, min, max)
+  },
+  zremrangebyscore: async (key: string, min: number | string, max: number | string): Promise<number> => {
+    const client = getClient()
+    return client.zremrangebyscore(key, min, max)
+  },
+  ping: async (): Promise<string> => {
+    const client = getClient()
+    return client.ping()
+  },
+  info: async (): Promise<string> => {
+    const client = getClient()
+    return client.info()
+  },
+  dbSize: async (): Promise<number> => {
+    const client = getClient()
+    return client.dbSize()
+  },
+}

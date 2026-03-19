@@ -32,6 +32,20 @@ export class BingXConnector extends BaseExchangeConnector {
     return this.credentials.isTestnet ? "https://testnet-open-api.bingx.com" : "https://open-api.bingx.com"
   }
 
+  private getSignature(params: Record<string, any>): string {
+    const sortedKeys = Object.keys(params).sort()
+    const queryString = sortedKeys.map(key => `${key}=${params[key]}`).join('&')
+    return crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+  }
+
+  private toStringParams(params: Record<string, any>): Record<string, string> {
+    const result: Record<string, string> = {}
+    for (const [key, value] of Object.entries(params)) {
+      result[key] = String(value)
+    }
+    return result
+  }
+
   getCapabilities(): string[] {
     return ["futures", "perpetual_futures", "leverage", "hedge_mode", "cross_margin"]
   }
@@ -245,8 +259,12 @@ export class BingXConnector extends BaseExchangeConnector {
       }
 
       const signature = this.getSignature(params)
-      const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}${endpoint}?${queryString}`
+      const stringParams: Record<string, string> = {}
+      for (const [key, value] of Object.entries(params)) {
+        stringParams[key] = String(value)
+      }
+      const queryString = `${new URLSearchParams(stringParams).toString()}&signature=${signature}`
+      const url = `${this.getBaseUrl()}${endpoint}?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         method: "POST",
@@ -287,8 +305,12 @@ export class BingXConnector extends BaseExchangeConnector {
       }
 
       const signature = this.getSignature(params)
-      const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}${endpoint}?${queryString}`
+      const stringParams: Record<string, string> = {}
+      for (const [key, value] of Object.entries(params)) {
+        stringParams[key] = String(value)
+      }
+      const queryString = `${new URLSearchParams(stringParams).toString()}&signature=${signature}`
+      const url = `${this.getBaseUrl()}${endpoint}?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         method: "POST",
@@ -327,8 +349,8 @@ export class BingXConnector extends BaseExchangeConnector {
       }
 
       const signature = this.getSignature(params)
-      const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}${endpoint}?${queryString}`
+      const queryString = `${new URLSearchParams(this.toStringParams(params)).toString()}&signature=${signature}`
+      const url = `${this.getBaseUrl()}${endpoint}?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         headers: { "X-BX-APIKEY": this.credentials.apiKey },
@@ -363,8 +385,8 @@ export class BingXConnector extends BaseExchangeConnector {
       }
 
       const signature = this.getSignature(params)
-      const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}${endpoint}?${queryString}`
+      const queryString = `${new URLSearchParams(this.toStringParams(params)).toString()}&signature=${signature}`
+      const url = `${this.getBaseUrl()}${endpoint}?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         headers: { "X-BX-APIKEY": this.credentials.apiKey },
@@ -400,8 +422,8 @@ export class BingXConnector extends BaseExchangeConnector {
       }
 
       const signature = this.getSignature(params)
-      const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}${endpoint}?${queryString}`
+      const queryString = `${new URLSearchParams(this.toStringParams(params)).toString()}&signature=${signature}`
+      const url = `${this.getBaseUrl()}${endpoint}?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         headers: { "X-BX-APIKEY": this.credentials.apiKey },
@@ -439,8 +461,8 @@ export class BingXConnector extends BaseExchangeConnector {
       }
 
       const signature = this.getSignature(params)
-      const queryString = `${new URLSearchParams(params).toString()}&signature=${signature}`
-      const url = `${this.baseUrl}/openApi/swap/v3/user/positions?${queryString}`
+      const queryString = `${new URLSearchParams(this.toStringParams(params)).toString()}&signature=${signature}`
+      const url = `${this.getBaseUrl()}/openApi/swap/v3/user/positions?${queryString}`
 
       const response = await this.rateLimitedFetch(url, {
         headers: { "X-BX-APIKEY": this.credentials.apiKey },

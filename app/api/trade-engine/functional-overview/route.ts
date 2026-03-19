@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { initRedis, getRedisClient, getAllConnections } from "@/lib/redis-db"
+import { initRedis, getRedisClient, getAllConnections, getSettings } from "@/lib/redis-db"
 import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
+import { ProgressionStateManager } from "@/lib/progression-state-manager"
 
 // GET functional overview metrics
 // Returns real-time information about what's currently running:
@@ -41,15 +42,25 @@ export async function GET() {
     
     for (const conn of enabledConnections) {
       try {
-        // Read engine state for each connection
-        const engineStateKey = `trade_engine_state:${conn.id}`
-        const stateJson = await client.get(engineStateKey)
-        const state = stateJson ? JSON.parse(stateJson) : null
+        // Read engine state from settings namespace (write path uses setSettings)
+        const state = await getSettings(`trade_engine_state:${conn.id}`)
+        const progression = await ProgressionStateManager.getProgressionState(conn.id)
         
         if (state) {
           totalIndicationCycles += state.indication_cycle_count || 0
           totalStrategyCycles += state.strategy_cycle_count || 0
           totalStrategiesEvaluated += state.total_strategies_evaluated || 0
+        }
+
+        // Fallback to progression metrics when engine-state counters are not yet populated.
+        if ((state?.indication_cycle_count || 0) === 0) {
+          totalIndicationCycles += progression.cyclesCompleted || 0
+        }
+        if ((state?.strategy_cycle_count || 0) === 0) {
+          totalStrategyCycles += progression.successfulCycles || 0
+        }
+        if ((state?.total_strategies_evaluated || 0) === 0) {
+          totalStrategiesEvaluated += progression.successfulCycles || 0
         }
         
         // Check for strategy sets per connection (check for common symbols)

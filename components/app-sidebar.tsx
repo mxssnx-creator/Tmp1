@@ -145,7 +145,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center justify-between px-2.5 py-2">
+        <div className="flex items-center justify-between px-2 py-2">
           <div className="flex items-center gap-2">
             <div className="size-7 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-xs">CT</span>
@@ -188,8 +188,8 @@ export function AppSidebar() {
                 const isActive = pathname === item.href
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.title} className="h-9">
-                      <Link href={item.href} className="flex items-center gap-2">
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <Link href={item.href}>
                         <item.icon className="w-4 h-4" />
                         <span className="text-sm">{item.title}</span>
                       </Link>
@@ -209,8 +209,8 @@ export function AppSidebar() {
                 const isActive = pathname === item.href
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.title} className="h-9">
-                      <Link href={item.href} className="flex items-center gap-2">
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <Link href={item.href}>
                         <item.icon className="w-4 h-4" />
                         <span className="text-sm">{item.title}</span>
                       </Link>

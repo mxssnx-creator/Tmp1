@@ -50,6 +50,11 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Stabilized dashboard toggle workflow to preserve insertion state (`is_inserted`/`is_dashboard_inserted`) while only toggling processing enablement
 - [x] Updated connections API migration behavior to stop auto-resetting non-auto exchanges on every GET request
 - [x] Hardened Redis migration auto-fix to deterministically ensure 4 base connections exist in the `connections` set and inject real env credentials when available
+- [x] Synced sidebar content back to upstream `v0/cts5` structure for title/auth/footer behavior consistency
+- [x] Upgraded engine startup + quickstart workflow: global start now triggers coordinator workers (`startAll` + `refreshEngines`), quickstart now enables dashboard state and 4-base readiness checks
+- [x] Fixed progression visibility gaps: progression counters now persist every cycle (not every 10 cycles), progression logs API now falls back to structured logs when normal logs are empty
+- [x] Rebuilt detailed logs aggregation to combine all active/base connection logs and metrics (instead of single focus-only view)
+- [x] Improved functional overview metrics by reading `trade_engine_state` from settings namespace and falling back to progression-state counters
 
 ## Current Structure
 
@@ -75,6 +80,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Comprehensive engine/progression/quickstart stabilization: restored upstream sidebar content, enabled immediate coordinator startup, fixed quickstart enable state, upgraded detailed log aggregation, and made progression counters update every cycle for non-zero real-time dashboard visibility |
 | 2026-03-19 | Resolved connection count/display switching: aligned dashboard/settings filters, removed destructive toggle resets, normalized bool parsing, and made base connection + env credential provisioning deterministic |
 | 2026-03-19 | Fixed sidebar top/footer rendering regression and re-enabled startup instrumentation to execute pre-startup migrations automatically |
 | 2026-03-19 | Fixed sidemenu styling issues by adding sidebar CSS variables; created `.env.local` with real BingX API credentials; verified migrations run on startup via pre-startup workflow |

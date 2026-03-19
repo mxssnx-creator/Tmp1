@@ -13,12 +13,13 @@ export async function GET() {
   try {
     await initRedis()
     const allConnections = await getAllConnections()
+    const BASE_EXCHANGES = ["bingx", "bybit", "pionex", "orangex"]
 
     // Check for connections with credentials (highest priority)
     const connectionsWithCredentials = allConnections.filter((c: any) => {
       const exch = (c.exchange || "").toLowerCase()
       const hasCredentials = !!(c.api_key && c.api_secret && c.api_key.length >= 10 && c.api_secret.length >= 10)
-      const isBase = exch === "bingx" || exch === "bybit" || exch === "binance" || exch === "okx"
+      const isBase = BASE_EXCHANGES.includes(exch)
       return isBase && hasCredentials
     })
 
@@ -27,7 +28,7 @@ export async function GET() {
       const exch = (c.exchange || "").toLowerCase()
       const isBaseInserted = c.is_active_inserted === "1" || c.is_active_inserted === true ||
                             c.is_dashboard_inserted === "1" || c.is_dashboard_inserted === true
-      const isBase = exch === "bingx" || exch === "bybit" || exch === "binance" || exch === "okx"
+      const isBase = BASE_EXCHANGES.includes(exch)
       return isBase && isBaseInserted
     })
 

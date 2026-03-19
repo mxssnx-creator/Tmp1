@@ -230,7 +230,7 @@ export async function POST(request: Request) {
     const enabled = {
       ...connection,
       is_enabled: "1",
-      is_enabled_dashboard: "0",
+      is_enabled_dashboard: "1",
       is_dashboard_inserted: "1",
       is_active_inserted: "1",
       is_active: "1",
@@ -247,6 +247,7 @@ export async function POST(request: Request) {
     
     await logProgressionEvent(connectionId, "quickstart_updated", "info", "Connection state updated", {
       is_enabled: "1",
+      is_enabled_dashboard: "1",
       is_active_inserted: "1",
       symbols,
     })

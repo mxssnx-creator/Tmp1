@@ -93,7 +93,7 @@ export class ProgressionStateManager {
 
   /**
    * Increment completed cycle (successful or failed)
-   * BATCHED: Only writes to Redis every 10 cycles to reduce I/O and memory usage
+   * Writes every cycle so dashboard/log dialogs show live progression immediately.
    */
   private static cycleCounters: Map<string, { completed: number; successful: number; failed: number }> = new Map()
 
@@ -108,9 +108,6 @@ export class ProgressionStateManager {
         counter.failed++
       }
       this.cycleCounters.set(connectionId, counter)
-
-      // Only write to Redis every 10 cycles for performance
-      if (counter.completed % 10 !== 0) return
 
       const client = getRedisClient()
       if (!client) return
@@ -131,8 +128,8 @@ export class ProgressionStateManager {
       // Set expiration
       await client.expire(redisKey, 7 * 24 * 60 * 60)
 
-      // Log every 100 cycles
-      if (counter.completed % 100 === 0 && counter.completed > 0) {
+      // Log every 25 cycles
+      if (counter.completed % 25 === 0 && counter.completed > 0) {
         console.log(`[v0] [Progression] Cycle ${counter.completed}: ${successRate.toFixed(1)}% success rate`)
       }
     } catch (error) {

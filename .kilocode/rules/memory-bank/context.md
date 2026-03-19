@@ -8,6 +8,8 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Recently Completed
 
+- [x] Fixed sandbox preview routing by updating hardcoded port 3000 references to use NEXT_PUBLIC_APP_URL (localhost:3001)
+- [x] Added real BingX API credentials to .env.local for live trading
 - [x] Restored original CTS v3 project files from upstream `v0/cts5`
 - [x] Reinstalled project dependencies and aligned Next.js runtime to 15.5.7
 - [x] Verified the original site loads in dev with title `CTS v3 - Crypto Trading System`

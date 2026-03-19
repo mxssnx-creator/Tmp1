@@ -111,7 +111,7 @@ export async function GET() {
     }
     
     // Trigger initial auto-test for all base connections (non-blocking)
-    fetch(new URL("/api/settings/connections/auto-test", process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000").toString(), {
+    fetch(new URL("/api/settings/connections/auto-test", process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3001")).toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ source: "init" }),

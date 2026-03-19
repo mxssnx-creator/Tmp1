@@ -1,10 +1,14 @@
 "use client";
 
-import ChatDisplay from "@/components/chat/ChatDisplay";
+import { useMemo } from "react";
+
+import ChatDisplay from "@/src/components/chat/ChatDisplay";
 
 export default function Home() {
-  // Sample chat data - in a real app this would come from an API
-  const sampleGroups = [
+  const sampleGroups = useMemo(() => {
+    const now = new Date("2026-03-19T12:00:00.000Z").getTime();
+
+    return [
     {
       id: "trading-alerts",
       title: "Trading System Alerts",
@@ -15,7 +19,7 @@ export default function Home() {
         {
           id: "alert-1",
           sender: "Engine Monitor",
-          timestamp: new Date(Date.now() - 5 * 60 * 1000),
+          timestamp: new Date(now - 5 * 60 * 1000),
           summary: "Market volatility spike detected",
           content: "Market volatility has increased by 45% in the last 10 minutes. Consider adjusting risk parameters. The algorithm is still operational but monitoring closely.",
           type: "warning" as const,
@@ -24,7 +28,7 @@ export default function Home() {
         {
           id: "alert-2",
           sender: "Portfolio Manager",
-          timestamp: new Date(Date.now() - 15 * 60 * 1000),
+          timestamp: new Date(now - 15 * 60 * 1000),
           summary: "Profit target reached on BTC position",
           content: "The BTC trading position has reached its profit target of 3.2%. Position will be partially closed to lock in gains while maintaining exposure.",
           type: "success" as const,
@@ -42,7 +46,7 @@ export default function Home() {
         {
           id: "system-1",
           sender: "Scheduler",
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          timestamp: new Date(now - 2 * 60 * 60 * 1000),
           summary: "Daily backup completed successfully",
           content: "Automated backup of all trading data and configurations has been completed. Backup size: 2.4GB, stored on secure cloud storage.",
           type: "info" as const,
@@ -51,7 +55,7 @@ export default function Home() {
         {
           id: "system-2",
           sender: "Performance Monitor",
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+          timestamp: new Date(now - 4 * 60 * 60 * 1000),
           summary: "Memory optimization completed",
           content: "System memory has been optimized, freeing up 1.2GB of RAM. Trading operations performance improved by 8%.",
           type: "info" as const,
@@ -69,7 +73,7 @@ export default function Home() {
         {
           id: "market-1",
           sender: "AI Analyst",
-          timestamp: new Date(Date.now() - 30 * 60 * 1000),
+          timestamp: new Date(now - 30 * 60 * 1000),
           summary: "Ethereum bullish signals detected",
           content: "Analysis shows strong buying momentum in Ethereum with positive on-chain metrics. Defi protocols showing increased activity. Consider ETH/USD as primary focus for next trading cycle.",
           type: "info" as const,
@@ -78,6 +82,7 @@ export default function Home() {
       ]
     }
   ];
+  }, []);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#142235_0%,#08111b_45%,#030712_100%)] text-white">

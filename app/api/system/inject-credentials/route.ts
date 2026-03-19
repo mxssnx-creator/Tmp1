@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server"
 import { initRedis, getRedisClient } from "@/lib/redis-db"
-import { readBingxCredentialsFromEnv, readEnvByAliases } from "@/lib/env-credentials"
+import { BASE_CONNECTION_CREDENTIALS } from "@/lib/base-connection-credentials"
 
 export const dynamic = "force-dynamic"
 
 /**
  * POST /api/system/inject-credentials
  * 
- * Injects real API credentials from environment variables into base connections.
- * This endpoint should be called on startup or when credentials are updated.
- * 
- * Supported environment variables:
- * - BINGX_API_KEY, BINGX_API_SECRET - BingX credentials
- * - BYBIT_API_KEY, BYBIT_API_SECRET - Bybit credentials
- * - PIONEX_API_KEY, PIONEX_API_SECRET - Pionex credentials
- * - ORANGEX_API_KEY, ORANGEX_API_SECRET - OrangeX credentials
+ * Injects predefined real API credentials into canonical base connections.
  */
 export async function POST() {
   try {
@@ -22,20 +15,14 @@ export async function POST() {
     const client = getRedisClient()
     
     const results: Record<string, string> = {}
-    
-    const readPair = (key: string, secret: string) => ({
-      apiKey: readEnvByAliases([key, `NEXT_PUBLIC_${key}`]),
-      apiSecret: readEnvByAliases([secret, `NEXT_PUBLIC_${secret}`]),
-    })
 
-    // Check and inject BingX credentials
-    const { apiKey: bingxApiKey, apiSecret: bingxApiSecret } = readBingxCredentialsFromEnv()
-    if (bingxApiKey.length > 10 && bingxApiSecret.length > 10) {
-      const existing = await client.hgetall("connection:bingx-x01")
+    const injectForConnection = async (connectionId: keyof typeof BASE_CONNECTION_CREDENTIALS) => {
+      const { apiKey, apiSecret } = BASE_CONNECTION_CREDENTIALS[connectionId]
+      const existing = await client.hgetall(`connection:${connectionId}`)
       const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
-      await client.hset("connection:bingx-x01", {
-        api_key: bingxApiKey,
-        api_secret: bingxApiSecret,
+      await client.hset(`connection:${connectionId}`, {
+        api_key: apiKey,
+        api_secret: apiSecret,
         is_active_inserted: (existing?.is_active_inserted as string) || "1",
         is_enabled: (existing?.is_enabled as string) || "1",
         is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
@@ -43,81 +30,21 @@ export async function POST() {
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })
-      results["bingx-x01"] = "Credentials injected successfully"
-      console.log("[v0] [Credentials] BingX X01: Real credentials injected from environment")
-    } else {
-      results["bingx-x01"] = "No valid credentials in environment (BINGX_API_KEY, BINGX_API_SECRET)"
+      await client.sadd("connections", connectionId)
+      results[connectionId] = "Credentials injected successfully"
     }
-    
-    // Check and inject Bybit credentials
-    const { apiKey: bybitApiKey, apiSecret: bybitApiSecret } = readPair("BYBIT_API_KEY", "BYBIT_API_SECRET")
-    if (bybitApiKey.length > 10 && bybitApiSecret.length > 10) {
-      const existing = await client.hgetall("connection:bybit-x03")
-      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
-      await client.hset("connection:bybit-x03", {
-        api_key: bybitApiKey,
-        api_secret: bybitApiSecret,
-        is_active_inserted: (existing?.is_active_inserted as string) || "1",
-        is_enabled: (existing?.is_enabled as string) || "1",
-        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
-        is_active: dashboardEnabled ? "1" : "0",
-        connection_method: "library",
-        updated_at: new Date().toISOString(),
-      })
-      results["bybit-x03"] = "Credentials injected successfully"
-      console.log("[v0] [Credentials] Bybit X03: Real credentials injected from environment")
-    } else {
-      results["bybit-x03"] = "No valid credentials in environment (BYBIT_API_KEY, BYBIT_API_SECRET)"
-    }
-    
-    // Check and inject Pionex credentials
-    const { apiKey: pionexApiKey, apiSecret: pionexApiSecret } = readPair("PIONEX_API_KEY", "PIONEX_API_SECRET")
-    if (pionexApiKey.length > 10 && pionexApiSecret.length > 10) {
-      const existing = await client.hgetall("connection:pionex-x01")
-      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
-      await client.hset("connection:pionex-x01", {
-        api_key: pionexApiKey,
-        api_secret: pionexApiSecret,
-        is_active_inserted: (existing?.is_active_inserted as string) || "1",
-        is_enabled: (existing?.is_enabled as string) || "1",
-        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
-        is_active: dashboardEnabled ? "1" : "0",
-        connection_method: "library",
-        updated_at: new Date().toISOString(),
-      })
-      results["pionex-x01"] = "Credentials injected successfully"
-      console.log("[v0] [Credentials] Pionex X01: Real credentials injected from environment")
-    } else {
-      results["pionex-x01"] = "No valid credentials in environment (PIONEX_API_KEY, PIONEX_API_SECRET)"
-    }
-    
-    // Check and inject OrangeX credentials
-    const { apiKey: orangexApiKey, apiSecret: orangexApiSecret } = readPair("ORANGEX_API_KEY", "ORANGEX_API_SECRET")
-    if (orangexApiKey.length > 10 && orangexApiSecret.length > 10) {
-      const existing = await client.hgetall("connection:orangex-x01")
-      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
-      await client.hset("connection:orangex-x01", {
-        api_key: orangexApiKey,
-        api_secret: orangexApiSecret,
-        is_active_inserted: (existing?.is_active_inserted as string) || "1",
-        is_enabled: (existing?.is_enabled as string) || "1",
-        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
-        is_active: dashboardEnabled ? "1" : "0",
-        connection_method: "library",
-        updated_at: new Date().toISOString(),
-      })
-      results["orangex-x01"] = "Credentials injected successfully"
-      console.log("[v0] [Credentials] OrangeX X01: Real credentials injected from environment")
-    } else {
-      results["orangex-x01"] = "No valid credentials in environment (ORANGEX_API_KEY, ORANGEX_API_SECRET)"
-    }
+
+    await injectForConnection("bingx-x01")
+    await injectForConnection("bybit-x03")
+    await injectForConnection("pionex-x01")
+    await injectForConnection("orangex-x01")
     
     // Count successful injections
     const successCount = Object.values(results).filter(r => r.includes("injected")).length
     
     return NextResponse.json({
       success: true,
-      message: `Credentials injection complete: ${successCount}/4 exchanges configured`,
+      message: `Predefined credentials injection complete: ${successCount}/4 exchanges configured`,
       results,
       timestamp: new Date().toISOString(),
     })
@@ -135,24 +62,11 @@ export async function GET() {
     await initRedis()
     const client = getRedisClient()
     
-    // Check which credentials are available in environment
-    const bingx = readBingxCredentialsFromEnv()
-    const bybit = readEnvByAliases(["BYBIT_API_KEY", "NEXT_PUBLIC_BYBIT_API_KEY"])
-    const bybitSecret = readEnvByAliases(["BYBIT_API_SECRET", "NEXT_PUBLIC_BYBIT_API_SECRET"])
-    const pionex = readEnvByAliases(["PIONEX_API_KEY", "NEXT_PUBLIC_PIONEX_API_KEY"])
-    const pionexSecret = readEnvByAliases(["PIONEX_API_SECRET", "NEXT_PUBLIC_PIONEX_API_SECRET"])
-    const orangex = readEnvByAliases(["ORANGEX_API_KEY", "NEXT_PUBLIC_ORANGEX_API_KEY"])
-    const orangexSecret = readEnvByAliases(["ORANGEX_API_SECRET", "NEXT_PUBLIC_ORANGEX_API_SECRET"])
-
-    const envStatus = {
-      BINGX_API_KEY: bingx.apiKey.length > 10,
-      BINGX_API_SECRET: bingx.apiSecret.length > 10,
-      BYBIT_API_KEY: bybit.length > 10,
-      BYBIT_API_SECRET: bybitSecret.length > 10,
-      PIONEX_API_KEY: pionex.length > 10,
-      PIONEX_API_SECRET: pionexSecret.length > 10,
-      ORANGEX_API_KEY: orangex.length > 10,
-      ORANGEX_API_SECRET: orangexSecret.length > 10,
+    const predefinedStatus = {
+      "bingx-x01": BASE_CONNECTION_CREDENTIALS["bingx-x01"].apiKey.length > 0 && BASE_CONNECTION_CREDENTIALS["bingx-x01"].apiSecret.length > 0,
+      "bybit-x03": BASE_CONNECTION_CREDENTIALS["bybit-x03"].apiKey.length > 0 && BASE_CONNECTION_CREDENTIALS["bybit-x03"].apiSecret.length > 0,
+      "pionex-x01": BASE_CONNECTION_CREDENTIALS["pionex-x01"].apiKey.length > 0 && BASE_CONNECTION_CREDENTIALS["pionex-x01"].apiSecret.length > 0,
+      "orangex-x01": BASE_CONNECTION_CREDENTIALS["orangex-x01"].apiKey.length > 0 && BASE_CONNECTION_CREDENTIALS["orangex-x01"].apiSecret.length > 0,
     }
     
     // Check which connections have credentials in database
@@ -166,9 +80,9 @@ export async function GET() {
     
     return NextResponse.json({
       success: true,
-      environment: envStatus,
+      predefined: predefinedStatus,
       database: dbStatus,
-      availableInEnv: Object.entries(envStatus).filter(([_, v]) => v).map(([k]) => k),
+      availablePredefined: Object.entries(predefinedStatus).filter(([_, v]) => v).map(([k]) => k),
       configuredInDb: Object.entries(dbStatus).filter(([_, v]) => v).map(([k]) => k),
     })
   } catch (error) {

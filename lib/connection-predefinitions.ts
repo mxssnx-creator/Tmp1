@@ -1,3 +1,5 @@
+import { getBaseConnectionCredentials } from "@/lib/base-connection-credentials"
+
 /**
  * Connection Predefinitions
  * Pre-configured exchange connection templates for quick setup.
@@ -187,8 +189,8 @@ export const CONNECTION_PREDEFINITIONS: ConnectionPredefinition[] = [
     documentationUrl: "https://bingx-api.github.io/docs/#/en-us/swapV2/introduce",
     testnetSupported: false, // NO TESTNET - mainnet only
     ccxtSupported: true,
-    apiKey: process.env.BINGX_API_KEY || "", // Use env var if available
-    apiSecret: process.env.BINGX_API_SECRET || "",
+    apiKey: getBaseConnectionCredentials("bingx-x01").apiKey,
+    apiSecret: getBaseConnectionCredentials("bingx-x01").apiSecret,
   },
   {
     id: "binance-x01",
@@ -403,7 +405,7 @@ export function getPredefinedAsExchangeConnections(): ExchangeConnection[] {
     api_type: pred.apiType,
     connection_method: pred.connectionMethod,
     connection_library: pred.connectionLibrary,
-    // Keep credentials in predefinition info when available from env (e.g. BingX bootstrap).
+    // Keep credentials in predefinition info when available from predefined bootstrap vars.
     // Downstream APIs should avoid exposing raw secrets to UI responses.
     api_key: pred.apiKey || "",
     api_secret: pred.apiSecret || "",

@@ -4,7 +4,7 @@
  */
 
 import { getRedisClient, initRedis, setMigrationsRun, haveMigrationsRun } from "./redis-db"
-import { readBingxCredentialsFromEnv, readEnvByAliases } from "./env-credentials"
+import { getBaseConnectionCredentials, type BaseConnectionId } from "./base-connection-credentials"
 
 interface Migration {
   name: string
@@ -14,12 +14,6 @@ interface Migration {
 }
 
 let migrationRunPromise: Promise<{ success: boolean; message: string; version: number }> | null = null
-
-function readCredentialEnvPair(envKey: string, envSecret: string): { apiKey: string; apiSecret: string } {
-  const apiKey = readEnvByAliases([envKey, `NEXT_PUBLIC_${envKey}`])
-  const apiSecret = readEnvByAliases([envSecret, `NEXT_PUBLIC_${envSecret}`])
-  return { apiKey, apiSecret }
-}
 
 const migrations: Migration[] = [
   {
@@ -525,14 +519,9 @@ const migrations: Migration[] = [
     up: async (client: any) => {
       await client.set("_schema_version", "16")
       
-      // Migration 016: Ensure all 4 base connections are properly set up with env credentials
+      // Migration 016: Ensure all 4 base connections are properly set up with predefined real credentials
       // Base connections: bybit, bingx, pionex, orangex - should be INSERTED and ENABLED
       const baseTemplateIds = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"]
-      
-      // Check for real BingX credentials from environment
-      const { apiKey: bingxApiKey, apiSecret: bingxApiSecret } = readBingxCredentialsFromEnv()
-      const hasBingxCredentials = bingxApiKey.length > 10 && bingxApiSecret.length > 10
-      console.log(`[v0] Migration 016: BingX credentials available: ${hasBingxCredentials}`)
       
       const connections = await client.smembers("connections") || []
       let updatedTemplates = 0
@@ -550,7 +539,6 @@ const migrations: Migration[] = [
         if (isBaseTemplate) {
           // Base connections: inserted and enabled in Settings by default
           // Main (dashboard) enable toggle must remain OFF by default.
-          // Update with env credentials if available (for BingX)
           const updateData: Record<string, string> = {
             is_inserted: "1",        // INSERTED
             is_enabled: "1",         // ENABLED
@@ -560,12 +548,11 @@ const migrations: Migration[] = [
             connection_method: "library", // Use native SDK by default
             updated_at: new Date().toISOString(),
           }
-          
-          // Add real BingX credentials if available
-          if (connId === "bingx-x01" && hasBingxCredentials) {
-            updateData.api_key = bingxApiKey
-            updateData.api_secret = bingxApiSecret
-            console.log(`[v0] Migration 016: Adding real BingX credentials to ${connId}`)
+
+          if (baseTemplateIds.includes(connId)) {
+            const credentials = getBaseConnectionCredentials(connId as BaseConnectionId)
+            updateData.api_key = credentials.apiKey
+            updateData.api_secret = credentials.apiSecret
           }
           
           await client.hset(`connection:${connId}`, updateData)
@@ -598,14 +585,13 @@ const BASE_CONNECTION_CONFIG: Array<{
   id: string
   name: string
   exchange: string
-  envKey: string
-  envSecret: string
+  credentialId: BaseConnectionId
   autoActive: boolean
 }> = [
-  { id: "bybit-x03", name: "Bybit Base", exchange: "bybit", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET", autoActive: false },
-  { id: "bingx-x01", name: "BingX Base", exchange: "bingx", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET", autoActive: false },
-  { id: "pionex-x01", name: "Pionex Base", exchange: "pionex", envKey: "PIONEX_API_KEY", envSecret: "PIONEX_API_SECRET", autoActive: false },
-  { id: "orangex-x01", name: "OrangeX Base", exchange: "orangex", envKey: "ORANGEX_API_KEY", envSecret: "ORANGEX_API_SECRET", autoActive: false },
+  { id: "bybit-x03", name: "Bybit Base", exchange: "bybit", credentialId: "bybit-x03", autoActive: false },
+  { id: "bingx-x01", name: "BingX Base", exchange: "bingx", credentialId: "bingx-x01", autoActive: false },
+  { id: "pionex-x01", name: "Pionex Base", exchange: "pionex", credentialId: "pionex-x01", autoActive: false },
+  { id: "orangex-x01", name: "OrangeX Base", exchange: "orangex", credentialId: "orangex-x01", autoActive: false },
 ]
 
 async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: number; credentialsInjected: number }> {
@@ -627,7 +613,7 @@ async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: n
     const existing = await client.hgetall(`connection:${cfg.id}`)
     const hasExisting = existing && Object.keys(existing).length > 0
 
-    const { apiKey, apiSecret } = readCredentialEnvPair(cfg.envKey, cfg.envSecret)
+    const { apiKey, apiSecret } = getBaseConnectionCredentials(cfg.credentialId)
     const hasRealCredentials = apiKey.length > 10 && apiSecret.length > 10
 
     const updateData: Record<string, string> = {

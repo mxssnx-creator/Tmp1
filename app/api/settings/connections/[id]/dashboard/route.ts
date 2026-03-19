@@ -1,24 +1,34 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { getConnection, initRedis, updateConnection } from "@/lib/redis-db"
+import { parseBooleanInput, toRedisFlag } from "@/lib/boolean-utils"
 
 // POST - Toggle dashboard active status
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const body = await request.json()
-    const { is_dashboard_active } = body
+    const isDashboardActive = parseBooleanInput(body?.is_dashboard_active)
 
-    console.log("[v0] Toggling dashboard active for connection:", id, "to:", is_dashboard_active)
+    console.log("[v0] [DashboardRoute] Toggling dashboard active for connection:", id, "to:", isDashboardActive)
 
-    await sql`
-      UPDATE exchange_connections
-      SET is_dashboard_active = ${is_dashboard_active}
-      WHERE id = ${id}
-    `
+    await initRedis()
+    const connection = await getConnection(id)
+    if (!connection) {
+      return NextResponse.json({ error: "Connection not found" }, { status: 404 })
+    }
 
-    return NextResponse.json({ success: true })
+    await updateConnection(id, {
+      ...connection,
+      is_enabled_dashboard: toRedisFlag(isDashboardActive),
+      is_active_inserted: isDashboardActive ? "1" : (connection.is_active_inserted || "1"),
+      is_active: toRedisFlag(isDashboardActive),
+      is_dashboard_inserted: "1",
+      updated_at: new Date().toISOString(),
+    })
+
+    return NextResponse.json({ success: true, is_dashboard_active: isDashboardActive })
   } catch (error) {
-    console.error("[v0] Failed to toggle dashboard active:", error)
+    console.error("[v0] [DashboardRoute] Failed to toggle dashboard active:", error)
     return NextResponse.json({ error: "Failed to toggle dashboard active" }, { status: 500 })
   }
 }

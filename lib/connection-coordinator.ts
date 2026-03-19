@@ -65,6 +65,10 @@ export class ConnectionCoordinator {
   private healthCheckInterval: NodeJS.Timeout | null = null
   private initialized = false
 
+  private isEnabledFlag(value: unknown): boolean {
+    return value === true || value === 1 || value === "1" || value === "true"
+  }
+
   private constructor() {
     this.batchProcessor = BatchProcessor.getInstance()
   }
@@ -129,7 +133,7 @@ export class ConnectionCoordinator {
   private initializeHealth(connectionId: string, connection: Connection): void {
     this.health.set(connectionId, {
       connectionId,
-      status: connection.is_enabled ? "active" : "inactive",
+      status: this.isEnabledFlag(connection.is_enabled) ? "active" : "inactive",
       lastCheck: new Date(),
       responseTime: 0,
       errorCount: 0,
@@ -154,21 +158,21 @@ export class ConnectionCoordinator {
 
   /**
    * Check if a connection has valid (non-placeholder) API credentials.
-   * Predefined connections are ALWAYS considered invalid for API calls
-   * unless they have been explicitly inserted by the user.
+   * Predefined/base connections are valid when inserted and credentialed.
    */
   private hasValidCredentials(conn: any): boolean {
-    // Predefined connections never have real API keys - always skip
-    const isPredefined = conn.is_predefined === true || conn.is_predefined === "true" || conn.is_predefined === "1" || conn.is_predefined === 1
-    if (isPredefined) return false
-
-    // Must be explicitly inserted by the user
+    // Must be explicitly inserted and dashboard-enabled for runtime checks.
     const isInserted = conn.is_inserted === true || conn.is_inserted === "true" || conn.is_inserted === "1" || conn.is_inserted === 1
-    if (!isInserted) return false
+    const isActiveInserted = conn.is_active_inserted === true || conn.is_active_inserted === "true" || conn.is_active_inserted === "1" || conn.is_active_inserted === 1
+    const isDashboardEnabled = conn.is_enabled_dashboard === true || conn.is_enabled_dashboard === "true" || conn.is_enabled_dashboard === "1" || conn.is_enabled_dashboard === 1
+    if (!isInserted || !isActiveInserted || !isDashboardEnabled) return false
 
     const key = conn.api_key
+    const secret = conn.api_secret
     if (!key || key === "" || key.length < 16) return false
+    if (!secret || secret === "" || secret.length < 16) return false
     if (key.includes("PLACEHOLDER") || key.includes("00998877") || key.startsWith("test")) return false
+    if (secret.includes("PLACEHOLDER") || secret.includes("00998877") || secret.startsWith("test")) return false
     return true
   }
 
@@ -178,7 +182,7 @@ export class ConnectionCoordinator {
    */
   private async performHealthChecks(): Promise<void> {
     const eligible = Array.from(this.connections.values())
-      .filter((conn) => conn.is_enabled && this.hasValidCredentials(conn))
+      .filter((conn) => this.isEnabledFlag(conn.is_enabled) && this.hasValidCredentials(conn))
 
     if (eligible.length === 0) return
 
@@ -382,14 +386,15 @@ export class ConnectionCoordinator {
    * Get active connections
    */
   getActiveConnections(): Connection[] {
-    return Array.from(this.connections.values()).filter((conn) => conn.is_enabled && conn.is_active)
+    return Array.from(this.connections.values()).filter((conn) => this.isEnabledFlag(conn.is_enabled) && this.isEnabledFlag(conn.is_active))
   }
 
   /**
    * Reload connections from storage
    */
-  reloadConnections(): void {
-    this.initializeConnections()
+  async reloadConnections(): Promise<void> {
+    this.initialized = false
+    await this.initializeConnections()
   }
 
   /**

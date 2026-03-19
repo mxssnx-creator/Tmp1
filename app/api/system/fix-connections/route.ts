@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { initRedis, getRedisClient } from "@/lib/redis-db"
-import { readBingxCredentialsFromEnv, readEnvByAliases } from "@/lib/env-credentials"
+import { BASE_CONNECTION_CREDENTIALS } from "@/lib/base-connection-credentials"
 
 export const dynamic = "force-dynamic"
 
@@ -13,32 +13,20 @@ export const dynamic = "force-dynamic"
  * - is_enabled_dashboard = 0 (dashboard toggle off by default)
  * - connection_method = library (use native SDK)
  * 
- * Also injects credentials from environment variables if available.
+ * Also injects credentials from predefined variables.
  */
 export async function POST() {
   try {
     await initRedis()
     const client = getRedisClient()
     
-    const baseConnections = [
-      { id: "bybit-x03", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET" },
-      { id: "bingx-x01", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET" },
-      { id: "pionex-x01", envKey: "PIONEX_API_KEY", envSecret: "PIONEX_API_SECRET" },
-      { id: "orangex-x01", envKey: "ORANGEX_API_KEY", envSecret: "ORANGEX_API_SECRET" },
-    ]
+    const baseConnections = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"] as const
     
     const results: Record<string, any> = {}
     
-    const readPair = (key: string, secret: string) => ({
-      apiKey: readEnvByAliases([key, `NEXT_PUBLIC_${key}`]),
-      apiSecret: readEnvByAliases([secret, `NEXT_PUBLIC_${secret}`]),
-    })
-
-    const bingxEnv = readBingxCredentialsFromEnv()
-
     for (const conn of baseConnections) {
       // Check if connection exists
-      const exists = await client.sismember("connections", conn.id)
+      const exists = await client.sismember("connections", conn)
       
       // Build update data
       const updateData: Record<string, string> = {
@@ -53,37 +41,25 @@ export async function POST() {
       }
       
       // Check for credentials in environment
-      const envPair =
-        conn.id === "bingx-x01"
-          ? { apiKey: bingxEnv.apiKey, apiSecret: bingxEnv.apiSecret }
-          : readPair(conn.envKey, conn.envSecret)
-      const apiKey = envPair.apiKey
-      const apiSecret = envPair.apiSecret
-      const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
+      const credentials = BASE_CONNECTION_CREDENTIALS[conn]
+      const hasCredentials = credentials.apiKey.length > 0 && credentials.apiSecret.length > 0
       
       if (hasCredentials) {
-        updateData.api_key = apiKey
-        updateData.api_secret = apiSecret
+        updateData.api_key = credentials.apiKey
+        updateData.api_secret = credentials.apiSecret
       }
       
-      // Apply update
-      if (exists) {
-        await client.hset(`connection:${conn.id}`, updateData)
-        results[conn.id] = {
-          status: "updated",
-          active_inserted: true,
-          enabled: true,
-          dashboard_enabled: false,
-          has_credentials: hasCredentials,
-        }
-        console.log(`[v0] [FixConnections] ${conn.id}: Updated - active_inserted=1, credentials=${hasCredentials}`)
-      } else {
-        results[conn.id] = {
-          status: "not_found",
-          message: "Connection does not exist in database. Run migrations first.",
-        }
-        console.log(`[v0] [FixConnections] ${conn.id}: NOT FOUND - skipped`)
+      // Apply update and ensure set membership
+      await client.hset(`connection:${conn}`, updateData)
+      await client.sadd("connections", conn)
+      results[conn] = {
+        status: exists ? "updated" : "created",
+        active_inserted: true,
+        enabled: true,
+        dashboard_enabled: false,
+        has_credentials: hasCredentials,
       }
+      console.log(`[v0] [FixConnections] ${conn}: ${exists ? "UPDATED" : "CREATED"} - active_inserted=1, credentials=${hasCredentials}`)
     }
     
     // Count successful updates

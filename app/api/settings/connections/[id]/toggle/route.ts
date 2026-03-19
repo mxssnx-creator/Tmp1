@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { SystemLogger } from "@/lib/system-logger"
 import { initRedis, getConnection, updateConnection } from "@/lib/redis-db"
+import { parseBooleanInput, toRedisFlag } from "@/lib/boolean-utils"
 
 // POST toggle connection enabled status
 // NOTE: Trade engines DO NOT start here
@@ -12,9 +13,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id } = await params
     const connectionId = id
     const body = await request.json()
-    const { is_enabled } = body
+    const isEnabled = parseBooleanInput(body?.is_enabled)
 
-    console.log("[v0] [Toggle] Toggling connection enabled:", connectionId, "enabled:", is_enabled)
+    console.log("[v0] [Toggle] Toggling connection enabled:", connectionId, "enabled:", isEnabled)
 
     await initRedis()
     const connection = await getConnection(connectionId)
@@ -27,26 +28,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Update connection in Redis with updated_at timestamp
     const updatedConnection = {
       ...connection,
-      is_enabled: is_enabled ? "1" : "0",
+      is_enabled: toRedisFlag(isEnabled),
       updated_at: new Date().toISOString(),
     }
 
     await updateConnection(connectionId, updatedConnection)
-    console.log("[v0] [Toggle] Connection is_enabled updated:", connectionId, "=", is_enabled)
+    console.log("[v0] [Toggle] Connection is_enabled updated:", connectionId, "=", isEnabled)
 
     // Log the change but do NOT start/stop engines here
     // Engine control is separate via live-trade and preset-type endpoints
     await SystemLogger.logConnection(
-      `Connection toggled: is_enabled=${is_enabled}. Engines controlled separately via live-trade/preset-type endpoints.`,
+      `Connection toggled: is_enabled=${isEnabled}. Engines controlled separately via live-trade/preset-type endpoints.`,
       connectionId,
       "info",
-      { is_enabled },
+      { is_enabled: isEnabled },
     )
 
     return NextResponse.json({
       success: true,
       connection: updatedConnection,
-      message: `Connection ${is_enabled ? "enabled" : "disabled"}. Trade engines are controlled separately.`,
+      message: `Connection ${isEnabled ? "enabled" : "disabled"}. Trade engines are controlled separately.`,
     })
   } catch (error) {
     console.error("[v0] [Toggle] Exception:", error)

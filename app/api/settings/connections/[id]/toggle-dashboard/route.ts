@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { initRedis, getConnection, updateConnection, setSettings, getSettings } from "@/lib/redis-db"
+import { initRedis, getConnection, updateConnection, setSettings, getSettings, getAllConnections } from "@/lib/redis-db"
 import { toggleConnectionLimiter } from "@/lib/connection-rate-limiter"
 import { logProgressionEvent } from "@/lib/engine-progression-logs"
+import { isTruthyFlag, parseBooleanInput, toRedisFlag } from "@/lib/boolean-utils"
 
 // POST toggle connection active status (inserted/enabled) - INDEPENDENT from Settings
 // When enabling, also triggers engine start for this connection
@@ -29,7 +30,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Support both active fields:
     // - is_active_inserted: whether connection appears in active list
     // - is_enabled_dashboard: whether connection is enabled/active
-    const { is_active_inserted, is_enabled_dashboard } = body
+    const hasActiveInserted = body?.is_active_inserted !== undefined
+    const hasDashboardEnabled = body?.is_enabled_dashboard !== undefined
+    const isActiveInserted = parseBooleanInput(body?.is_active_inserted)
+    const isDashboardEnabled = parseBooleanInput(body?.is_enabled_dashboard)
 
     await initRedis()
     let connection = await getConnection(connectionId)
@@ -62,16 +66,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     
     let engineAction: "start" | "stop" | null = null
     
-    if (is_active_inserted !== undefined) {
-      updatedConnection.is_active_inserted = is_active_inserted
-      console.log(`[v0] [Toggle]   Setting is_active_inserted=${is_active_inserted}`)
+    if (hasActiveInserted) {
+      updatedConnection.is_active_inserted = toRedisFlag(isActiveInserted)
+      console.log(`[v0] [Toggle]   Setting is_active_inserted=${isActiveInserted}`)
     }
     
-    if (is_enabled_dashboard !== undefined) {
-      updatedConnection.is_enabled_dashboard = is_enabled_dashboard
+    if (hasDashboardEnabled) {
+      updatedConnection.is_enabled_dashboard = toRedisFlag(isDashboardEnabled)
       updatedConnection.is_dashboard_inserted = "1"
       
-      if (is_enabled_dashboard) {
+      if (isDashboardEnabled) {
         // Toggle ON: dashboard enabled, keep base settings independent
         updatedConnection.is_active_inserted = "1"
         updatedConnection.is_active = "1"
@@ -102,8 +106,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         })
         
         // Check if connection has valid credentials
-        const hasCredentials = (updatedConnection.api_key || updatedConnection.apiKey) && 
-                               (updatedConnection.api_secret || updatedConnection.apiSecret)
+         const apiKey = (updatedConnection.api_key || updatedConnection.apiKey || "") as string
+         const apiSecret = (updatedConnection.api_secret || updatedConnection.apiSecret || "") as string
+         const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
         
         if (!hasCredentials) {
           // No credentials - set progression to waiting for credentials
@@ -133,12 +138,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           
           // Update global engine state to trigger coordinator
           const globalState = await getSettings("trade_engine:global") || {}
+          const allConnections = await getAllConnections()
+          const activeDashboardCount = allConnections.filter((c: any) => {
+            const isCurrent = c.id === resolvedId
+            if (isCurrent) return true
+            return isTruthyFlag(c.is_enabled_dashboard)
+          }).length
           await setSettings("trade_engine:global", {
             ...globalState,
             status: "running",
             started_at: globalState.started_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            active_connections: (globalState.active_connections || 0) + 1,
+            active_connections: activeDashboardCount,
             refresh_requested: new Date().toISOString(), // Signal coordinator to refresh
           })
           
@@ -178,7 +189,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         
         // Update global engine state
         const globalState = await getSettings("trade_engine:global") || {}
-        const activeCount = Math.max(0, (globalState.active_connections || 1) - 1)
+        const allConnections = await getAllConnections()
+        const activeCount = allConnections.filter((c: any) => {
+          const isCurrent = c.id === resolvedId
+          if (isCurrent) return false
+          return isTruthyFlag(c.is_enabled_dashboard)
+        }).length
         await setSettings("trade_engine:global", {
           ...globalState,
           updated_at: new Date().toISOString(),

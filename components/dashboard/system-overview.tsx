@@ -69,6 +69,49 @@ export function SystemOverview() {
     },
   })
 
+  const toNumber = (value: unknown, fallback = 0): number => {
+    if (typeof value === "number" && Number.isFinite(value)) return value
+    if (typeof value === "string") {
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : fallback
+    }
+    return fallback
+  }
+
+  const normalizeSystemStats = (raw: any): SystemStats => ({
+    tradeEngines: {
+      globalStatus: String(raw?.tradeEngines?.globalStatus || "idle"),
+      mainStatus: String(raw?.tradeEngines?.mainStatus || "idle"),
+      mainCount: toNumber(raw?.tradeEngines?.mainCount, 0),
+      mainTotal: toNumber(raw?.tradeEngines?.mainTotal, 0),
+      presetStatus: String(raw?.tradeEngines?.presetStatus || "idle"),
+      presetCount: toNumber(raw?.tradeEngines?.presetCount, 0),
+      presetTotal: toNumber(raw?.tradeEngines?.presetTotal, 0),
+      totalEnabled: toNumber(raw?.tradeEngines?.totalEnabled, 0),
+    },
+    database: {
+      status: String(raw?.database?.status || "loading"),
+      requestsPerSecond: toNumber(raw?.database?.requestsPerSecond, 0),
+      totalKeys: toNumber(raw?.database?.totalKeys, 0),
+    },
+    exchangeConnections: {
+      total: toNumber(raw?.exchangeConnections?.total, 0),
+      enabled: toNumber(raw?.exchangeConnections?.enabled, 0),
+      working: toNumber(raw?.exchangeConnections?.working, 0),
+      status: String(raw?.exchangeConnections?.status || "loading"),
+    },
+    activeConnections: {
+      total: toNumber(raw?.activeConnections?.total, 0),
+      active: toNumber(raw?.activeConnections?.active, 0),
+      liveTrade: toNumber(raw?.activeConnections?.liveTrade, 0),
+      presetTrade: toNumber(raw?.activeConnections?.presetTrade, 0),
+    },
+    liveTrades: {
+      lastHour: toNumber(raw?.liveTrades?.lastHour, 0),
+      topConnections: Array.isArray(raw?.liveTrades?.topConnections) ? raw.liveTrades.topConnections : [],
+    },
+  })
+
   useEffect(() => {
     const loadStats = async () => {
       try {
@@ -78,7 +121,9 @@ export function SystemOverview() {
     })
         if (response.ok) {
           const data = await response.json()
-          setStats(data)
+          setStats(normalizeSystemStats(data))
+        } else {
+          console.warn("[v0] [SystemOverview] Non-OK response while loading stats", response.status)
         }
       } catch (error) {
         console.error("[v0] Failed to load system stats:", error)
@@ -170,7 +215,7 @@ export function SystemOverview() {
           <h2 className="text-lg font-bold">Smart Overview</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
           {/* Trade Engines */}
           <div className={`p-3 rounded-lg border-l-4 ${getBorderColor(stats.tradeEngines.globalStatus)} bg-muted/30`}>
             <div className="flex items-center gap-2 mb-2">

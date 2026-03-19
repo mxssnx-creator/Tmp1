@@ -1,67 +1,52 @@
 import { NextResponse } from "next/server"
-import { query } from "@/lib/db"
 import { USER_CONNECTIONS } from "@/lib/user-connections-config"
 import { successResponse, errorResponse } from "@/lib/api-response"
+import { createConnection, getConnection, initRedis } from "@/lib/redis-db"
 
 /**
- * Import user-configured connections into the database
+ * Import user-configured connections into Redis
  * POST /api/settings/connections/import-user
  */
 export async function POST() {
   try {
+    await initRedis()
     let imported = 0
     let skipped = 0
     const errors: string[] = []
 
     for (const userConn of USER_CONNECTIONS) {
       try {
-  // Check if connection already exists
-  const existing = await query(
-    `SELECT id FROM exchange_connections WHERE name = $1 AND exchange = $2`,
-    [userConn.name, userConn.exchange]
-  )
+        const existing = await getConnection(userConn.id)
 
-        if (existing.length > 0) {
+        if (existing) {
           console.log(`[v0] Skipping ${userConn.displayName} - already exists`)
           skipped++
           continue
         }
 
-  // Insert the connection
-  await query(
-    `INSERT INTO exchange_connections (
-            name,
-            exchange,
-            api_type,
-            connection_method,
-            connection_library,
-            api_key,
-            api_secret,
-            margin_type,
-            position_mode,
-            is_testnet,
-            is_enabled,
-            is_live_trade,
-            is_preset_trade,
-            created_at,
-            updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
-          [
-            userConn.name,
-            userConn.exchange,
-            userConn.apiType,
-            "rest",
-            "native",
-            userConn.apiKey,
-            userConn.apiSecret,
-            userConn.marginType || "cross",
-            userConn.positionMode || "hedge",
-            userConn.isTestnet,
-            true, // Enabled by default
-            false,
-            false,
-          ]
-        )
+        await createConnection({
+          id: userConn.id,
+          name: userConn.name,
+          exchange: userConn.exchange,
+          api_type: userConn.apiType,
+          connection_method: "rest",
+          connection_library: "native",
+          api_key: userConn.apiKey,
+          api_secret: userConn.apiSecret,
+          margin_type: userConn.marginType || "cross",
+          position_mode: userConn.positionMode || "hedge",
+          is_testnet: userConn.isTestnet ? "1" : "0",
+          is_enabled: "1",
+          is_live_trade: "0",
+          is_preset_trade: "0",
+          is_inserted: "1",
+          is_active_inserted: "0",
+          is_enabled_dashboard: "0",
+          is_active: "0",
+          is_predefined: "0",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
 
         console.log(`[v0] ✓ Imported ${userConn.displayName}`)
         imported++
@@ -93,13 +78,11 @@ export async function POST() {
  */
 export async function GET() {
   try {
+    await initRedis()
     // Get list of user connections with their import status
     const connections = await Promise.all(
       USER_CONNECTIONS.map(async (userConn) => {
-        const existing = await query(
-          `SELECT id, is_enabled FROM exchange_connections WHERE name = $1 AND exchange = $2`,
-          [userConn.name, userConn.exchange]
-        )
+        const existing = await getConnection(userConn.id)
 
         return {
           id: userConn.id,
@@ -111,9 +94,9 @@ export async function GET() {
           maxLeverage: userConn.maxLeverage,
           documentation: userConn.documentation,
           installCommands: userConn.installCommands,
-          imported: existing.length > 0,
-          enabled: existing.length > 0 ? existing[0].is_enabled : false,
-          dbId: existing.length > 0 ? existing[0].id : null,
+          imported: !!existing,
+          enabled: existing?.is_enabled === "1" || existing?.is_enabled === true,
+          dbId: existing?.id || null,
         }
       })
     )

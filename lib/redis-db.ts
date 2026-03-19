@@ -523,6 +523,10 @@ function convertToString(value: any): string {
   return String(value)
 }
 
+function isEnabledFlag(value: unknown): boolean {
+  return value === true || value === 1 || value === "1" || value === "true"
+}
+
 function flattenForHmset(obj: Record<string, string>): string[] {
   const args: string[] = []
   for (const [k, v] of Object.entries(obj)) {
@@ -731,8 +735,8 @@ export async function getActiveConnectionsForEngine(): Promise<any[]> {
   // 1. Added to active panel AND explicitly enabled on dashboard
   // 2. Either has credentials OR is set to testnet/demo mode
   const filtered = allConnections.filter((c: any) => {
-    const isActiveInserted = c.is_active_inserted === "1" || c.is_active_inserted === true
-    const isDashboardEnabled = c.is_enabled_dashboard === "1" || c.is_enabled_dashboard === true
+    const isActiveInserted = isEnabledFlag(c.is_active_inserted)
+    const isDashboardEnabled = isEnabledFlag(c.is_enabled_dashboard)
     
     // Check for credentials (from connection OR from environment)
     const apiKey = c.api_key || c.apiKey || ""
@@ -740,8 +744,8 @@ export async function getActiveConnectionsForEngine(): Promise<any[]> {
     const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
     
     // Check for testnet/demo mode
-    const isTestnet = c.is_testnet === "1" || c.is_testnet === true
-    const isDemoMode = c.demo_mode === "1" || c.demo_mode === true
+    const isTestnet = isEnabledFlag(c.is_testnet)
+    const isDemoMode = isEnabledFlag(c.demo_mode)
     
     // Engine processing follows dashboard activation, not settings-default enabled state.
     const isReadyForEngine = isActiveInserted && isDashboardEnabled
@@ -756,7 +760,7 @@ export async function getActiveConnectionsForEngine(): Promise<any[]> {
 
 export async function getEnabledConnections(): Promise<any[]> {
   const allConnections = await getAllConnections()
-  return allConnections.filter((c: any) => c.is_enabled === "1" || c.is_enabled === true)
+  return allConnections.filter((c: any) => isEnabledFlag(c.is_enabled))
 }
 
 export async function getInsertedAndEnabledConnections(): Promise<any[]> {
@@ -767,8 +771,8 @@ export async function getInsertedAndEnabledConnections(): Promise<any[]> {
   // This is the filter used by the trade engine coordinator to find active connections
   return allConnections.filter((c: any) => {
     // Check for active panel flags (modern approach)
-    const isActiveInserted = c.is_active_inserted === "1" || c.is_active_inserted === true
-    const isDashboardEnabled = c.is_enabled_dashboard === "1" || c.is_enabled_dashboard === true
+    const isActiveInserted = isEnabledFlag(c.is_active_inserted)
+    const isDashboardEnabled = isEnabledFlag(c.is_enabled_dashboard)
     return isActiveInserted && isDashboardEnabled
   })
 }

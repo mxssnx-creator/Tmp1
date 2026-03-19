@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { readBingxCredentialsFromEnv } from "@/lib/env-credentials"
+import { getBaseConnectionCredentials } from "@/lib/base-connection-credentials"
+import { isTruthyFlag } from "@/lib/boolean-utils"
 
 export const runtime = "nodejs"
 
@@ -35,9 +36,8 @@ export async function GET(request: NextRequest) {
     const migrationStatus = await getMigrationStatus()
     const stats = await getRedisStats()
     
-    // AUTO-INJECT: Check for credentials in environment and inject them into connections
-    // This ensures credentials are available even if migrations ran before env vars were set
-    const { apiKey: bingxKey, apiSecret: bingxSecret } = readBingxCredentialsFromEnv()
+    // AUTO-INJECT: Ensure canonical predefined credentials are persisted in base connections.
+    const { apiKey: bingxKey, apiSecret: bingxSecret } = getBaseConnectionCredentials("bingx-x01")
     if (bingxKey.length > 10 && bingxSecret.length > 10) {
       const { getRedisClient } = await import("@/lib/redis-db")
       const redisClient = getRedisClient()
@@ -53,9 +53,10 @@ export async function GET(request: NextRequest) {
            is_enabled_dashboard: (existingConn?.is_enabled_dashboard as string) || "0",
            is_active: dashboardEnabled ? "1" : "0",
            connection_method: "library",
-           updated_at: new Date().toISOString(),
-         })
-        console.log("[v0] [Init] Auto-injected BingX credentials from environment")
+            updated_at: new Date().toISOString(),
+          })
+         await redisClient.sadd("connections", "bingx-x01")
+         console.log("[v0] [Init] Auto-injected BingX predefined credentials")
       }
     }
     
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     try {
       const connections = await getAllConnections()
       connectionsCount = connections.length
-      enabledConnectionsCount = connections.filter((c: any) => c.is_enabled !== false).length
+      enabledConnectionsCount = connections.filter((c: any) => isTruthyFlag(c.is_enabled)).length
 
       const bingxCandidates = connections.filter((c: any) => (c.exchange || "").toLowerCase() === "bingx")
       const canonicalBingx = connections.find((c: any) => c.id === "bingx-x01")

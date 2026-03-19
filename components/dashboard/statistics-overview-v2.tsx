@@ -68,6 +68,15 @@ export function StatisticsOverviewV2({ connections }: StatisticsOverviewV2Props)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const toNumber = (value: unknown, fallback = 0): number => {
+    if (typeof value === "number" && Number.isFinite(value)) return value
+    if (typeof value === "string") {
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : fallback
+    }
+    return fallback
+  }
+
   useEffect(() => {
     loadStatistics()
     const interval = setInterval(loadStatistics, 15000)
@@ -194,7 +203,18 @@ export function StatisticsOverviewV2({ connections }: StatisticsOverviewV2Props)
       const symbolResponse = await fetch("/api/exchange-positions/symbols-stats")
       if (symbolResponse.ok) {
         const symbolData = await symbolResponse.json()
-        setSymbols((symbolData.symbols || []).slice(0, 22))
+        const normalizedSymbols: SymbolStats[] = (symbolData.symbols || []).slice(0, 22).map((s: any) => ({
+          symbol: String(s?.symbol || "UNKNOWN"),
+          livePositions: toNumber(s?.livePositions ?? s?.openPositions, 0),
+          profitFactor250: toNumber(s?.profitFactor250, 0),
+          profitFactor50: toNumber(s?.profitFactor50, 0),
+        }))
+
+        if ((symbolData.symbols || []).length > 0 && normalizedSymbols.some((s) => Number.isNaN(s.livePositions))) {
+          console.warn("[v0] [Statistics] Malformed symbols payload detected", symbolData)
+        }
+
+        setSymbols(normalizedSymbols)
       }
 
       setLoading(false)
@@ -225,7 +245,7 @@ export function StatisticsOverviewV2({ connections }: StatisticsOverviewV2Props)
         {performance && (
           <div className="space-y-3 pb-4 border-b">
             <div className="text-sm font-semibold text-muted-foreground">Performance Metrics</div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               {/* Last 250 Positions */}
               <div className="rounded-lg border bg-card p-3 space-y-1">
                 <div className="text-xs text-muted-foreground">Last 250 Positions</div>
@@ -307,7 +327,7 @@ export function StatisticsOverviewV2({ connections }: StatisticsOverviewV2Props)
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-3 pt-2 text-xs">
+                <div className="grid grid-cols-2 gap-3 pt-2 text-xs md:grid-cols-4">
                   <div className="flex flex-col">
                     <span className="text-muted-foreground text-xs">Win Rate</span>
                     <span className="font-semibold text-sm">{(strategy.winRate * 100).toFixed(1)}%</span>
@@ -375,7 +395,7 @@ export function StatisticsOverviewV2({ connections }: StatisticsOverviewV2Props)
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 pt-2 text-xs">
+                <div className="grid grid-cols-2 gap-3 pt-2 text-xs md:grid-cols-3">
                   <div className="flex flex-col">
                     <span className="text-muted-foreground text-xs">Signal Strength</span>
                     <span className={`font-semibold text-sm ${indication.avgSignalStrength >= 0.7 ? "text-green-600" : indication.avgSignalStrength >= 0.4 ? "text-yellow-600" : "text-red-600"}`}>
@@ -401,15 +421,15 @@ export function StatisticsOverviewV2({ connections }: StatisticsOverviewV2Props)
         {/* SYMBOLS - Live positions and metrics */}
         {symbols.length > 0 && (
           <div className="space-y-2">
-            <div className="text-sm font-semibold text-muted-foreground">Symbols ({symbols.length})</div>
-            <div className="grid gap-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+            <div className="text-sm font-semibold text-muted-foreground">Symbols Overview ({symbols.length})</div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
               {symbols.map((symbol) => (
-                <div key={symbol.symbol} className="rounded-lg border bg-card p-2 text-center hover:bg-card/80 transition-colors">
-                  <div className="font-semibold text-xs">{symbol.symbol}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
+                <div key={symbol.symbol} className="rounded-lg border bg-card px-2 py-2 text-center hover:bg-card/80 transition-colors min-w-0">
+                  <div className="font-semibold text-xs truncate" title={symbol.symbol}>{symbol.symbol}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">
                     {symbol.livePositions} live
                   </div>
-                  <div className="text-xs mt-1">
+                  <div className="text-[11px] mt-1 leading-tight">
                     <div className={symbol.profitFactor250 >= 1.5 ? "text-green-600" : symbol.profitFactor250 >= 1.0 ? "text-blue-600" : "text-red-600"}>
                       PF250: {symbol.profitFactor250.toFixed(1)}
                     </div>

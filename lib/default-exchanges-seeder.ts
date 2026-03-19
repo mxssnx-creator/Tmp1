@@ -1,22 +1,21 @@
 import { createConnection, deleteConnection, getAllConnections, getConnection, initRedis, updateConnection } from "@/lib/redis-db"
+import { getBaseConnectionCredentials, type BaseConnectionId } from "@/lib/base-connection-credentials"
 
 type BaseSeedConfig = {
-  id: string
+  id: BaseConnectionId
   exchange: string
   name: string
   apiType: string
   contractType: string
   connectionMethod: string
   connectionLibrary: string
-  envKey: string
-  envSecret: string
 }
 
 const CANONICAL_BASE_CONNECTIONS: BaseSeedConfig[] = [
-  { id: "bybit-x03", exchange: "bybit", name: "Bybit X03", apiType: "unified", contractType: "linear", connectionMethod: "library", connectionLibrary: "native", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET" },
-  { id: "bingx-x01", exchange: "bingx", name: "BingX X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET" },
-  { id: "pionex-x01", exchange: "pionex", name: "Pionex X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native", envKey: "PIONEX_API_KEY", envSecret: "PIONEX_API_SECRET" },
-  { id: "orangex-x01", exchange: "orangex", name: "OrangeX X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native", envKey: "ORANGEX_API_KEY", envSecret: "ORANGEX_API_SECRET" },
+  { id: "bybit-x03", exchange: "bybit", name: "Bybit X03", apiType: "unified", contractType: "linear", connectionMethod: "library", connectionLibrary: "native" },
+  { id: "bingx-x01", exchange: "bingx", name: "BingX X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native" },
+  { id: "pionex-x01", exchange: "pionex", name: "Pionex X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native" },
+  { id: "orangex-x01", exchange: "orangex", name: "OrangeX X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native" },
 ]
 
 const LEGACY_CONNECTION_IDS = [
@@ -28,11 +27,6 @@ const LEGACY_CONNECTION_IDS = [
   "bingx-default-disabled",
 ]
 
-function readCredentialEnv(name: string): string {
-  const raw = process.env[name] || ""
-  return raw.trim().replace(/^['\"]|['\"]$/g, "")
-}
-
 /**
  * Backward-compatible entrypoint. Ensures canonical base connections only.
  */
@@ -41,8 +35,8 @@ export async function seedDefaultExchanges() {
 }
 
 /**
- * Ensures canonical base connections exist and injects env credentials when available.
- * Also removes legacy `*-base` / `*-default-disabled` duplicates that caused blank BingX entries.
+ * Ensures canonical base connections exist and injects predefined real credentials.
+ * Also removes legacy `*-base` / `*-default-disabled` duplicates that caused blank/duplicated entries.
  */
 export async function ensureDefaultExchangesExist() {
   await initRedis()
@@ -51,10 +45,10 @@ export async function ensureDefaultExchangesExist() {
     let removedLegacy = 0
     let created = 0
     let updated = 0
-    let credentialsInjected = 0
+      let credentialsApplied = 0
 
     const allConnections = await getAllConnections()
-    const existingIds = new Set((allConnections || []).map((c: any) => c.id))
+      const existingIds = new Set((allConnections || []).map((c: any) => c.id as string))
 
     for (const legacyId of LEGACY_CONNECTION_IDS) {
       if (existingIds.has(legacyId)) {
@@ -67,9 +61,8 @@ export async function ensureDefaultExchangesExist() {
       const now = new Date().toISOString()
       const existing = await getConnection(cfg.id)
 
-      const apiKey = readCredentialEnv(cfg.envKey)
-      const apiSecret = readCredentialEnv(cfg.envSecret)
-      const hasEnvCreds = apiKey.length > 10 && apiSecret.length > 10
+        const { apiKey, apiSecret } = getBaseConnectionCredentials(cfg.id)
+        const hasConfiguredCreds = apiKey.length > 0 && apiSecret.length > 0
 
       const normalizedBase = {
         id: cfg.id,
@@ -92,12 +85,12 @@ export async function ensureDefaultExchangesExist() {
         updated_at: now,
       } as Record<string, any>
 
-      if (hasEnvCreds) {
-        normalizedBase.api_key = apiKey
-        normalizedBase.api_secret = apiSecret
-      } else {
-        normalizedBase.api_key = existing?.api_key || ""
-        normalizedBase.api_secret = existing?.api_secret || ""
+        if (hasConfiguredCreds) {
+          normalizedBase.api_key = apiKey
+          normalizedBase.api_secret = apiSecret
+        } else {
+          normalizedBase.api_key = existing?.api_key || ""
+          normalizedBase.api_secret = existing?.api_secret || ""
       }
 
       if (!existing) {
@@ -108,21 +101,21 @@ export async function ensureDefaultExchangesExist() {
         updated++
       }
 
-      if (hasEnvCreds) {
-        credentialsInjected++
+        if (hasConfiguredCreds) {
+          credentialsApplied++
+        }
       }
-    }
 
-    console.log(
-      `[v0] [BaseSeed] canonical ensured created=${created} updated=${updated} legacyRemoved=${removedLegacy} credentialsInjected=${credentialsInjected}`,
-    )
+      console.log(
+        `[v0] [BaseSeed] canonical ensured created=${created} updated=${updated} legacyRemoved=${removedLegacy} credentialsApplied=${credentialsApplied}`,
+      )
 
     return {
       success: true,
       created,
       updated,
       removedLegacy,
-      credentialsInjected,
+        credentialsApplied,
     }
   } catch (error) {
     console.error("[v0] [BaseSeed] ensure failed:", error)

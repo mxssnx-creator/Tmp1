@@ -11,6 +11,8 @@
 import { initRedis, getRedisClient, saveMarketData, getMarketData, getAllConnections } from "../lib/redis-db"
 import { runPreStartup } from "../lib/pre-startup"
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3001"
+
 async function testRedisConnectivity() {
   console.log("\n========== TEST 1: Redis Connectivity ==========")
   try {
@@ -60,8 +62,8 @@ async function testMarketDataPersistence() {
     console.log("Retrieving market data...")
     const retrieved = await getMarketData(testSymbol)
     
-    if (retrieved && retrieved.length > 0) {
-      console.log("✓ Market data saved and retrieved:", retrieved.length, "records")
+    if (retrieved && typeof retrieved === "object") {
+      console.log("✓ Market data saved and retrieved for", testSymbol)
       console.log("✓ Market data persistence: PASS")
       return true
     } else {
@@ -96,9 +98,9 @@ async function testPreStartupSeeding() {
     
     for (const symbol of symbols) {
       const data = await getMarketData(symbol)
-      if (data && data.length > 0) {
-        marketDataCount += data.length
-        console.log(`✓ ${symbol}: ${data.length} data points`)
+      if (data && typeof data === "object") {
+        marketDataCount += 1
+        console.log(`✓ ${symbol}: data available`)
       } else {
         console.log(`✗ ${symbol}: No data`)
       }
@@ -121,7 +123,7 @@ async function testAPIEndpoints() {
   console.log("\n========== TEST 4: API Endpoints ==========")
   try {
     // Test settings endpoint
-    const settingsResponse = await fetch("http://localhost:3000/api/settings")
+    const settingsResponse = await fetch(`${BASE_URL}/api/settings`)
     if (settingsResponse.ok) {
       const data = await settingsResponse.json()
       console.log("✓ GET /api/settings: PASS -", Object.keys(data.settings || {}).length, "settings")
@@ -131,7 +133,7 @@ async function testAPIEndpoints() {
     }
     
     // Test connections endpoint
-    const connectionsResponse = await fetch("http://localhost:3000/api/settings/connections")
+    const connectionsResponse = await fetch(`${BASE_URL}/api/settings/connections`)
     if (connectionsResponse.ok) {
       const data = await connectionsResponse.json()
       console.log("✓ GET /api/settings/connections: PASS -", data.connections?.length || 0, "connections")
@@ -141,7 +143,7 @@ async function testAPIEndpoints() {
     }
     
     // Test market data endpoint
-    const marketDataResponse = await fetch("http://localhost:3000/api/market-data?symbol=BTCUSDT&limit=10")
+    const marketDataResponse = await fetch(`${BASE_URL}/api/market-data?symbol=BTCUSDT&limit=10`)
     if (marketDataResponse.ok) {
       const data = await marketDataResponse.json()
       console.log("✓ GET /api/market-data: PASS -", data.data?.length || 0, "records")

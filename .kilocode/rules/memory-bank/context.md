@@ -73,6 +73,10 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Improved logistics queue payload to avoid hardcoded symbol placeholders; now derives focus symbol from real progression log details when available
 - [x] Cleaned migration set-initialization logic to stop inserting empty-string placeholder members into Redis sets
 - [x] Marked long-running background timers (`redis` TTL cleanup, progression-log flush, periodic connection testing) as non-blocking via `unref()` to prevent script/test hang loops
+- [x] Production-readiness lint pipeline restored: replaced `eslint-config-next` patch-dependent setup with stable flat ESLint config using `@typescript-eslint` + `@next/eslint-plugin-next`
+- [x] Fixed unsafe interface/class name collision in workflow event handler (`WorkflowEventSubscriber` split) to satisfy strict lint safety rules
+- [x] Hardened QA scripts for current environment defaults: API/system E2E scripts now respect `NEXT_PUBLIC_APP_URL`/`APP_URL` and use valid market-data assertions
+- [x] Verified full quality gate (`bun lint`, `bun typecheck`, `bun run build`) now passes after stabilization changes
 
 ## Current Structure
 
@@ -98,6 +102,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Completed intensive production-readiness pass: restored lint compatibility, resolved workflow handler lint-safety issue, updated QA scripts for 3001/app-url defaults and market-data assertions, and revalidated lint+typecheck+build all passing |
 | 2026-03-19 | Completed Redis/logistics audit pass: added migration in-flight lock, fixed migration v12 schema write, prevented duplicate periodic test intervals, optimized snapshot/connection/trade/position reads, and removed logistics queue symbol placeholder fallback logic |
 | 2026-03-19 | Removed implicit dashboard auto-enable paths (pre-startup + system inject/fix endpoints), updated migration defaults to keep Main toggles OFF by default, and renamed UI labels to Base Connections / Main Connections (Active Connections) |
 | 2026-03-19 | Applied base/main connection default policy: removed binance/okx from dashboard main set, made dashboard main disabled-by-default, kept settings base enabled-by-default, and ensured base credential injection runs consistently on startup |

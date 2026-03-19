@@ -39,7 +39,7 @@ async function runAPITests() {
   console.log("API FUNCTIONALITY TEST SUITE")
   console.log("=".repeat(60))
   
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3001"
   
   const tests = [
     // Settings API

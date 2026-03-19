@@ -140,7 +140,7 @@ async function runExchangeTests() {
   console.log("EXCHANGE CONNECTOR TEST SUITE")
   console.log("=".repeat(60))
   console.log("\nNote: Set API credentials in environment variables to test live connections")
-  console.log("Example: BYBIT_API_KEY=xxx BYBIT_API_SECRET=yyy npm run test:exchanges\n")
+  console.log("Example: BYBIT_API_KEY=xxx BYBIT_API_SECRET=yyy bun scripts/test-exchange-connectors.ts\n")
   
   // Test Bybit
   await testExchangeConnection(

@@ -89,7 +89,7 @@ export function DashboardActiveConnectionsManager() {
         const isEnabledDashboard =
           toBoolean(conn.is_enabled_dashboard)
 
-        if (isBase && isActiveInserted) {
+        if (isBase || isActiveInserted || isEnabledDashboard) {
           if (seenIds.has(conn.id)) continue
           seenIds.add(conn.id)
           activeConns.push({
@@ -97,7 +97,7 @@ export function DashboardActiveConnectionsManager() {
             connectionId: conn.id,
             exchangeName: conn.exchange ? conn.exchange.charAt(0).toUpperCase() + conn.exchange.slice(1) : "Unknown",
             isActive: isEnabledDashboard, // Dashboard toggle state
-            isBaseEnabled: true,
+            isBaseEnabled: isBase,
             addedAt: conn.created_at || new Date().toISOString(),
             details: conn,
           })
@@ -159,10 +159,6 @@ export function DashboardActiveConnectionsManager() {
     }
   }, [])
 
-  useEffect(() => {
-    console.log(`[v0] [Manager] Component loaded - ${VERSION}`)
-  }, [])
-
   const handleToggle = async (connectionId: string, currentState: boolean) => {
     const newState = !currentState
     
@@ -185,16 +181,13 @@ export function DashboardActiveConnectionsManager() {
     try {
       console.log(`[v0] [Manager] ${newState ? "ENABLING" : "DISABLING"} ${connName}...`)
       
-      // 1. Toggle active state via API (also remove from dashboard permanently if disabling)
+      // 1. Toggle active state via API while keeping insertion state stable
       console.log(`[v0] [Manager] → Calling toggle-dashboard API...`)
       const toggleRes = await fetch(`/api/settings/connections/${connectionId}/toggle-dashboard`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           is_enabled_dashboard: newState,
-          // If disabling, also remove from dashboard permanently (is_dashboard_inserted = "0")
-          // If enabling, keep dashboard_inserted as is
-          ...(newState ? {} : { is_dashboard_inserted: "0" })
         }),
         cache: "no-store"
       })

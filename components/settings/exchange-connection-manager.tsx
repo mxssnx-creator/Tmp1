@@ -454,6 +454,7 @@ export default function ExchangeConnectionManager() {
 
   // Default exchanges to display
   const DEFAULT_EXCHANGES = ["bybit", "bingx", "pionex", "orangex"]
+  const toBoolean = (value: unknown): boolean => value === true || value === 1 || value === "1" || value === "true"
 
   // Separate predefined (templates) from user-created connections
   const predefinedConnections = connections.filter((c: any) => c.is_predefined === true || c.is_predefined === "1")
@@ -462,11 +463,10 @@ export default function ExchangeConnectionManager() {
   // For display: show user-created connections + base inserted connections
   const displayedConnections = connections.filter((c: any) => {
     const exch = (c.exchange || "").toLowerCase()
-    // Show if user-created OR if it's a base exchange that's been inserted
+    // Show if user-created OR any base exchange connection (keep all 4 base visible consistently)
     const isUserCreated = !(c.is_predefined === true || c.is_predefined === "1")
-    const isInserted = c.is_active_inserted === true || c.is_active_inserted === "1"
     const isBase = exch === "bybit" || exch === "bingx" || exch === "pionex" || exch === "orangex"
-    return isUserCreated || (isBase && isInserted)
+    return isUserCreated || isBase
   })
 
   const loadConnections = async () => {
@@ -499,12 +499,12 @@ export default function ExchangeConnectionManager() {
         })
         .map((c: any) => ({
           ...c,
-          is_enabled: Boolean(c.is_enabled),
-          is_testnet: Boolean(c.is_testnet),
-          is_live_trade: Boolean(c.is_live_trade),
-          is_preset_trade: Boolean(c.is_preset_trade),
-          is_active: Boolean(c.is_active),
-          is_predefined: Boolean(c.is_predefined),
+          is_enabled: toBoolean(c.is_enabled),
+          is_testnet: toBoolean(c.is_testnet),
+          is_live_trade: toBoolean(c.is_live_trade),
+          is_preset_trade: toBoolean(c.is_preset_trade),
+          is_active: toBoolean(c.is_active),
+          is_predefined: toBoolean(c.is_predefined),
           volume_factor: typeof c.volume_factor === "number" ? c.volume_factor : 1,
           margin_type: c.margin_type || "cross",
           position_mode: c.position_mode || "hedge",

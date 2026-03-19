@@ -593,6 +593,68 @@ const migrations: Migration[] = [
   },
 ]
 
+const BASE_CONNECTION_CONFIG: Array<{
+  id: string
+  name: string
+  exchange: string
+  envKey: string
+  envSecret: string
+  autoActive: boolean
+}> = [
+  { id: "bybit-x03", name: "Bybit Base", exchange: "bybit", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET", autoActive: true },
+  { id: "bingx-x01", name: "BingX Base", exchange: "bingx", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET", autoActive: true },
+  { id: "pionex-x01", name: "Pionex Base", exchange: "pionex", envKey: "PIONEX_API_KEY", envSecret: "PIONEX_API_SECRET", autoActive: false },
+  { id: "orangex-x01", name: "OrangeX Base", exchange: "orangex", envKey: "ORANGEX_API_KEY", envSecret: "ORANGEX_API_SECRET", autoActive: false },
+]
+
+async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: number; credentialsInjected: number }> {
+  let createdOrUpdated = 0
+  let credentialsInjected = 0
+
+  for (const cfg of BASE_CONNECTION_CONFIG) {
+    const now = new Date().toISOString()
+    const existing = await client.hgetall(`connection:${cfg.id}`)
+    const hasExisting = existing && Object.keys(existing).length > 0
+
+    const apiKey = process.env[cfg.envKey] || ""
+    const apiSecret = process.env[cfg.envSecret] || ""
+    const hasRealCredentials = apiKey.length > 10 && apiSecret.length > 10
+
+    const updateData: Record<string, string> = {
+      id: cfg.id,
+      name: (existing?.name as string) || cfg.name,
+      exchange: (existing?.exchange as string) || cfg.exchange,
+      is_predefined: "0",
+      is_inserted: (existing?.is_inserted as string) || "1",
+      is_dashboard_inserted: (existing?.is_dashboard_inserted as string) || "1",
+      is_active_inserted: cfg.autoActive ? "1" : ((existing?.is_active_inserted as string) || "0"),
+      is_enabled: (existing?.is_enabled as string) || "0",
+      is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+      is_active: (existing?.is_active as string) || "0",
+      connection_method: (existing?.connection_method as string) || "library",
+      connection_library: (existing?.connection_library as string) || "native",
+      api_type: (existing?.api_type as string) || "perpetual_futures",
+      updated_at: now,
+      created_at: (existing?.created_at as string) || now,
+    }
+
+    if (hasRealCredentials) {
+      updateData.api_key = apiKey
+      updateData.api_secret = apiSecret
+      credentialsInjected++
+    } else if (!hasExisting) {
+      updateData.api_key = ""
+      updateData.api_secret = ""
+    }
+
+    await client.hset(`connection:${cfg.id}`, updateData)
+    await client.sadd("connections", cfg.id)
+    createdOrUpdated++
+  }
+
+  return { createdOrUpdated, credentialsInjected }
+}
+
 /**
  * Run all pending migrations
  */
@@ -618,44 +680,8 @@ export async function runMigrations(): Promise<{ success: boolean; message: stri
     
     if (pendingMigrations.length === 0) {
       console.log(`[v0] [Migrations] Already at latest version ${finalVersion}`)
-      
-      // AUTO-FIX: Still ensure base connections are configured (handles env var addition after initial migration)
-      const baseConnections = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"]
-      const envMappings: Record<string, { key: string; secret: string }> = {
-        "bingx-x01": { key: "BINGX_API_KEY", secret: "BINGX_API_SECRET" },
-        "bybit-x03": { key: "BYBIT_API_KEY", secret: "BYBIT_API_SECRET" },
-        "pionex-x01": { key: "PIONEX_API_KEY", secret: "PIONEX_API_SECRET" },
-        "orangex-x01": { key: "ORANGEX_API_KEY", secret: "ORANGEX_API_SECRET" },
-      }
-      
-      let credentialsInjected = 0
-      for (const connId of baseConnections) {
-        const mapping = envMappings[connId]
-        if (mapping) {
-          const apiKey = process.env[mapping.key] || ""
-          const apiSecret = process.env[mapping.secret] || ""
-          if (apiKey.length > 10 && apiSecret.length > 10) {
-            // Check if credentials already exist
-            const existing = await client.hget(`connection:${connId}`, "api_key")
-            if (!existing || existing.length < 10 || existing !== apiKey) {
-              await client.hset(`connection:${connId}`, {
-                api_key: apiKey,
-                api_secret: apiSecret,
-                is_active_inserted: "1",
-                is_enabled: "1",
-                is_enabled_dashboard: "1",
-                connection_method: "library",
-                updated_at: new Date().toISOString(),
-              })
-              console.log(`[v0] [Migrations] Auto-injected ${connId} credentials from environment`)
-              credentialsInjected++
-            }
-          }
-        }
-      }
-      if (credentialsInjected > 0) {
-        console.log(`[v0] [Migrations] ✓ Injected credentials for ${credentialsInjected} connections`)
-      }
+      const ensured = await ensureBaseConnections(client)
+      console.log(`[v0] [Migrations] ✓ Ensured ${ensured.createdOrUpdated} base connections; injected credentials for ${ensured.credentialsInjected}`)
       
       await setMigrationsRun()
       return { success: true, message: `Already at latest version ${finalVersion}`, version: finalVersion }
@@ -689,40 +715,8 @@ export async function runMigrations(): Promise<{ success: boolean; message: stri
     const finalVersionCheck = await client.get("_schema_version")
     console.log(`[v0] [Migrations] ✓ Verification: Schema version is now ${finalVersionCheck}`)
     
-    // AUTO-FIX: Ensure base connections are properly configured with credentials from env
-    const baseConnections = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"]
-    const envMappings: Record<string, { key: string; secret: string }> = {
-      "bingx-x01": { key: "BINGX_API_KEY", secret: "BINGX_API_SECRET" },
-      "bybit-x03": { key: "BYBIT_API_KEY", secret: "BYBIT_API_SECRET" },
-      "pionex-x01": { key: "PIONEX_API_KEY", secret: "PIONEX_API_SECRET" },
-      "orangex-x01": { key: "ORANGEX_API_KEY", secret: "ORANGEX_API_SECRET" },
-    }
-    
-    for (const connId of baseConnections) {
-      const updateData: Record<string, string> = {
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
-        connection_method: "library",
-        updated_at: new Date().toISOString(),
-      }
-      
-      // Check for env credentials
-      const mapping = envMappings[connId]
-      if (mapping) {
-        const apiKey = process.env[mapping.key] || ""
-        const apiSecret = process.env[mapping.secret] || ""
-        if (apiKey.length > 10 && apiSecret.length > 10) {
-          updateData.api_key = apiKey
-          updateData.api_secret = apiSecret
-          console.log(`[v0] [Migrations] Injecting ${connId} credentials from environment`)
-        }
-      }
-      
-      await client.hset(`connection:${connId}`, updateData)
-    }
-    console.log(`[v0] [Migrations] ✓ Auto-fixed ${baseConnections.length} base connections`)
+    const ensured = await ensureBaseConnections(client)
+    console.log(`[v0] [Migrations] ✓ Ensured ${ensured.createdOrUpdated} base connections; injected credentials for ${ensured.credentialsInjected}`)
     
     // Mark migrations as run in this process
     await setMigrationsRun()

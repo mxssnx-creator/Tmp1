@@ -69,6 +69,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     
     if (is_enabled_dashboard !== undefined) {
       updatedConnection.is_enabled_dashboard = is_enabled_dashboard
+      updatedConnection.is_dashboard_inserted = "1"
       
       // CRITICAL: When toggling on/off in dashboard, also manage is_enabled + is_inserted for engine filter
       // getInsertedAndEnabledConnections() requires BOTH is_inserted="1" AND is_enabled="1"
@@ -76,16 +77,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         // Toggle ON: Set all flags so engine's coordinator finds this connection
         updatedConnection.is_enabled = "1"
         updatedConnection.is_inserted = "1"
+        updatedConnection.is_active_inserted = "1"
         updatedConnection.is_active = "1"
         engineAction = "start"
         console.log(`[v0] [Toggle] ENABLING: is_enabled=1, is_inserted=1 (engine will process this connection)`)
       } else {
         // Toggle OFF: Clear flags so engine stops processing
         updatedConnection.is_enabled = "0"
-        updatedConnection.is_inserted = "0"
+        // Keep insertion state stable to prevent disappearing cards and count flicker
+        updatedConnection.is_inserted = updatedConnection.is_inserted || "1"
         updatedConnection.is_active = "0"
         engineAction = "stop"
-        console.log(`[v0] [Toggle] DISABLING: is_enabled=0, is_inserted=0 (engine will stop processing)`)
+        console.log(`[v0] [Toggle] DISABLING: is_enabled=0, is_inserted preserved (engine will stop processing)`)
       }
     }
 

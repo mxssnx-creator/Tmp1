@@ -44,9 +44,10 @@ export async function GET(request: NextRequest) {
       const shouldBeActive = ACTIVE_AUTO_INSERTED.includes(exch)
       const activeInserted = c.is_active_inserted === "1" || c.is_active_inserted === true
       const needsActiveSet = shouldBeActive && !activeInserted
-      const needsActiveReset = !shouldBeActive && activeInserted
-      
-      if (needsActiveSet || needsActiveReset) {
+
+      // Only auto-set required defaults; do not auto-reset other exchanges on each request.
+      // Resetting here causes unstable counts/visibility across dashboard and settings.
+      if (needsActiveSet) {
         connectionsNeedingUpdate.push({ connection: c, shouldBeActive })
       }
     }
@@ -58,10 +59,12 @@ export async function GET(request: NextRequest) {
         await updateConnection(c.id, {
           ...c,
           is_active_inserted: newValue,
+          is_inserted: c.is_inserted || "1",
+          is_dashboard_inserted: c.is_dashboard_inserted || "1",
           updated_at: new Date().toISOString(),
         })
         migratedCount++
-        console.log(`[v0] [API] [Connections] ${API_VERSION}: ${c.exchange}: is_active_inserted=${shouldBeActive ? "SET to 1" : "RESET to 0"}`)
+        console.log(`[v0] [API] [Connections] ${API_VERSION}: ${c.exchange}: is_active_inserted=SET to 1`)
       }
       console.log(`[v0] [API] [Connections] ${API_VERSION}: Updated ${migratedCount} connections`)
       // Reload after updates

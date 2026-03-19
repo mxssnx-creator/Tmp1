@@ -45,6 +45,11 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Verified migrations run automatically on startup via `runPreStartup()` -> `runMigrations()` workflow
 - [x] Repaired sidebar regressions for top title and footer auth visibility by removing conflicting global CSS overrides and restoring consistent menu-button classes
 - [x] Re-enabled startup execution path in `instrumentation.ts` so `runPreStartup()` (and Redis migrations) runs automatically in Node runtime
+- [x] Fixed unstable dashboard/settings connection visibility workflow that caused appearing/disappearing cards and mismatched counts
+- [x] Normalized boolean parsing for connection flags (`"0"/"1"/"true"`) in state and settings managers to prevent false-positive enabled states
+- [x] Stabilized dashboard toggle workflow to preserve insertion state (`is_inserted`/`is_dashboard_inserted`) while only toggling processing enablement
+- [x] Updated connections API migration behavior to stop auto-resetting non-auto exchanges on every GET request
+- [x] Hardened Redis migration auto-fix to deterministically ensure 4 base connections exist in the `connections` set and inject real env credentials when available
 
 ## Current Structure
 
@@ -70,6 +75,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Resolved connection count/display switching: aligned dashboard/settings filters, removed destructive toggle resets, normalized bool parsing, and made base connection + env credential provisioning deterministic |
 | 2026-03-19 | Fixed sidebar top/footer rendering regression and re-enabled startup instrumentation to execute pre-startup migrations automatically |
 | 2026-03-19 | Fixed sidemenu styling issues by adding sidebar CSS variables; created `.env.local` with real BingX API credentials; verified migrations run on startup via pre-startup workflow |
 | 2026-03-19 | Completed comprehensive type/workflow stabilization pass: fixed engine/verifier/Redis/UI/script contract mismatches, normalized boolean handling, and achieved clean `bun typecheck` |

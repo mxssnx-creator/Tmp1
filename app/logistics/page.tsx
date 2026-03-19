@@ -40,6 +40,44 @@ interface SystemStatus {
   lastUpdate: string
 }
 
+interface WorkflowPhase {
+  id: string
+  label: string
+  status: "complete" | "warning" | "pending"
+  detail: string
+}
+
+interface QueueData {
+  queueSize: number
+  processingRate: number
+  successRate: number
+  avgLatency: number
+  completedOrders: number
+  failedOrders: number
+  maxLatency: number
+  throughput: number
+  workflow?: WorkflowPhase[]
+  focusConnection?: {
+    id: string
+    name: string
+    exchange: string
+    hasCredentials: boolean
+    isActivePanel: boolean
+    isDashboardEnabled: boolean
+    liveTradeEnabled: boolean
+    presetTradeEnabled: boolean
+    testStatus: string
+  } | null
+  progression?: {
+    cyclesCompleted: number
+    successfulCycles: number
+    failedCycles: number
+    cycleSuccessRate: number
+    totalTrades: number
+    totalProfit: number
+  } | null
+}
+
 const defaultStatus: SystemStatus = {
   initializationProgress: 0,
   currentPhase: "Initializing",
@@ -158,6 +196,86 @@ function RealTimeActivity({ systemStatus }: { systemStatus: SystemStatus }) {
               <div className="text-sm text-muted-foreground">Pseudo Positions</div>
               <div className="text-2xl font-bold">{systemStatus.pseudoPositionsCreated}</div>
             </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function WorkflowPhaseCard({ queueData }: { queueData: QueueData | null }) {
+  if (!queueData?.workflow?.length) return null
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CheckCircle2 className="h-5 w-5" />
+          Quickstart Workflow
+        </CardTitle>
+        <CardDescription>Live readiness state for logistics, processing, and engine activation</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {queueData.workflow.map((phase) => (
+          <div key={phase.id} className="flex items-start justify-between gap-4 rounded-lg border p-3">
+            <div>
+              <div className="font-medium">{phase.label}</div>
+              <div className="text-sm text-muted-foreground">{phase.detail}</div>
+            </div>
+            <Badge
+              variant={phase.status === "complete" ? "default" : phase.status === "warning" ? "secondary" : "outline"}
+              className="shrink-0"
+            >
+              {phase.status}
+            </Badge>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+function FocusConnectionCard({ queueData }: { queueData: QueueData | null }) {
+  if (!queueData?.focusConnection) return null
+
+  const focus = queueData.focusConnection
+  const progression = queueData.progression
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Zap className="h-5 w-5" />
+          Focus Connection
+        </CardTitle>
+        <CardDescription>Primary connection driving current logistics and progression visibility</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <div className="text-sm text-muted-foreground">Connection</div>
+          <div className="font-semibold">{focus.name}</div>
+          <div className="text-xs text-muted-foreground uppercase">{focus.exchange}</div>
+        </div>
+        <div>
+          <div className="text-sm text-muted-foreground">Connection State</div>
+          <div className="font-semibold">{focus.testStatus}</div>
+          <div className="text-xs text-muted-foreground">
+            Credentials: {focus.hasCredentials ? "Configured" : "Missing"}
+          </div>
+        </div>
+        <div>
+          <div className="text-sm text-muted-foreground">Progression</div>
+          <div className="font-semibold">{progression?.cyclesCompleted || 0} cycles</div>
+          <div className="text-xs text-muted-foreground">
+            Success rate: {Math.round(progression?.cycleSuccessRate || 0)}%
+          </div>
+        </div>
+        <div>
+          <div className="text-sm text-muted-foreground">Processing Flags</div>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Badge variant={focus.isActivePanel ? "default" : "outline"}>Active Panel</Badge>
+            <Badge variant={focus.isDashboardEnabled ? "default" : "outline"}>Dashboard Enabled</Badge>
+            <Badge variant={focus.liveTradeEnabled ? "default" : "outline"}>Live Trade</Badge>
           </div>
         </div>
       </CardContent>
@@ -445,7 +563,7 @@ export default function LogisticsPage() {
   const [activeTab, setActiveTab] = useState("main")
   const [systemStatus, setSystemStatus] = useState<SystemStatus>(defaultStatus)
   const [loading, setLoading] = useState(true)
-  const [queueData, setQueueData] = useState<any>(null)
+  const [queueData, setQueueData] = useState<QueueData | null>(null)
 
   const fetchSystemStatus = useCallback(async () => {
     try {
@@ -519,6 +637,8 @@ export default function LogisticsPage() {
         <main className="flex-1 space-y-6 p-6">
           <StatusCards systemStatus={systemStatus} />
           <RealTimeActivity systemStatus={systemStatus} />
+          <WorkflowPhaseCard queueData={queueData} />
+          <FocusConnectionCard queueData={queueData} />
 
           {/* Order Queue Logistics */}
           {queueData && (

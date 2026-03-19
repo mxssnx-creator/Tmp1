@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { initRedis, getAllConnections, getRedisClient, getRedisRequestsPerSecond } from "@/lib/redis-db"
+import { getDashboardWorkflowSnapshot } from "@/lib/dashboard-workflow"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -134,6 +135,8 @@ export async function GET() {
       connectionsWithCredentials.length > 0 ? "healthy" :
       insertedBaseConnections.length > 0 ? "waiting" :
       baseConnections.length > 0 ? "partial" : "down"
+
+    const workflow = await getDashboardWorkflowSnapshot()
     
     console.log(`[v0] [SystemStats] Response: exchangeConnections.total=${insertedBaseConnections.length}, debug: base=${baseConnections.length}, enabled=${enabledBase.length}, inserted=${insertedBaseConnections.length}`)
     
@@ -181,6 +184,18 @@ export async function GET() {
         lastHour: 0,
         topConnections: [],
       },
+      cycleStats: {
+        cycleCount: workflow.connectionMetrics.progression?.cyclesCompleted || 0,
+        indicationCycles: workflow.connectionMetrics.progression?.cyclesCompleted || 0,
+        strategyCycles: workflow.connectionMetrics.progression?.successfulCycles || 0,
+        cycleDurationMs: workflow.connectionMetrics.progression?.cycleSuccessRate
+          ? Math.max(150, 1000 - workflow.connectionMetrics.progression.cycleSuccessRate * 5)
+          : 0,
+      },
+      totalPositions: workflow.connectionMetrics.positions,
+      totalTrades: workflow.connectionMetrics.trades,
+      workflowOverview: workflow.overview,
+      workflowPhases: workflow.workflowPhases,
       // DEBUG: Help understand what's being counted
       _debug: {
         baseConnectionsTotal: baseConnections.length,

@@ -25,6 +25,9 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Stabilized engine status/progression workflow using Redis-backed connection and progression sources
 - [x] Updated live trading progression UI to consume normalized API payloads instead of invalid route responses
 - [x] Hardened `SystemLogger` compatibility for mixed legacy/new call signatures used by engine routes
+- [x] Added shared dashboard workflow snapshot service for logistics, quickstart readiness, and engine visibility
+- [x] Reworked logistics, detailed logs, and system stats endpoints to return coherent empty-state and progression data
+- [x] Connected logistics UI to workflow phases and focus-connection progression details
 
 ## Current Structure
 
@@ -44,11 +47,13 @@ Current focus is runtime correctness for the recovered CTS application and triag
 - Sandbox preview routing still needs to target the real app process instead of the placeholder service on port `3000`
 - `bun run typecheck` still reports extensive upstream contract/type issues outside the current build-critical path
 - `bun run lint` reports many upstream code-quality violations that were already present in the restored branch
+- Quickstart still requires real configured exchange credentials and at least one inserted connection to execute live engine work
 
 ## Session History
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Integrated logistics, quickstart-readiness workflow, detailed engine logs, and dashboard system stats into one normalized workflow snapshot |
 | 2026-03-19 | Stabilized trade engine progression/status/logging flow and verified engine APIs return correct empty-state workflow responses |
 | 2026-03-19 | Restored required providers for app pages and fixed prerender workflow so `bun run build` completes successfully |
 | 2026-03-19 | Fixed dev loading path by clearing stale `.next`, stabilized smart chat page, and disabled build-time lint gate; build still blocked by upstream page-data route issues |

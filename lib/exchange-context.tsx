@@ -5,6 +5,9 @@ import { createContext, useContext, useState, useEffect, useRef, type ReactNode 
 interface ExchangeContextType {
   selectedExchange: string | null
   setSelectedExchange: (exchange: string | null) => void
+  selectedConnectionId: string | null
+  setSelectedConnectionId: (connectionId: string | null) => void
+  selectedConnection: any | null
   activeConnections: any[]
   loadActiveConnections: () => Promise<void>
   isLoading: boolean
@@ -14,6 +17,7 @@ const ExchangeContext = createContext<ExchangeContextType | undefined>(undefined
 
 export function ExchangeProvider({ children }: { children: ReactNode }) {
   const [selectedExchange, setSelectedExchange] = useState<string | null>(null)
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
   const [activeConnections, setActiveConnections] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const loadingRef = useRef(false)
@@ -48,8 +52,16 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
         console.log("[v0] [Exchange Context] Loaded", dashboardActive.length, "dashboard-active connections from", connections.length, "total")
         
         // Auto-select first connection if none selected
-        if (!selectedExchange && dashboardActive.length > 0) {
-          setSelectedExchange(dashboardActive[0].exchange)
+        if (dashboardActive.length > 0) {
+          const selectedById = selectedConnectionId
+            ? dashboardActive.find((connection: any) => connection.id === selectedConnectionId)
+            : null
+          const nextSelected = selectedById || dashboardActive[0]
+          setSelectedConnectionId(nextSelected.id)
+          setSelectedExchange(nextSelected.exchange || null)
+        } else {
+          setSelectedConnectionId(null)
+          setSelectedExchange(null)
         }
       }
     } catch (error) {
@@ -66,11 +78,24 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
     loadActiveConnections()
   }, []) // Empty dependency array - load once on mount only
 
+  const selectedConnection = activeConnections.find((connection: any) => connection.id === selectedConnectionId) || null
+
   return (
     <ExchangeContext.Provider
       value={{
         selectedExchange,
-        setSelectedExchange,
+        setSelectedExchange: (exchange) => {
+          setSelectedExchange(exchange)
+          const matching = activeConnections.find((connection: any) => connection.exchange === exchange)
+          setSelectedConnectionId(matching?.id || null)
+        },
+        selectedConnectionId,
+        setSelectedConnectionId: (connectionId) => {
+          setSelectedConnectionId(connectionId)
+          const matching = activeConnections.find((connection: any) => connection.id === connectionId)
+          setSelectedExchange(matching?.exchange || null)
+        },
+        selectedConnection,
         activeConnections,
         loadActiveConnections,
         isLoading,

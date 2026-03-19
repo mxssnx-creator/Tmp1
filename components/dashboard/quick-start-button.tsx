@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Zap, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
 import { toast } from "@/lib/simple-toast"
 import { DetailedLoggingDialog } from "./detailed-logging-dialog"
+import { useExchange } from "@/lib/exchange-context"
 
 interface QuickStartButtonProps {
   onQuickStartComplete?: () => void
@@ -39,6 +40,7 @@ interface FunctionalOverview {
 }
 
 export function QuickStartButton({ onQuickStartComplete }: QuickStartButtonProps) {
+  const { setSelectedConnectionId } = useExchange()
   const [isRunning, setIsRunning] = useState(false)
   const [functionalOverview, setFunctionalOverview] = useState<FunctionalOverview | null>(null)
   const [steps, setSteps] = useState<QuickStartStep[]>([
@@ -149,6 +151,9 @@ export function QuickStartButton({ onQuickStartComplete }: QuickStartButtonProps
         if (!res.ok && !d.success) throw new Error(d.error ?? `HTTP ${res.status}`)
         if (!d.success) throw new Error(d.error ?? "Enable returned failure")
         enabledConnectionId = d.connection?.id ?? null
+        if (enabledConnectionId) {
+          setSelectedConnectionId(enabledConnectionId)
+        }
         const syms = Array.isArray(d.connection?.symbols)
           ? d.connection.symbols.join(", ")
           : "BTCUSDT"

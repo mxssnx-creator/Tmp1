@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 
 export function GlobalExchangeSelector() {
-  const { selectedExchange, setSelectedExchange, activeConnections } = useExchange()
+  const { selectedConnectionId, setSelectedConnectionId, activeConnections } = useExchange()
 
   if (activeConnections.length === 0) {
     return (
@@ -35,7 +35,7 @@ export function GlobalExchangeSelector() {
   // Build a stable unique value for each connection
   const getStableValue = (conn: any, index: number) => conn.id || `conn-${index}`
 
-  const selectedConn = uniqueConnections.find((c) => c.exchange === selectedExchange)
+  const selectedConn = uniqueConnections.find((c) => c.id === selectedConnectionId)
   const selectedValue = selectedConn ? getStableValue(selectedConn, uniqueConnections.indexOf(selectedConn)) : ""
 
   return (
@@ -45,7 +45,7 @@ export function GlobalExchangeSelector() {
         value={selectedValue}
         onValueChange={(val) => {
           const conn = uniqueConnections.find((c, i) => getStableValue(c, i) === val)
-          setSelectedExchange(conn?.exchange || null)
+          setSelectedConnectionId(conn?.id || null)
         }}
       >
         <SelectTrigger className="w-[180px] h-9">

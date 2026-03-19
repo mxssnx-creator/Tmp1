@@ -72,7 +72,7 @@ export async function GET() {
             completed: engineState?.prehistoric_data_loaded === true || engineState?.prehistoric_data_loaded === "1",
             startDate: engineState?.prehistoric_data_start,
             endDate: engineState?.prehistoric_data_end,
-            progressionCycles: progressionState?.prehistoric_cycles || 0,
+            progressionCycles: progressionState?.prehistoric_cycles_completed || 0,
           },
           indications: {
             processing: engineStatus !== null,

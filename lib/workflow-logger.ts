@@ -68,24 +68,16 @@ export class WorkflowLogger {
       const logKey = `workflow_logs:${connectionId}`
       const logsJson = JSON.stringify(logEntry)
 
-      // Store in Redis list instead of sorted set (Upstash doesn't support zadd)
-      let workflowLogs: string[] = []
+      // Store in Redis list using lpush for efficient prepend
+      // Using Redis list (not sorted set) for better Upstash compatibility
+      await client.lpush(logKey, logsJson)
       
-      const existing = await client.get(logKey)
-      if (existing) {
-        try { workflowLogs = JSON.parse(existing) } catch { workflowLogs = [] }
-      }
+      // Trim to max entries
+      await client.ltrim(logKey, 0, this.MAX_LOGS_PER_CONNECTION - 1)
       
-      // Prepend new entry
-      workflowLogs.unshift(logsJson)
-      
-      // Trim to max entries and set expiration for logs (7 days)
-      if (workflowLogs.length > this.MAX_LOGS_PER_CONNECTION) {
-        workflowLogs = workflowLogs.slice(0, this.MAX_LOGS_PER_CONNECTION)
-      }
-      
-      await client.set(logKey, JSON.stringify(workflowLogs))
-      // Upstash doesn't support expire, so we'll handle this via TTL keys elsewhere
+      // Set TTL for auto-expiration (7 days)
+      // Note: Upstash Redis DOES support expire
+      await client.expire(logKey, this.LOG_RETENTION_DAYS * 24 * 60 * 60)
 
       // Also log to console with structured format
       const levelEmoji = {
@@ -120,7 +112,8 @@ export class WorkflowLogger {
       const client = getRedisClient()
 
       const logKey = `workflow_logs:${connectionId}`
-      const logsJson = await (client as any).zrevrange(logKey, 0, limit - 1)
+      // Use lrange to get logs from Redis list (newest first via lrange 0 to limit-1)
+      const logsJson = await client.lrange(logKey, 0, limit - 1)
 
       let logs: WorkflowLogEntry[] = logsJson.map((log: string) =>
         JSON.parse(log)

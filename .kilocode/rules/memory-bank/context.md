@@ -36,6 +36,10 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Verified clean build and core health/logistics/tracking endpoints after clearing stale `.next` artifacts
 - [x] **Completed all 6 remaining TODO items**: preset-coordination-engine drawdown metrics, error-handler alert monitoring, auto-indication-engine Redis caching, backtest-engine connection symbols, realtime page exchange context
 - [x] Fixed TypeScript error in auto-optimal/route.ts where `slPrice` was incorrectly declared as `const`
+- [x] Resolved full TypeScript contract drift across engine/UI/scripts: `bun typecheck` now passes cleanly (`tsc --noEmit`)
+- [x] Fixed Redis init/client workflow mismatches in indication sets processor and migration runner (`initRedis` vs `getRedisClient` usage)
+- [x] Reconciled cross-system workflow contracts in system verifier, engine auto-start status checks, API handler response typing, and dashboard connection state normalization
+- [x] Fixed strict typing breakpoints in settings/indications UI, active connection manager/cards, script harnesses, chat display time arithmetic, and duplicate stats object keys
 
 ## Current Structure
 
@@ -48,13 +52,12 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Current Focus
 
-Current focus is runtime correctness for the recovered CTS application and triaging upstream build/lint warnings that still exist in the restored source.
+Current focus is runtime correctness and operational workflow completeness for the recovered CTS application, with remaining effort centered on lint-toolchain compatibility and incremental UX hardening.
 
 ## Known Issues
 
 - Sandbox preview routing still needs to target the real app process instead of the placeholder service on port `3000`
-- `bun run typecheck` still reports extensive upstream contract/type issues outside the current build-critical path
-- `bun run lint` reports many upstream code-quality violations that were already present in the restored branch
+- `bun run lint` currently fails at tool bootstrap (`@rushstack/eslint-patch` with ESLint 9) before rule evaluation; this is a lint-toolchain compatibility issue, not a TypeScript/runtime blocker
 - Quickstart still requires real configured exchange credentials and at least one inserted connection to execute live engine work
 - Preview routing to the sandbox website panel is still external to the repo even though `/tracking` and `/logistics` now build and run correctly
 - A stale `.next` directory can still cause misleading module-resolution build failures; clearing `.next` remains the correct workaround before rebuilds
@@ -63,6 +66,7 @@ Current focus is runtime correctness for the recovered CTS application and triag
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Completed comprehensive type/workflow stabilization pass: fixed engine/verifier/Redis/UI/script contract mismatches, normalized boolean handling, and achieved clean `bun typecheck` |
 | 2026-03-19 | Completed all remaining TODO items: added calculateDrawdownMetrics to preset-coordination-engine, sendAlert to error-handler, Redis caching for auto-indication-engine, connection symbols for backtest-engine, exchange context for realtime page; fixed slPrice const error in auto-optimal route |
 | 2026-03-19 | Completed project-wide misconfiguration pass: aligned ports, TS config, Redis compatibility methods, and verified clean build/runtime endpoints |
 | 2026-03-19 | Implemented real Tracking overview page/API and aligned it with logistics and engine progression empty-state handling |

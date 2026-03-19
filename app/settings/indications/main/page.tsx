@@ -122,7 +122,7 @@ export default function MainIndicationsSettingsPage() {
     }
   }
 
-  const updateSetting = (type: string, field: string, subfield: string, value: string) => {
+  const updateSetting = (type: string, field: string, subfield: string | null, value: string) => {
     setSettings((prev: any) => ({
       ...prev,
       [type]: {

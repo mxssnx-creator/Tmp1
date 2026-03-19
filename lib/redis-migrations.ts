@@ -657,7 +657,7 @@ export async function runMigrations(): Promise<{ success: boolean; message: stri
         console.log(`[v0] [Migrations] ✓ Injected credentials for ${credentialsInjected} connections`)
       }
       
-      setMigrationsRun(true)
+      await setMigrationsRun()
       return { success: true, message: `Already at latest version ${finalVersion}`, version: finalVersion }
     }
 
@@ -725,7 +725,7 @@ export async function runMigrations(): Promise<{ success: boolean; message: stri
     console.log(`[v0] [Migrations] ✓ Auto-fixed ${baseConnections.length} base connections`)
     
     // Mark migrations as run in this process
-    setMigrationsRun(true)
+    await setMigrationsRun()
     
     return { success: true, message: `Migrated from v${currentVersion} to v${finalVersion}`, version: finalVersion }
   } catch (error) {

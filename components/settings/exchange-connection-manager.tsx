@@ -804,7 +804,7 @@ export default function ExchangeConnectionManager() {
             {displayedConnections.map((conn) => (
               <ConnectionCard
                 key={conn.id}
-                connection={conn}
+                connection={conn as any}
                 onToggle={() => toggleEnabled(conn.id, !conn.is_enabled)}
                 onActivate={() => {
                   // Set as active connection

@@ -104,15 +104,14 @@ async function testExchangeConnection(exchange: string, apiKey?: string, apiSecr
     console.log("\nTesting balance fetch...")
     try {
       const balance = await connector.getBalance()
-      if (balance && typeof balance.total !== "undefined") {
+      if (balance && typeof balance.balance !== "undefined") {
         console.log("✓ Balance fetch successful!")
-        console.log(`  Total: ${balance.total} USDT`)
-        console.log(`  Free: ${balance.free} USDT`)
+        console.log(`  Balance: ${balance.balance} USDT`)
         results.push({
           exchange,
           test: "Balance",
           passed: true,
-          message: `Total: ${balance.total} USDT`,
+          message: `Balance: ${balance.balance} USDT`,
         })
       }
     } catch (error) {

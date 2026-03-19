@@ -50,7 +50,7 @@ export default function ChatDisplay({ groups }: Props) {
   const totalMessages = groups.reduce((sum, group) => sum + group.messages.length, 0);
   const highPriorityCount = groups.filter(g => g.priority === "high").length;
   const recentActivity = groups.filter(g =>
-    g.messages.some(m => (new Date() - m.timestamp) < 24 * 60 * 60 * 1000)
+    g.messages.some(m => (Date.now() - m.timestamp.getTime()) < 24 * 60 * 60 * 1000)
   ).length;
 
   return (

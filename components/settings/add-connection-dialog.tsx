@@ -40,7 +40,7 @@ const ALL_EXCHANGES = [
   { id: "orangex", name: "OrangeX" },
 ]
 
-export function AddConnectionDialog({ open, onOpenChange, onConnectionAdded, showOnlyEnabled = false }: AddConnectionDialogProps) {
+export function AddConnectionDialog({ open, onOpenChange, onConnectionAdded, onSuccess, showOnlyEnabled = false }: AddConnectionDialogProps) {
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testLog, setTestLog] = useState<string[]>([])

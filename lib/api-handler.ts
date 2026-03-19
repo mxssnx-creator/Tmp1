@@ -21,8 +21,8 @@ export interface HandlerContext {
 export async function withErrorHandling<T extends any[], R extends NextResponse | Response>(
   handler: (...args: T) => Promise<R>,
   context: HandlerContext,
-): Promise<(...args: T) => Promise<NextResponse>> {
-  return async (...args: T): Promise<NextResponse> => {
+): Promise<(...args: T) => Promise<Response>> {
+  return async (...args: T): Promise<Response> => {
     const startTime = Date.now()
     const { endpoint, method, operation = endpoint, userId } = context
 

@@ -17,6 +17,8 @@ interface ActiveConnectionWithDetails extends ActiveConnection {
   details?: Connection
 }
 
+const toBoolean = (value: unknown): boolean => value === true || value === "1" || value === "true"
+
 export function DashboardActiveConnectionsManager() {
   // Version marker with system version tracking - forces browser cache refresh
   const VERSION = `${COMPONENT_VERSIONS.dashboardManager}-20260226`
@@ -80,15 +82,12 @@ export function DashboardActiveConnectionsManager() {
         // is_active_inserted = "1" means this connection is in Active panel
         // This applies to BOTH predefined templates (when enabled) AND user-created connections
         const isActiveInserted =
-          conn.is_active_inserted === "1" ||
-          conn.is_active_inserted === true ||
-          conn.is_dashboard_inserted === "1" ||
-          conn.is_dashboard_inserted === true
+          toBoolean(conn.is_active_inserted) ||
+          toBoolean(conn.is_dashboard_inserted)
 
         // isEnabledDashboard = connection's dashboard toggle is ON (processing enabled)
         const isEnabledDashboard =
-          conn.is_enabled_dashboard === true ||
-          conn.is_enabled_dashboard === "1"
+          toBoolean(conn.is_enabled_dashboard)
 
         if (isBase && isActiveInserted) {
           if (seenIds.has(conn.id)) continue

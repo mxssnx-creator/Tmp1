@@ -58,7 +58,7 @@ async function testMarketDataPersistence() {
     await saveMarketData(testSymbol, testData)
     
     console.log("Retrieving market data...")
-    const retrieved = await getMarketData(testSymbol, 1)
+    const retrieved = await getMarketData(testSymbol)
     
     if (retrieved && retrieved.length > 0) {
       console.log("✓ Market data saved and retrieved:", retrieved.length, "records")
@@ -95,7 +95,7 @@ async function testPreStartupSeeding() {
     let marketDataCount = 0
     
     for (const symbol of symbols) {
-      const data = await getMarketData(symbol, 10)
+      const data = await getMarketData(symbol)
       if (data && data.length > 0) {
         marketDataCount += data.length
         console.log(`✓ ${symbol}: ${data.length} data points`)

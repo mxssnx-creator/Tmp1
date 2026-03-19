@@ -155,7 +155,7 @@ function startConnectionMonitoring(): void {
       for (const connection of enabledConnections) {
         try {
           // Check if engine is already running for this connection
-          const engineStatus = coordinator.getEngineStatus(connection.id)
+          const engineStatus = await coordinator.getEngineStatus(connection.id)
 
           if (!engineStatus || engineStatus.status === "stopped") {
             console.log(`[v0] [Monitor] Auto-starting trade engine for: ${connection.name}`)

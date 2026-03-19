@@ -552,7 +552,7 @@ export class IndicationSetsProcessor {
    */
   async getSetEntries(symbol: string, type: string, limit = 50): Promise<any[]> {
     try {
-      const client = await initRedis()
+      const client = await getCachedClient()
       const setKey = `indication_set:${this.connectionId}:${symbol}:${type}`
       const data = await client.get(setKey)
 

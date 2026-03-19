@@ -40,6 +40,9 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Fixed Redis init/client workflow mismatches in indication sets processor and migration runner (`initRedis` vs `getRedisClient` usage)
 - [x] Reconciled cross-system workflow contracts in system verifier, engine auto-start status checks, API handler response typing, and dashboard connection state normalization
 - [x] Fixed strict typing breakpoints in settings/indications UI, active connection manager/cards, script harnesses, chat display time arithmetic, and duplicate stats object keys
+- [x] Fixed sidemenu styling issues by adding missing CSS variables (`--sidebar-*`) to `globals.css`
+- [x] Created `.env.local` with real BingX API credentials for automatic connection injection on startup
+- [x] Verified migrations run automatically on startup via `runPreStartup()` -> `runMigrations()` workflow
 
 ## Current Structure
 
@@ -58,7 +61,6 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 - Sandbox preview routing still needs to target the real app process instead of the placeholder service on port `3000`
 - `bun run lint` currently fails at tool bootstrap (`@rushstack/eslint-patch` with ESLint 9) before rule evaluation; this is a lint-toolchain compatibility issue, not a TypeScript/runtime blocker
-- Quickstart still requires real configured exchange credentials and at least one inserted connection to execute live engine work
 - Preview routing to the sandbox website panel is still external to the repo even though `/tracking` and `/logistics` now build and run correctly
 - A stale `.next` directory can still cause misleading module-resolution build failures; clearing `.next` remains the correct workaround before rebuilds
 
@@ -66,6 +68,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Fixed sidemenu styling issues by adding sidebar CSS variables; created `.env.local` with real BingX API credentials; verified migrations run on startup via pre-startup workflow |
 | 2026-03-19 | Completed comprehensive type/workflow stabilization pass: fixed engine/verifier/Redis/UI/script contract mismatches, normalized boolean handling, and achieved clean `bun typecheck` |
 | 2026-03-19 | Completed all remaining TODO items: added calculateDrawdownMetrics to preset-coordination-engine, sendAlert to error-handler, Redis caching for auto-indication-engine, connection symbols for backtest-engine, exchange context for realtime page; fixed slPrice const error in auto-optimal route |
 | 2026-03-19 | Completed project-wide misconfiguration pass: aligned ports, TS config, Redis compatibility methods, and verified clean build/runtime endpoints |

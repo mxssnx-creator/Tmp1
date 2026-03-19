@@ -60,13 +60,20 @@ export class SystemLogger {
     })
   }
 
-  static async logTradeEngine(message: string, data?: any): Promise<void> {
+  static async logTradeEngine(
+    message: string,
+    levelOrData?: "info" | "warn" | "error" | Record<string, any>,
+    maybeData?: Record<string, any>,
+  ): Promise<void> {
+    const level = typeof levelOrData === "string" ? levelOrData : "info"
+    const metadata = typeof levelOrData === "string" ? maybeData : levelOrData
+
     await this.logToDatabase({
       timestamp: new Date().toISOString(),
-      level: "info",
+      level,
       category: "trade_engine",
       message,
-      metadata: data,
+      metadata,
     })
   }
 
@@ -90,13 +97,27 @@ export class SystemLogger {
     })
   }
 
-  static async logError(category: string, error: any, context?: any): Promise<void> {
+  static async logError(arg1: any, arg2: any, arg3?: any): Promise<void> {
+    const category = typeof arg1 === "string" ? arg1 : typeof arg2 === "string" ? arg2 : "system"
+    const error = typeof arg1 === "string" ? arg2 : arg1
+    const context = typeof arg1 === "string" ? arg3 : arg3 ?? { source: arg2 }
+
     await this.logToDatabase({
       timestamp: new Date().toISOString(),
       level: "error",
       category,
       message: error instanceof Error ? error.message : String(error),
       metadata: { ...context, stack: error instanceof Error ? error.stack : undefined },
+    })
+  }
+
+  static async logToast(message: string, level: "info" | "warn" | "error" = "info", data?: any): Promise<void> {
+    await this.logToDatabase({
+      timestamp: new Date().toISOString(),
+      level,
+      category: "toast",
+      message,
+      metadata: data,
     })
   }
 

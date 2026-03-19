@@ -22,6 +22,9 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Fixed dev runtime loading issue by clearing stale `.next` artifacts
 - [x] Restored global providers in `app/layout.tsx` so pages using exchange/auth/sidebar context can prerender
 - [x] Fixed production build route-data failures; `bun run build` now completes successfully
+- [x] Stabilized engine status/progression workflow using Redis-backed connection and progression sources
+- [x] Updated live trading progression UI to consume normalized API payloads instead of invalid route responses
+- [x] Hardened `SystemLogger` compatibility for mixed legacy/new call signatures used by engine routes
 
 ## Current Structure
 
@@ -46,6 +49,7 @@ Current focus is runtime correctness for the recovered CTS application and triag
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Stabilized trade engine progression/status/logging flow and verified engine APIs return correct empty-state workflow responses |
 | 2026-03-19 | Restored required providers for app pages and fixed prerender workflow so `bun run build` completes successfully |
 | 2026-03-19 | Fixed dev loading path by clearing stale `.next`, stabilized smart chat page, and disabled build-time lint gate; build still blocked by upstream page-data route issues |
 | 2026-03-18 | Restored original CTS v3 project from `mxssnx-creator/v0-cts-v3-1` branch `v0/cts5`; confirmed dev site title loads |

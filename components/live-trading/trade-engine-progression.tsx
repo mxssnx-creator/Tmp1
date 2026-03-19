@@ -16,6 +16,16 @@ interface ProgressionData {
   engineState: string
   tradeCount: number
   lastUpdate: string | null
+  pseudoPositionCount?: number
+  progression?: {
+    cyclesCompleted?: number
+    successfulCycles?: number
+    failedCycles?: number
+    cycleSuccessRate?: number
+    totalTrades?: number
+    successfulTrades?: number
+    totalProfit?: number
+  }
 }
 
 export function TradeEngineProgression() {
@@ -28,7 +38,7 @@ export function TradeEngineProgression() {
         const response = await fetch("/api/trade-engine/progression")
         if (response.ok) {
           const data = await response.json()
-          setProgressionData(data)
+          setProgressionData(data.connections || [])
           console.log("[v0] Fetched trade engine progression:", data)
         }
       } catch (error) {
@@ -61,15 +71,15 @@ export function TradeEngineProgression() {
   }
 
   const getStateIcon = (state: string) => {
-    switch (state) {
-      case "running":
-        return <Zap className="h-4 w-4" />
-      case "initializing":
-        return <Clock className="h-4 w-4" />
-      case "running":
-        return <TrendingUp className="h-4 w-4" />
-      default:
-        return <Activity className="h-4 w-4" />
+      switch (state) {
+        case "running":
+          return <Zap className="h-4 w-4" />
+        case "initializing":
+          return <Clock className="h-4 w-4" />
+        case "idle":
+          return <TrendingUp className="h-4 w-4" />
+        default:
+          return <Activity className="h-4 w-4" />
     }
   }
 
@@ -100,7 +110,7 @@ export function TradeEngineProgression() {
                       </Badge>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {conn.tradeCount} trades • {conn.lastUpdate ? new Date(conn.lastUpdate).toLocaleString() : "Never"}
+                      {conn.tradeCount} trades • {conn.pseudoPositionCount || 0} tracked positions • {conn.lastUpdate ? new Date(conn.lastUpdate).toLocaleString() : "Never"}
                     </div>
                   </div>
                   <Badge className={getStateColor(conn.engineState)}>
@@ -130,10 +140,15 @@ export function TradeEngineProgression() {
                 {conn.engineState === "running" && (
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
-                      <span>Engine Running</span>
-                      <span>100%</span>
+                      <span>Cycle Success</span>
+                      <span>{Math.round(conn.progression?.cycleSuccessRate || 0)}%</span>
                     </div>
-                    <Progress value={100} className="h-2" />
+                    <Progress value={Math.max(5, Math.round(conn.progression?.cycleSuccessRate || 0))} className="h-2" />
+                    <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                      <div>Cycles: {conn.progression?.cyclesCompleted || 0}</div>
+                      <div>Wins: {conn.progression?.successfulCycles || 0}</div>
+                      <div>Fails: {conn.progression?.failedCycles || 0}</div>
+                    </div>
                   </div>
                 )}
 

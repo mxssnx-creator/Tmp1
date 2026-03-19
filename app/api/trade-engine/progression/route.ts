@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server"
-import { loadConnections } from "@/lib/file-storage"
+import { getActiveConnectionsForEngine, getConnectionTrades, getConnectionPositions, initRedis } from "@/lib/redis-db"
 import { SystemLogger } from "@/lib/system-logger"
-import { query } from "@/lib/db"
+import { ProgressionStateManager } from "@/lib/progression-state-manager"
+
+export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
     console.log("[v0] Fetching real-time trade engine progression data")
-    
-    const connections = loadConnections()
-    const activeConnections = connections.filter((c) => c.is_active && c.is_enabled)
+    await initRedis()
+    const activeConnections = await getActiveConnectionsForEngine()
     
     console.log(`[v0] Processing ${activeConnections.length} active enabled connections`)
     
@@ -25,31 +26,17 @@ export async function GET() {
           // Get REAL engine status from running coordinator
           const engineStatus = await coordinator.getEngineStatus(conn.id)
           const isEngineRunning = engineStatus !== null
-          
-          // Get trade count from database
-          const trades = await query<{ count: number }>(
-            `SELECT COUNT(*) as count FROM trades WHERE connection_id = ?`,
-            [conn.id]
-          )
-          
-          // Get pseudo position count
-          const pseudoPositions = await query<{ count: number }>(
-            `SELECT COUNT(*) as count FROM pseudo_positions WHERE connection_id = ?`,
-            [conn.id]
-          )
-          
-          // Get engine state from database
-          const state = await query<{ state: string; updated_at: string; prehistoric_data_loaded: boolean }>(
-            `SELECT state, updated_at, prehistoric_data_loaded FROM trade_engine_state WHERE connection_id = ?`,
-            [conn.id]
-          )
-          
-          const tradeCount = trades[0]?.count || 0
-          const pseudoCount = pseudoPositions[0]?.count || 0
-          const dbState = state[0]
-          const engineState = isEngineRunning ? 'running' : (dbState?.state || 'idle')
-          const updatedAt = dbState?.updated_at
-          const prehistoricLoaded = dbState?.prehistoric_data_loaded || false
+          const [trades, positions, progressionState] = await Promise.all([
+            getConnectionTrades(conn.id),
+            getConnectionPositions(conn.id),
+            ProgressionStateManager.getProgressionState(conn.id),
+          ])
+
+          const tradeCount = trades.length
+          const pseudoCount = positions.length
+          const engineState = isEngineRunning ? "running" : "idle"
+          const updatedAt = progressionState.lastUpdate?.toISOString?.() || null
+          const prehistoricLoaded = (progressionState.prehistoricCyclesCompleted || 0) > 0
           
           // Get cycle metrics from engine status if available
           const cycleMetrics = engineStatus ? {
@@ -75,6 +62,15 @@ export async function GET() {
             prehistoricDataLoaded: prehistoricLoaded,
             lastUpdate: updatedAt,
             cycleMetrics,
+            progression: {
+              cyclesCompleted: progressionState.cyclesCompleted,
+              successfulCycles: progressionState.successfulCycles,
+              failedCycles: progressionState.failedCycles,
+              cycleSuccessRate: progressionState.cycleSuccessRate,
+              totalTrades: progressionState.totalTrades,
+              successfulTrades: progressionState.successfulTrades,
+              totalProfit: progressionState.totalProfit,
+            },
             realTimeData: true, // Flag indicating this is real data
           }
         } catch (err) {

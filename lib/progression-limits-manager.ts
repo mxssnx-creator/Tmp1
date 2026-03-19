@@ -193,7 +193,7 @@ export class ProgressionLimitsManager {
       // Check 6: Risk percent (2% max per trade)
       const riskPercent = (size / balance) * 100
       if (riskPercent > 2) {
-        const maxSafeSize = (balance * 0.02) / 100
+        const maxSafeSize = balance * 0.02 // 2% of balance
         return {
           available: false,
           reason: `Risk ${riskPercent.toFixed(2)}% exceeds 2% per trade limit`,
@@ -208,7 +208,7 @@ export class ProgressionLimitsManager {
         available: true,
         reason: "All progression limits satisfied",
         suggestedSize: size,
-        maxSize: Math.min(sideLimits.maxSize, (balance * 0.02) / 100),
+        maxSize: Math.min(sideLimits.maxSize, balance * 0.02), // 2% of balance
         leverage,
         riskPercent,
       }

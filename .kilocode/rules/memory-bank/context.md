@@ -8,6 +8,9 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Recently Completed
 
+- [x] Fixed workflow-logger.ts: storage/retrieval mismatch (was using client.set vs client.zrevrange - fixed to use lpush/lrange consistently)
+- [x] Fixed progression-limits-manager.ts: risk calculation bug (was dividing by 100 unnecessarily - maxSafeSize was 100x too small)
+- [x] Fixed verify-engine route: wrong field reference (prehistoric_cycles vs prehistoric_cycles_completed)
 - [x] Fixed sandbox preview routing by updating hardcoded port 3000 references to use NEXT_PUBLIC_APP_URL (localhost:3001)
 - [x] Added real BingX API credentials to .env.local for live trading
 - [x] Restored original CTS v3 project files from upstream `v0/cts5`
@@ -112,6 +115,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Fixed workflow, progression, and stats bugs: workflow logger storage/retrieval mismatch (set vs zrevrange), progression limits risk calculation (100x too small), and verify-engine wrong field reference (prehistoric_cycles) |
 | 2026-03-19 | Fixed dashboard monitoring/info/state regressions and Symbols Overview responsiveness: added defensive normalization in `SystemOverview`/`SystemMonitoringPanel`, aligned `/api/exchange-positions/symbols-stats` contract with `livePositions`, added lightweight Redis DB size estimation in `/api/system/monitoring`, and changed symbol cards to denser responsive multi-column layout on mobile/tablet/desktop |
 | 2026-03-19 | Ran comprehensive connection/engine conformity audit and applied targeted runtime fixes: switched `[id]/dashboard`, `init-predefined`, and `import-user` connection flows to Redis path, added shared boolean normalization utils, made dashboard toggle global active-count recomputation deterministic, corrected batch-test rate limiter keying, ensured system credential routes `SADD` base IDs, and fixed coordinator health/credential eligibility + reload semantics |
 | 2026-03-19 | Updated base connection credential strategy to use direct predefined variables instead of environment variables during creation/injection flows; added shared `lib/base-connection-credentials.ts` and wired migrations/seeders/system routes to it |

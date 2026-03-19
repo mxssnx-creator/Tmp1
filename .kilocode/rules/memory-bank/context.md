@@ -84,6 +84,7 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Added defensive credential-preservation in connection PUT/PATCH routes so empty form payloads no longer wipe stored API keys/secrets
 - [x] Normalized available-connections filtering to canonical base IDs and fixed credential checks to require both key+secret lengths
 - [x] Added dotenv fallback parsing in env credential resolver (`.env.local`/`.env`) to load provided credentials even when process env is not preloaded
+- [x] Switched canonical base-connection provisioning to predefined in-code credentials (no env-var dependency) across migrations, default seeding, init-status auto-injection, and system credential/fix endpoints
 
 ## Current Structure
 
@@ -109,6 +110,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Updated base connection credential strategy to use direct predefined variables instead of environment variables during creation/injection flows; added shared `lib/base-connection-credentials.ts` and wired migrations/seeders/system routes to it |
 | 2026-03-19 | Fixed persistent BingX credential-drop path by enforcing canonical base seeding, deleting legacy duplicate connection IDs, adding dotenv-fallback env loading, preserving credentials on form-driven PUT/PATCH updates, and normalizing connection API filtering/sanity reporting |
 | 2026-03-19 | Completed intensive production-readiness pass: restored lint compatibility, resolved workflow handler lint-safety issue, updated QA scripts for 3001/app-url defaults and market-data assertions, and revalidated lint+typecheck+build all passing |
 | 2026-03-19 | Completed Redis/logistics audit pass: added migration in-flight lock, fixed migration v12 schema write, prevented duplicate periodic test intervals, optimized snapshot/connection/trade/position reads, and removed logistics queue symbol placeholder fallback logic |

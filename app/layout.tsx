@@ -4,7 +4,9 @@ import "./globals.css"
 import { AuthProvider } from "@/lib/auth-context"
 import { ExchangeProvider } from "@/lib/exchange-context"
 import { ConnectionStateProvider } from "@/lib/connection-state"
-import { SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
+import { Toaster } from "@/components/ui/sonner"
 
 export const metadata: Metadata = {
   title: "CTS v3 - Crypto Trading System",
@@ -17,17 +19,21 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-slate-900 text-white">
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background text-foreground">
         <AuthProvider>
           <ConnectionStateProvider>
             <ExchangeProvider>
               <SidebarProvider defaultOpen={true}>
-                <main className="min-h-screen">{children}</main>
+                <AppSidebar />
+                <SidebarInset>
+                  {children}
+                </SidebarInset>
               </SidebarProvider>
             </ExchangeProvider>
           </ConnectionStateProvider>
         </AuthProvider>
+        <Toaster />
       </body>
     </html>
   )

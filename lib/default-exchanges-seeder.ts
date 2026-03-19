@@ -5,15 +5,18 @@ type BaseSeedConfig = {
   exchange: string
   name: string
   apiType: string
+  contractType: string
+  connectionMethod: string
+  connectionLibrary: string
   envKey: string
   envSecret: string
 }
 
 const CANONICAL_BASE_CONNECTIONS: BaseSeedConfig[] = [
-  { id: "bybit-x03", exchange: "bybit", name: "Bybit X03", apiType: "unified", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET" },
-  { id: "bingx-x01", exchange: "bingx", name: "BingX X01", apiType: "perpetual_futures", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET" },
-  { id: "pionex-x01", exchange: "pionex", name: "Pionex X01", apiType: "perpetual_futures", envKey: "PIONEX_API_KEY", envSecret: "PIONEX_API_SECRET" },
-  { id: "orangex-x01", exchange: "orangex", name: "OrangeX X01", apiType: "perpetual_futures", envKey: "ORANGEX_API_KEY", envSecret: "ORANGEX_API_SECRET" },
+  { id: "bybit-x03", exchange: "bybit", name: "Bybit X03", apiType: "unified", contractType: "linear", connectionMethod: "library", connectionLibrary: "native", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET" },
+  { id: "bingx-x01", exchange: "bingx", name: "BingX X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET" },
+  { id: "pionex-x01", exchange: "pionex", name: "Pionex X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native", envKey: "PIONEX_API_KEY", envSecret: "PIONEX_API_SECRET" },
+  { id: "orangex-x01", exchange: "orangex", name: "OrangeX X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native", envKey: "ORANGEX_API_KEY", envSecret: "ORANGEX_API_SECRET" },
 ]
 
 const LEGACY_CONNECTION_IDS = [
@@ -73,8 +76,9 @@ export async function ensureDefaultExchangesExist() {
         name: existing?.name || cfg.name,
         exchange: cfg.exchange,
         api_type: existing?.api_type || cfg.apiType,
-        connection_method: existing?.connection_method || "library",
-        connection_library: existing?.connection_library || "native",
+        contract_type: existing?.contract_type || cfg.contractType,
+        connection_method: existing?.connection_method || cfg.connectionMethod,
+        connection_library: existing?.connection_library || cfg.connectionLibrary,
         margin_type: existing?.margin_type || "cross",
         position_mode: existing?.position_mode || "hedge",
         is_testnet: existing?.is_testnet ?? false,

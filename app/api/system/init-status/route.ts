@@ -73,6 +73,20 @@ export async function GET(request: NextRequest) {
       const connections = await getAllConnections()
       connectionsCount = connections.length
       enabledConnectionsCount = connections.filter((c: any) => c.is_enabled !== false).length
+
+      const bingxCandidates = connections.filter((c: any) => (c.exchange || "").toLowerCase() === "bingx")
+      const canonicalBingx = connections.find((c: any) => c.id === "bingx-x01")
+
+      ;(migrationStatus as any).connectionSanity = {
+        bingxCandidateCount: bingxCandidates.length,
+        canonicalBingxId: canonicalBingx?.id || null,
+        canonicalBingxHasCredentials: !!(
+          canonicalBingx?.api_key &&
+          canonicalBingx?.api_secret &&
+          canonicalBingx.api_key.length > 10 &&
+          canonicalBingx.api_secret.length > 10
+        ),
+      }
     } catch (error) {
       console.warn("[v0] Failed to get connections count:", error)
     }
@@ -95,6 +109,7 @@ export async function GET(request: NextRequest) {
           current_version: migrationStatus.currentVersion,
           latest_version: migrationStatus.latestVersion,
           up_to_date: migrationStatus.currentVersion === migrationStatus.latestVersion,
+          connection_sanity: (migrationStatus as any).connectionSanity,
         },
         connections: {
           total: connectionsCount,

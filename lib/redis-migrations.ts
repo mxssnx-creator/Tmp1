@@ -612,6 +612,16 @@ async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: n
   let createdOrUpdated = 0
   let credentialsInjected = 0
 
+  const legacyIds = ["bybit-base", "bingx-base", "binance-base", "okx-base", "bybit-default-disabled", "bingx-default-disabled"]
+  for (const legacyId of legacyIds) {
+    const exists = await client.sismember("connections", legacyId)
+    if (exists) {
+      await client.del(`connection:${legacyId}`)
+      await client.srem("connections", legacyId)
+      console.log(`[v0] [Migrations] Removed legacy connection id ${legacyId}`)
+    }
+  }
+
   for (const cfg of BASE_CONNECTION_CONFIG) {
     const now = new Date().toISOString()
     const existing = await client.hgetall(`connection:${cfg.id}`)

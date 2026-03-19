@@ -3,6 +3,7 @@ import { getAllConnections, initRedis, createConnection, updateConnection } from
 import { generateConnectionIdFromApiKey, isApiKeyInUse } from "@/lib/connection-id-manager"
 import { CONNECTION_PREDEFINITIONS } from "@/lib/connection-predefinitions"
 import { API_VERSIONS } from "@/lib/system-version"
+import { ensureDefaultExchangesExist } from "@/lib/default-exchanges-seeder"
 
 export const runtime = "nodejs"
 
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
     console.log(`[v0] [API] [Connections] ${API_VERSION} - Client version: ${clientVersion}`)
 
     await initRedis()
+    await ensureDefaultExchangesExist()
     let connections = await getAllConnections()
 
     // CRITICAL MIGRATION: Enforce ONLY bybit and bingx as active-insertable

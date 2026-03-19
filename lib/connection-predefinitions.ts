@@ -396,9 +396,6 @@ export function getPredefinedConnectionsAsStatic(): ConnectionPredefinition[] {
  * All predefinitions use MAINNET ONLY (is_testnet: false)
  */
 export function getPredefinedAsExchangeConnections(): ExchangeConnection[] {
-  // Primary base exchanges - Bybit, BingX, Binance, OKX (the 4 main ones)
-  const primaryExchanges = ["bybit", "bingx", "binance", "okx"]
-  
   return CONNECTION_PREDEFINITIONS.map(pred => ({
     id: pred.id,
     name: pred.name,
@@ -406,8 +403,10 @@ export function getPredefinedAsExchangeConnections(): ExchangeConnection[] {
     api_type: pred.apiType,
     connection_method: pred.connectionMethod,
     connection_library: pred.connectionLibrary,
-    api_key: "", // ALWAYS empty - user must provide their own
-    api_secret: "", // ALWAYS empty - user must provide their own
+    // Keep credentials in predefinition info when available from env (e.g. BingX bootstrap).
+    // Downstream APIs should avoid exposing raw secrets to UI responses.
+    api_key: pred.apiKey || "",
+    api_secret: pred.apiSecret || "",
     margin_type: pred.marginType,
     position_mode: pred.positionMode,
     is_testnet: false, // ALWAYS mainnet - no testnet support

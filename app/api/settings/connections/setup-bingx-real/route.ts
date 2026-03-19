@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { initRedis, getConnection, updateConnection } from "@/lib/redis-db"
 import { logProgressionEvent } from "@/lib/engine-progression-logs"
+import { ensureDefaultExchangesExist } from "@/lib/default-exchanges-seeder"
 
 export const dynamic = "force-dynamic"
 
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     await initRedis()
+    await ensureDefaultExchangesExist()
 
     // Get the BingX connection
     const bingxConnection = await getConnection("bingx-x01")
@@ -100,6 +102,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     await initRedis()
+    await ensureDefaultExchangesExist()
     const bingxConnection = await getConnection("bingx-x01")
 
     if (!bingxConnection) {

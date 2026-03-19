@@ -43,6 +43,8 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Fixed sidemenu styling issues by adding missing CSS variables (`--sidebar-*`) to `globals.css`
 - [x] Created `.env.local` with real BingX API credentials for automatic connection injection on startup
 - [x] Verified migrations run automatically on startup via `runPreStartup()` -> `runMigrations()` workflow
+- [x] Repaired sidebar regressions for top title and footer auth visibility by removing conflicting global CSS overrides and restoring consistent menu-button classes
+- [x] Re-enabled startup execution path in `instrumentation.ts` so `runPreStartup()` (and Redis migrations) runs automatically in Node runtime
 
 ## Current Structure
 
@@ -68,6 +70,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Fixed sidebar top/footer rendering regression and re-enabled startup instrumentation to execute pre-startup migrations automatically |
 | 2026-03-19 | Fixed sidemenu styling issues by adding sidebar CSS variables; created `.env.local` with real BingX API credentials; verified migrations run on startup via pre-startup workflow |
 | 2026-03-19 | Completed comprehensive type/workflow stabilization pass: fixed engine/verifier/Redis/UI/script contract mismatches, normalized boolean handling, and achieved clean `bun typecheck` |
 | 2026-03-19 | Completed all remaining TODO items: added calculateDrawdownMetrics to preset-coordination-engine, sendAlert to error-handler, Redis caching for auto-indication-engine, connection symbols for backtest-engine, exchange context for realtime page; fixed slPrice const error in auto-optimal route |

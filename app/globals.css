@@ -160,36 +160,3 @@ html {
 .pulse-slow {
   animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-
-/* Sidebar Animation Fixes */
-[data-slot="sidebar"] {
-  transition: width 0.2s ease-in-out;
-}
-
-[data-slot="sidebar-gap"] {
-  transition: width 0.2s ease-in-out;
-}
-
-/* Fix for collapsed sidebar icon mode */
-.group-data-\[collapsible\=icon\]\:hidden {
-  display: none;
-}
-
-/* Ensure sidebar content is properly scrollable */
-[data-slot="sidebar-inner"] {
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-/* Fix sidebar menu button alignment */
-[data-slot="sidebar-menu-button"] {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  gap: 0.5rem;
-}
-
-/* Fix tooltip positioning for collapsed sidebar */
-[data-slot="sidebar-menu-button"][data-tooltip] {
-  position: relative;
-}

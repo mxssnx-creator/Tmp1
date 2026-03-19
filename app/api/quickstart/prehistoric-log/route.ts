@@ -47,9 +47,9 @@ export async function GET() {
     console.log("[v0] [PrehistoricLog] Symbol list:", symbolsArray.join(", "))
 
     // Get indication engine state
-    const indicationState = await client.hgetall("engine:indications:state").catch(() => ({}))
-    const cycleCount = indicationState.cycleCount ? parseInt(indicationState.cycleCount) : 0
-    const cycleDuration = indicationState.cycleDuration_ms ? parseInt(indicationState.cycleDuration_ms) : 0
+    const indicationState = await client.hgetall("engine:indications:state").catch(() => null) as Record<string, string> | null
+    const cycleCount = indicationState?.cycleCount ? parseInt(indicationState.cycleCount) : 0
+    const cycleDuration = indicationState?.cycleDuration_ms ? parseInt(indicationState.cycleDuration_ms) : 0
 
     console.log("[v0] [PrehistoricLog] Indication Engine:")
     console.log(`[v0] [PrehistoricLog]   - Cycles executed: ${cycleCount}`)
@@ -58,9 +58,9 @@ export async function GET() {
     console.log(`[v0] [PrehistoricLog]   - Indications calculated: ${indicationKeys.length}`)
 
     // Get strategy engine state
-    const strategyState = await client.hgetall("engine:strategies:state").catch(() => ({}))
-    const strategyCycleCount = strategyState.cycleCount ? parseInt(strategyState.cycleCount) : 0
-    const strategyCycleDuration = strategyState.cycleDuration_ms ? parseInt(strategyState.cycleDuration_ms) : 0
+    const strategyState = await client.hgetall("engine:strategies:state").catch(() => null) as Record<string, string> | null
+    const strategyCycleCount = strategyState?.cycleCount ? parseInt(strategyState.cycleCount) : 0
+    const strategyCycleDuration = strategyState?.cycleDuration_ms ? parseInt(strategyState.cycleDuration_ms) : 0
 
     console.log("[v0] [PrehistoricLog] Strategy Engine:")
     console.log(`[v0] [PrehistoricLog]   - Cycles executed: ${strategyCycleCount}`)

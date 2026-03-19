@@ -20,6 +20,7 @@ export async function GET() {
     const connections: any[] = []
     for (const id of connIds) {
       const data = await client.hgetall(`connection:${id}`)
+      if (!data) continue
       const hasValidKey = data.api_key && data.api_key.length >= 16 && 
         !data.api_key.includes("PLACEHOLDER") && 
         !data.api_key.includes("00998877")

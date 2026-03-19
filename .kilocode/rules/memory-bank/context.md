@@ -58,6 +58,10 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Removed remaining dashboard UI placeholder defaults (system load/database size now initialize at 0 until real metrics load)
 - [x] Bound detailed logging dialog to selected exchange/connection context and added API filtering (`connectionId` / `exchange`) so UI always reflects real selected scope
 - [x] Improved progression logs endpoint to merge/fallback structured engine logs and engine-state counters when primary progression logs are sparse
+- [x] Removed Binance/OKX from Dashboard Active (Main) base exchange set; active panel now uses only bybit, bingx, pionex, orangex
+- [x] Enforced defaults: base connections are enabled in Settings by default, while Dashboard main enable state remains OFF by default
+- [x] Updated engine eligibility filters to follow dashboard enable state (not settings-default enabled), preventing unintended auto-processing
+- [x] Hardened migration startup path so base-connection credential injection runs even when migrations are already marked as run in-process
 
 ## Current Structure
 
@@ -83,6 +87,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Applied base/main connection default policy: removed binance/okx from dashboard main set, made dashboard main disabled-by-default, kept settings base enabled-by-default, and ensured base credential injection runs consistently on startup |
 | 2026-03-19 | Finalized no-mock selected-exchange flow for dashboard logs/metrics: detailed logs now filter by selected exchange/connection, progression logs merge structured fallback, and dashboard metric defaults removed |
 | 2026-03-19 | Comprehensive engine/progression/quickstart stabilization: restored upstream sidebar content, enabled immediate coordinator startup, fixed quickstart enable state, upgraded detailed log aggregation, and made progression counters update every cycle for non-zero real-time dashboard visibility |
 | 2026-03-19 | Resolved connection count/display switching: aligned dashboard/settings filters, removed destructive toggle resets, normalized bool parsing, and made base connection + env credential provisioning deterministic |

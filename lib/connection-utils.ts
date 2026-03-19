@@ -1,7 +1,7 @@
 /**
  * CONNECTION HIERARCHY:
  * 1. PREDEFINED TEMPLATES (11 total): All connections seeded by migrations
- * 2. BASE CONNECTIONS (6): Primary exchanges with is_inserted=1, is_enabled=1
+ * 2. BASE CONNECTIONS (4): Primary exchanges with is_inserted=1, is_enabled=1
  *    - These are the working base connections that appear in Settings and Dashboard
  * 3. TEMPLATE-ONLY (5): Secondary exchanges (gateio, kucoin, mexc, bitget, huobi)
  *    - Just informational templates, not active unless user explicitly enables them
@@ -10,8 +10,9 @@
  *    - Trade engine processes ONLY active connections
  */
 
-// The 6 primary/base exchanges that are "inserted" and enabled by default
-export const BASE_EXCHANGES = ["bybit", "bingx", "binance", "okx", "pionex", "orangex"]
+// The 4 primary/base exchanges that are inserted in Settings by default.
+// Dashboard activation remains OFF until explicitly enabled.
+export const BASE_EXCHANGES = ["bybit", "bingx", "pionex", "orangex"]
 
 // All known exchanges (base + templates)
 export const ALL_EXCHANGES = ["bybit", "bingx", "binance", "okx", "pionex", "orangex", "gateio", "kucoin", "mexc", "bitget", "huobi"]

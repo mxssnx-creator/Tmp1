@@ -731,11 +731,10 @@ export async function verifyRedisHealth(): Promise<{ healthy: boolean; message: 
 export async function getActiveConnectionsForEngine(): Promise<any[]> {
   const allConnections = await getAllConnections()
   // Filter for connections that are:
-  // 1. Active-inserted (in Active panel) AND enabled (is_enabled OR is_enabled_dashboard)
+  // 1. Added to active panel AND explicitly enabled on dashboard
   // 2. Either has credentials OR is set to testnet/demo mode
   const filtered = allConnections.filter((c: any) => {
     const isActiveInserted = c.is_active_inserted === "1" || c.is_active_inserted === true
-    const isEnabled = c.is_enabled === "1" || c.is_enabled === true
     const isDashboardEnabled = c.is_enabled_dashboard === "1" || c.is_enabled_dashboard === true
     
     // Check for credentials (from connection OR from environment)
@@ -747,8 +746,8 @@ export async function getActiveConnectionsForEngine(): Promise<any[]> {
     const isTestnet = c.is_testnet === "1" || c.is_testnet === true
     const isDemoMode = c.demo_mode === "1" || c.demo_mode === true
     
-    // Connection must be in Active panel AND enabled
-    const isReadyForEngine = isActiveInserted && (isEnabled || isDashboardEnabled)
+    // Engine processing follows dashboard activation, not settings-default enabled state.
+    const isReadyForEngine = isActiveInserted && isDashboardEnabled
     
     // AND either have valid credentials OR be in testnet/demo mode
     return isReadyForEngine && (hasCredentials || isTestnet || isDemoMode)
@@ -767,19 +766,13 @@ export async function getInsertedAndEnabledConnections(): Promise<any[]> {
   const allConnections = await getAllConnections()
   // Return connections that are:
   // 1. Active-inserted into Active panel (is_active_inserted="1")
-  // 2. AND active/enabled (is_active="1" OR is_enabled="1")
+  // 2. AND dashboard-enabled (is_enabled_dashboard="1")
   // This is the filter used by the trade engine coordinator to find active connections
   return allConnections.filter((c: any) => {
     // Check for active panel flags (modern approach)
     const isActiveInserted = c.is_active_inserted === "1" || c.is_active_inserted === true
-    const isActive = c.is_active === "1" || c.is_active === true
-    
-    // Fall back to old flags if needed
-    const isInserted = c.is_inserted === "1" || c.is_inserted === true
-    const isEnabled = c.is_enabled === "1" || c.is_enabled === true
-    
-    // Match either set of flags
-    return (isActiveInserted && isActive) || (isInserted && isEnabled)
+    const isDashboardEnabled = c.is_enabled_dashboard === "1" || c.is_enabled_dashboard === true
+    return isActiveInserted && isDashboardEnabled
   })
 }
 

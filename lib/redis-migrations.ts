@@ -601,8 +601,8 @@ const BASE_CONNECTION_CONFIG: Array<{
   envSecret: string
   autoActive: boolean
 }> = [
-  { id: "bybit-x03", name: "Bybit Base", exchange: "bybit", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET", autoActive: true },
-  { id: "bingx-x01", name: "BingX Base", exchange: "bingx", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET", autoActive: true },
+  { id: "bybit-x03", name: "Bybit Base", exchange: "bybit", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET", autoActive: false },
+  { id: "bingx-x01", name: "BingX Base", exchange: "bingx", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET", autoActive: false },
   { id: "pionex-x01", name: "Pionex Base", exchange: "pionex", envKey: "PIONEX_API_KEY", envSecret: "PIONEX_API_SECRET", autoActive: false },
   { id: "orangex-x01", name: "OrangeX Base", exchange: "orangex", envKey: "ORANGEX_API_KEY", envSecret: "ORANGEX_API_SECRET", autoActive: false },
 ]
@@ -628,7 +628,9 @@ async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: n
       is_inserted: (existing?.is_inserted as string) || "1",
       is_dashboard_inserted: (existing?.is_dashboard_inserted as string) || "1",
       is_active_inserted: cfg.autoActive ? "1" : ((existing?.is_active_inserted as string) || "0"),
-      is_enabled: (existing?.is_enabled as string) || "0",
+      // Base connections are enabled in Settings by default.
+      is_enabled: (existing?.is_enabled as string) || "1",
+      // Dashboard (Main) connections are OFF by default until user enables them.
       is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
       is_active: (existing?.is_active as string) || "0",
       connection_method: (existing?.connection_method as string) || "library",
@@ -645,6 +647,10 @@ async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: n
     } else if (!hasExisting) {
       updateData.api_key = ""
       updateData.api_secret = ""
+    } else {
+      // Preserve previously stored credentials if env vars are not present.
+      updateData.api_key = (existing?.api_key as string) || ""
+      updateData.api_secret = (existing?.api_secret as string) || ""
     }
 
     await client.hset(`connection:${cfg.id}`, updateData)
@@ -661,11 +667,14 @@ async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: n
 export async function runMigrations(): Promise<{ success: boolean; message: string; version: number }> {
   try {
     // Check if migrations have already run in this process
-  if (haveMigrationsRun()) {
-  const finalVer = Math.max(...migrations.map((m) => m.version))
-  console.log("[v0] [Migrations] ✓ Already executed in this process, skipping")
-  return { success: true, message: "Already run in this process", version: finalVer }
-  }
+    if (haveMigrationsRun()) {
+      const finalVer = Math.max(...migrations.map((m) => m.version))
+      await initRedis()
+      const client = getRedisClient()
+      const ensured = await ensureBaseConnections(client)
+      console.log(`[v0] [Migrations] ✓ Already executed in this process; base ensured=${ensured.createdOrUpdated}, credentialsInjected=${ensured.credentialsInjected}`)
+      return { success: true, message: "Already run in this process", version: finalVer }
+    }
 
     await initRedis()
     const client = getRedisClient()

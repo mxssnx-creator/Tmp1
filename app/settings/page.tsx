@@ -1179,7 +1179,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSettingChange = (key: string, value: any) => {
+  const handleSettingChange = (key: string | number, value: any) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -1883,18 +1883,6 @@ export default function SettingsPage() {
     
     loadSettingsAndDB()
   }, [])
-
-  const loadDatabaseType = async () => {
-    try {
-      const response = await fetch("/api/database/type")
-      if (response.ok) {
-        const data = await response.json()
-        setDatabaseType(data.type || "sqlite")
-      }
-    } catch (error) {
-      console.error("[v0] Failed to load database type:", error)
-    }
-  }
 
   const getMinIndicationInterval = () => {
     // Indication intervals should be at least as long as the main engine interval

@@ -7,6 +7,16 @@
 import { getRedisClient, initRedis, getSettings, setSettings } from "@/lib/redis-db"
 import { logProgressionEvent } from "@/lib/engine-progression-logs"
 
+// Pre-cached client reference
+let cachedClient: any = null
+async function getCachedClient() {
+  if (!cachedClient) {
+    await initRedis()
+    cachedClient = getRedisClient()
+  }
+  return cachedClient
+}
+
 // Default limits per strategy type (independently configurable)
 const DEFAULT_LIMITS = {
   base: 500,
@@ -253,7 +263,7 @@ export class StrategySetsProcessor {
     indicationType: string
   ): Promise<void> {
     try {
-      const client = await initRedis()
+      const client = await getCachedClient()
       let entries: any[] = []
 
       const existing = await client.get(setKey)
@@ -276,9 +286,12 @@ export class StrategySetsProcessor {
         metadata: strategy.metadata,
       })
 
+      // Get limit for this strategy type
+      const maxEntries = this.getLimit(strategyType as keyof StrategySetLimits)
+
       // Trim to max entries
-      if (entries.length > this.maxEntriesPerSet) {
-        entries = entries.slice(0, this.maxEntriesPerSet)
+      if (entries.length > maxEntries) {
+        entries = entries.slice(0, maxEntries)
       }
 
       // Save back
@@ -288,7 +301,7 @@ export class StrategySetsProcessor {
       const statsKey = `${setKey}:stats`
       const prevStats = (await getSettings(statsKey)) || {}
       const stats = {
-        maxEntries: this.maxEntriesPerSet,
+        maxEntries: maxEntries,
         currentEntries: entries.length,
         totalCalculated: (prevStats.totalCalculated || 0) + 1,
         totalQualified: (prevStats.totalQualified || 0) + 1,
@@ -319,7 +332,7 @@ export class StrategySetsProcessor {
    */
   async getSetEntries(symbol: string, type: string, limit = 50): Promise<any[]> {
     try {
-      const client = await initRedis()
+      const client = await getCachedClient()
       const setKey = `strategy_set:${this.connectionId}:${symbol}:${type}`
       const data = await client.get(setKey)
 

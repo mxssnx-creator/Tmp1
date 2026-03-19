@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { FileText, ChevronDown, ChevronRight, Activity, TrendingUp, Database, Clock, RefreshCw } from "lucide-react"
+import { useExchange } from "@/lib/exchange-context"
 
 interface LogEntry {
   id: string
@@ -65,6 +66,7 @@ interface ProgressSummary {
 }
 
 export function DetailedLoggingDialog() {
+  const { selectedConnectionId, selectedExchange } = useExchange()
   const [open, setOpen] = useState(false)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [summary, setSummary] = useState<ProgressSummary | null>(null)
@@ -74,7 +76,11 @@ export function DetailedLoggingDialog() {
 
   const fetchLogs = useCallback(async () => {
     try {
-      const response = await fetch("/api/trade-engine/detailed-logs", { cache: "no-store" })
+      const params = new URLSearchParams()
+      if (selectedConnectionId) params.set("connectionId", selectedConnectionId)
+      if (selectedExchange) params.set("exchange", selectedExchange)
+      const suffix = params.toString() ? `?${params.toString()}` : ""
+      const response = await fetch(`/api/trade-engine/detailed-logs${suffix}`, { cache: "no-store" })
       if (response.ok) {
         const data = await response.json()
         setLogs(data.logs || [])
@@ -83,7 +89,7 @@ export function DetailedLoggingDialog() {
     } catch (error) {
       console.error("[v0] Error fetching detailed logs:", error)
     }
-  }, [])
+  }, [selectedConnectionId, selectedExchange])
 
   useEffect(() => {
     if (open) {

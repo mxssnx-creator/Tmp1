@@ -86,4 +86,518 @@ export class OrangeXConnector extends BaseExchangeConnector {
       throw error
     }
   }
+
+  private generateSignature(queryString: string): string {
+    return crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+  }
+
+  async placeOrder(
+    symbol: string,
+    side: "buy" | "sell",
+    quantity: number,
+    price?: number,
+    orderType: "limit" | "market" = "limit"
+  ): Promise<{ success: boolean; orderId?: string; error?: string }> {
+    try {
+      this.log(`Placing ${orderType} ${side} order: ${quantity} ${symbol}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const body: Record<string, string> = {
+        symbol,
+        side: side.toUpperCase(),
+        type: orderType === "market" ? "MARKET" : "LIMIT",
+        quantity: String(quantity),
+        timestamp,
+      }
+
+      if (price && orderType === "limit") {
+        body.price = String(price)
+      }
+
+      const queryString = Object.entries(body).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/trade/order?${queryString}&signature=${signature}`, {
+        method: "POST",
+        headers: {
+          "X-CH-APIKEY": this.credentials.apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        throw new Error(`OrangeX API error: ${data.error || data.msg || "Unknown error"}`)
+      }
+
+      const orderId = data.data?.orderId
+      this.log(`✓ Order placed successfully: ${orderId}`)
+      return { success: true, orderId }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to place order: ${errorMsg}`)
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  async cancelOrder(symbol: string, orderId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.log(`Cancelling order ${orderId} for ${symbol}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { symbol, orderId, timestamp }
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/trade/order?${queryString}&signature=${signature}`, {
+        method: "DELETE",
+        headers: {
+          "X-CH-APIKEY": this.credentials.apiKey,
+        },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        throw new Error(`OrangeX API error: ${data.error || data.msg || "Unknown error"}`)
+      }
+
+      this.log(`✓ Order cancelled successfully`)
+      return { success: true }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to cancel order: ${errorMsg}`)
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  async getOrder(symbol: string, orderId: string): Promise<any> {
+    try {
+      this.log(`Fetching order ${orderId} for ${symbol}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { symbol, orderId, timestamp }
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/trade/order?${queryString}&signature=${signature}`, {
+        headers: { "X-CH-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        return null
+      }
+
+      return data.data
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch order: ${errorMsg}`)
+      return null
+    }
+  }
+
+  async getOpenOrders(symbol?: string): Promise<any[]> {
+    try {
+      this.log(`Fetching open orders${symbol ? ` for ${symbol}` : ""}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { timestamp }
+      if (symbol) params.symbol = symbol
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/trade/openOrders?${queryString}&signature=${signature}`, {
+        headers: { "X-CH-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        return []
+      }
+
+      return data.data || []
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch open orders: ${errorMsg}`)
+      return []
+    }
+  }
+
+  async getOrderHistory(symbol?: string, limit: number = 50): Promise<any[]> {
+    try {
+      this.log(`Fetching order history${symbol ? ` for ${symbol}` : ""} (limit: ${limit})`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { limit: String(limit), timestamp }
+      if (symbol) params.symbol = symbol
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/trade/allOrders?${queryString}&signature=${signature}`, {
+        headers: { "X-CH-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        return []
+      }
+
+      return data.data || []
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch order history: ${errorMsg}`)
+      return []
+    }
+  }
+
+  async getPositions(symbol?: string): Promise<any[]> {
+    try {
+      this.log(`Fetching positions${symbol ? ` for ${symbol}` : ""}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { timestamp }
+      if (symbol) params.symbol = symbol
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/position?${queryString}&signature=${signature}`, {
+        headers: { "X-CH-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        return []
+      }
+
+      return data.data || []
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch positions: ${errorMsg}`)
+      return []
+    }
+  }
+
+  async getPosition(symbol: string): Promise<any> {
+    try {
+      const positions = await this.getPositions(symbol)
+      return positions[0] || null
+    } catch {
+      return null
+    }
+  }
+
+  async modifyPosition(
+    symbol: string,
+    leverage?: number,
+    marginType?: "cross" | "isolated"
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.log(`Modifying position for ${symbol}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { symbol, timestamp }
+      if (leverage) params.leverage = String(leverage)
+      if (marginType) params.marginType = marginType
+
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/position/modify?${queryString}&signature=${signature}`, {
+        method: "POST",
+        headers: {
+          "X-CH-APIKEY": this.credentials.apiKey,
+          "Content-Type": "application/json",
+        },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        throw new Error(`OrangeX API error: ${data.error || data.msg || "Unknown error"}`)
+      }
+
+      this.log(`✓ Position modified successfully`)
+      return { success: true }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to modify position: ${errorMsg}`)
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  async closePosition(symbol: string, positionSide?: "long" | "short"): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.log(`Closing position for ${symbol}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { symbol, timestamp }
+      if (positionSide) params.side = positionSide.toUpperCase()
+
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/position/close?${queryString}&signature=${signature}`, {
+        method: "POST",
+        headers: {
+          "X-CH-APIKEY": this.credentials.apiKey,
+        },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        throw new Error(`OrangeX API error: ${data.error || data.msg || "Unknown error"}`)
+      }
+
+      this.log(`✓ Position closed successfully`)
+      return { success: true }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to close position: ${errorMsg}`)
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  async getDepositAddress(coin: string): Promise<{ address?: string; error?: string }> {
+    try {
+      this.log(`Fetching deposit address for ${coin}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { coin, timestamp }
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/account/depositAddress?${queryString}&signature=${signature}`, {
+        headers: { "X-CH-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        throw new Error(`OrangeX API error: ${data.error || data.msg || "Unknown error"}`)
+      }
+
+      const address = data.data?.address
+      this.log(`✓ Deposit address retrieved: ${address?.slice(0, 10)}...`)
+
+      return { address }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch deposit address: ${errorMsg}`)
+      return { error: errorMsg }
+    }
+  }
+
+  async withdraw(coin: string, address: string, amount: number): Promise<{ success: boolean; txId?: string; error?: string }> {
+    try {
+      this.log(`Withdrawing ${amount} ${coin} to ${address.slice(0, 10)}...`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = {
+        coin,
+        address,
+        amount: String(amount),
+        timestamp,
+      }
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/account/withdraw?${queryString}&signature=${signature}`, {
+        method: "POST",
+        headers: {
+          "X-CH-APIKEY": this.credentials.apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ coin, address, amount: String(amount) }),
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        throw new Error(`OrangeX API error: ${data.error || data.msg || "Unknown error"}`)
+      }
+
+      const txId = data.data?.withdrawId
+      this.log(`✓ Withdrawal initiated: ${txId}`)
+
+      return { success: true, txId }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to withdraw: ${errorMsg}`)
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  async getTransferHistory(limit: number = 50): Promise<any[]> {
+    try {
+      this.log(`Fetching transfer history (limit: ${limit})`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { limit: String(limit), timestamp }
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/account/withdrawHistory?${queryString}&signature=${signature}`, {
+        headers: { "X-CH-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        return []
+      }
+
+      return data.data || []
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch transfer history: ${errorMsg}`)
+      return []
+    }
+  }
+
+  async setLeverage(symbol: string, leverage: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.log(`Setting leverage to ${leverage}x for ${symbol}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { symbol, leverage: String(leverage), timestamp }
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/position/leverage?${queryString}&signature=${signature}`, {
+        method: "POST",
+        headers: {
+          "X-CH-APIKEY": this.credentials.apiKey,
+        },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        throw new Error(`OrangeX API error: ${data.error || data.msg || "Unknown error"}`)
+      }
+
+      this.log(`✓ Leverage set successfully`)
+      return { success: true }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to set leverage: ${errorMsg}`)
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  async setMarginType(symbol: string, marginType: "cross" | "isolated"): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.log(`Setting margin type to ${marginType} for ${symbol}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = { symbol, marginType, timestamp }
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/position/marginType?${queryString}&signature=${signature}`, {
+        method: "POST",
+        headers: {
+          "X-CH-APIKEY": this.credentials.apiKey,
+        },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        throw new Error(`OrangeX API error: ${data.error || data.msg || "Unknown error"}`)
+      }
+
+      this.log(`✓ Margin type set successfully`)
+      return { success: true }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to set margin type: ${errorMsg}`)
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  async setPositionMode(hedgeMode: boolean): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.log(`Setting position mode to ${hedgeMode ? "hedge" : "one-way"}`)
+      const timestamp = Date.now().toString()
+      const baseUrl = this.getBaseUrl()
+
+      const params: Record<string, string> = {
+        dualSidePosition: hedgeMode ? "true" : "false",
+        timestamp,
+      }
+      const queryString = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&")
+      const signature = this.generateSignature(queryString)
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/position/dualSidePosition?${queryString}&signature=${signature}`, {
+        method: "POST",
+        headers: {
+          "X-CH-APIKEY": this.credentials.apiKey,
+        },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0") {
+        throw new Error(`OrangeX API error: ${data.error || data.msg || "Unknown error"}`)
+      }
+
+      this.log(`✓ Position mode set successfully`)
+      return { success: true }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to set position mode: ${errorMsg}`)
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  async getTicker(symbol: string): Promise<{ bid: number; ask: number; last: number } | null> {
+    try {
+      this.log(`Fetching ticker for ${symbol}`)
+      const baseUrl = this.getBaseUrl()
+
+      const response = await this.rateLimitedFetch(`${baseUrl}/v1/market/ticker?symbol=${symbol}`, {
+        headers: { "X-CH-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.code !== "0" || !data.data) {
+        return null
+      }
+
+      const ticker = data.data
+      const bid = Number.parseFloat(ticker.bidPrice || ticker.bid || "0")
+      const ask = Number.parseFloat(ticker.askPrice || ticker.ask || "0")
+      const last = Number.parseFloat(ticker.lastPrice || ticker.last || "0")
+
+      this.log(`✓ Ticker fetched: bid=${bid}, ask=${ask}, last=${last}`)
+      return { bid, ask, last }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch ticker: ${errorMsg}`)
+      return null
+    }
+  }
 }

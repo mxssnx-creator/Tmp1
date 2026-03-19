@@ -180,7 +180,7 @@ class DatabaseManagerClass {
     if (ids.length === 0) return []
     const results = await Promise.all(ids.map(async (id: string) => {
       const data = await client.hgetall(`entity:${entityType}:${subType}:${id}`)
-      return Object.keys(data).length > 0 ? data : null
+      return data && Object.keys(data).length > 0 ? data : null
     }))
     return results.filter(Boolean)
   }
@@ -189,7 +189,7 @@ class DatabaseManagerClass {
     const { getRedisClient } = await import("./redis-db")
     const client = getRedisClient()
     const data = await client.hgetall(`entity:${entityType}:${subType}:${id}`)
-    return Object.keys(data).length > 0 ? data : null
+    return data && Object.keys(data).length > 0 ? data : null
   }
 
   async find(entityType: string, subType: string, filter: Record<string, any>): Promise<any[]> {
@@ -248,6 +248,18 @@ class DatabaseManagerClass {
   // Log methods
   async getLogs(_limit?: number): Promise<any[]> {
     return this.getAll("monitoring", "logs")
+  }
+
+  async insertLog(level: string, category: string, message: string, details?: string): Promise<void> {
+    await this.insert("monitoring", "logs", { level, category, message, details: details || "" })
+  }
+
+  async insertError(name: string, message: string, stack?: string, context?: string): Promise<void> {
+    await this.insert("monitoring", "errors", { name, message, stack: stack || "", context: context || "", resolved: "false" })
+  }
+
+  async executeQuery(sqlStr: string, params: any[] = []): Promise<{ rowCount: number }> {
+    return this.execute(sqlStr, params)
   }
 
   // Connection methods

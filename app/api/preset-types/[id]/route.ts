@@ -7,9 +7,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params
 
-    const results = await db.query(EntityTypes.PRESET_TYPE, {
-      filters: [{ field: 'id', operator: '=', value: id }]
-    })
+    const results = await db.query(
+      "SELECT * FROM preset_types WHERE id = $1",
+      [id]
+    )
     const presetType = results[0]
 
     if (!presetType) {
@@ -46,11 +47,29 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       is_active: body.is_active !== false,
     }
 
-    await db.update(EntityTypes.PRESET_TYPE, id, updates)
+    await db.execute(
+      `UPDATE preset_types SET 
+        name = $1, description = $2, preset_trade_type = $3,
+        max_positions_per_indication = $4, max_positions_per_direction = $5, max_positions_per_range = $6,
+        timeout_per_indication = $7, timeout_after_position = $8,
+        block_enabled = $9, block_only = $10, dca_enabled = $11, dca_only = $12,
+        auto_evaluate = $13, evaluation_interval_hours = $14, is_active = $15,
+        updated_at = NOW()
+      WHERE id = $16`,
+      [
+        updates.name, updates.description, updates.preset_trade_type,
+        updates.max_positions_per_indication, updates.max_positions_per_direction, updates.max_positions_per_range,
+        updates.timeout_per_indication, updates.timeout_after_position,
+        updates.block_enabled, updates.block_only, updates.dca_enabled, updates.dca_only,
+        updates.auto_evaluate, updates.evaluation_interval_hours, updates.is_active,
+        id
+      ]
+    )
 
-    const results = await db.query(EntityTypes.PRESET_TYPE, {
-      filters: [{ field: 'id', operator: '=', value: id }]
-    })
+    const results = await db.query(
+      "SELECT * FROM preset_types WHERE id = $1",
+      [id]
+    )
     const presetType = results[0]
 
     return NextResponse.json(presetType)
@@ -64,7 +83,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     const { id } = await params
 
-    await db.delete(EntityTypes.PRESET_TYPE, id)
+    await db.execute("DELETE FROM preset_types WHERE id = $1", [id])
 
     return NextResponse.json({ success: true })
   } catch (error) {

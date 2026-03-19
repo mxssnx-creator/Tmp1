@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { initRedis, getRedisClient } from "@/lib/redis-db"
+import { readBingxCredentialsFromEnv, readEnvByAliases } from "@/lib/env-credentials"
 
 export const dynamic = "force-dynamic"
 
@@ -22,17 +23,23 @@ export async function POST() {
     
     const results: Record<string, string> = {}
     
+    const readPair = (key: string, secret: string) => ({
+      apiKey: readEnvByAliases([key, `NEXT_PUBLIC_${key}`]),
+      apiSecret: readEnvByAliases([secret, `NEXT_PUBLIC_${secret}`]),
+    })
+
     // Check and inject BingX credentials
-    const bingxApiKey = process.env.BINGX_API_KEY || ""
-    const bingxApiSecret = process.env.BINGX_API_SECRET || ""
+    const { apiKey: bingxApiKey, apiSecret: bingxApiSecret } = readBingxCredentialsFromEnv()
     if (bingxApiKey.length > 10 && bingxApiSecret.length > 10) {
+      const existing = await client.hgetall("connection:bingx-x01")
+      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
       await client.hset("connection:bingx-x01", {
         api_key: bingxApiKey,
         api_secret: bingxApiSecret,
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_active_inserted: (existing?.is_active_inserted as string) || "1",
+        is_enabled: (existing?.is_enabled as string) || "1",
+        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+        is_active: dashboardEnabled ? "1" : "0",
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })
@@ -43,16 +50,17 @@ export async function POST() {
     }
     
     // Check and inject Bybit credentials
-    const bybitApiKey = process.env.BYBIT_API_KEY || ""
-    const bybitApiSecret = process.env.BYBIT_API_SECRET || ""
+    const { apiKey: bybitApiKey, apiSecret: bybitApiSecret } = readPair("BYBIT_API_KEY", "BYBIT_API_SECRET")
     if (bybitApiKey.length > 10 && bybitApiSecret.length > 10) {
+      const existing = await client.hgetall("connection:bybit-x03")
+      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
       await client.hset("connection:bybit-x03", {
         api_key: bybitApiKey,
         api_secret: bybitApiSecret,
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_active_inserted: (existing?.is_active_inserted as string) || "1",
+        is_enabled: (existing?.is_enabled as string) || "1",
+        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+        is_active: dashboardEnabled ? "1" : "0",
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })
@@ -63,16 +71,17 @@ export async function POST() {
     }
     
     // Check and inject Pionex credentials
-    const pionexApiKey = process.env.PIONEX_API_KEY || ""
-    const pionexApiSecret = process.env.PIONEX_API_SECRET || ""
+    const { apiKey: pionexApiKey, apiSecret: pionexApiSecret } = readPair("PIONEX_API_KEY", "PIONEX_API_SECRET")
     if (pionexApiKey.length > 10 && pionexApiSecret.length > 10) {
+      const existing = await client.hgetall("connection:pionex-x01")
+      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
       await client.hset("connection:pionex-x01", {
         api_key: pionexApiKey,
         api_secret: pionexApiSecret,
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_active_inserted: (existing?.is_active_inserted as string) || "1",
+        is_enabled: (existing?.is_enabled as string) || "1",
+        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+        is_active: dashboardEnabled ? "1" : "0",
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })
@@ -83,16 +92,17 @@ export async function POST() {
     }
     
     // Check and inject OrangeX credentials
-    const orangexApiKey = process.env.ORANGEX_API_KEY || ""
-    const orangexApiSecret = process.env.ORANGEX_API_SECRET || ""
+    const { apiKey: orangexApiKey, apiSecret: orangexApiSecret } = readPair("ORANGEX_API_KEY", "ORANGEX_API_SECRET")
     if (orangexApiKey.length > 10 && orangexApiSecret.length > 10) {
+      const existing = await client.hgetall("connection:orangex-x01")
+      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
       await client.hset("connection:orangex-x01", {
         api_key: orangexApiKey,
         api_secret: orangexApiSecret,
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_active_inserted: (existing?.is_active_inserted as string) || "1",
+        is_enabled: (existing?.is_enabled as string) || "1",
+        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+        is_active: dashboardEnabled ? "1" : "0",
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })
@@ -126,15 +136,23 @@ export async function GET() {
     const client = getRedisClient()
     
     // Check which credentials are available in environment
+    const bingx = readBingxCredentialsFromEnv()
+    const bybit = readEnvByAliases(["BYBIT_API_KEY", "NEXT_PUBLIC_BYBIT_API_KEY"])
+    const bybitSecret = readEnvByAliases(["BYBIT_API_SECRET", "NEXT_PUBLIC_BYBIT_API_SECRET"])
+    const pionex = readEnvByAliases(["PIONEX_API_KEY", "NEXT_PUBLIC_PIONEX_API_KEY"])
+    const pionexSecret = readEnvByAliases(["PIONEX_API_SECRET", "NEXT_PUBLIC_PIONEX_API_SECRET"])
+    const orangex = readEnvByAliases(["ORANGEX_API_KEY", "NEXT_PUBLIC_ORANGEX_API_KEY"])
+    const orangexSecret = readEnvByAliases(["ORANGEX_API_SECRET", "NEXT_PUBLIC_ORANGEX_API_SECRET"])
+
     const envStatus = {
-      BINGX_API_KEY: !!(process.env.BINGX_API_KEY && process.env.BINGX_API_KEY.length > 10),
-      BINGX_API_SECRET: !!(process.env.BINGX_API_SECRET && process.env.BINGX_API_SECRET.length > 10),
-      BYBIT_API_KEY: !!(process.env.BYBIT_API_KEY && process.env.BYBIT_API_KEY.length > 10),
-      BYBIT_API_SECRET: !!(process.env.BYBIT_API_SECRET && process.env.BYBIT_API_SECRET.length > 10),
-      PIONEX_API_KEY: !!(process.env.PIONEX_API_KEY && process.env.PIONEX_API_KEY.length > 10),
-      PIONEX_API_SECRET: !!(process.env.PIONEX_API_SECRET && process.env.PIONEX_API_SECRET.length > 10),
-      ORANGEX_API_KEY: !!(process.env.ORANGEX_API_KEY && process.env.ORANGEX_API_KEY.length > 10),
-      ORANGEX_API_SECRET: !!(process.env.ORANGEX_API_SECRET && process.env.ORANGEX_API_SECRET.length > 10),
+      BINGX_API_KEY: bingx.apiKey.length > 10,
+      BINGX_API_SECRET: bingx.apiSecret.length > 10,
+      BYBIT_API_KEY: bybit.length > 10,
+      BYBIT_API_SECRET: bybitSecret.length > 10,
+      PIONEX_API_KEY: pionex.length > 10,
+      PIONEX_API_SECRET: pionexSecret.length > 10,
+      ORANGEX_API_KEY: orangex.length > 10,
+      ORANGEX_API_SECRET: orangexSecret.length > 10,
     }
     
     // Check which connections have credentials in database

@@ -71,6 +71,8 @@ const PHASE_LABELS: Record<string, string> = {
   error: "Error",
 }
 
+const toBoolean = (value: unknown): boolean => value === true || value === "1" || value === "true"
+
 interface ActiveConnectionCardProps {
   connection: ActiveConnection & { details?: Connection }
   expanded: boolean
@@ -103,8 +105,8 @@ export function ActiveConnectionCard({
   // Sync local toggle states from connection details
   useEffect(() => {
     if (details) {
-      setLiveTrade(details.is_live_trade === true || details.is_live_trade === "1" || (details.is_live_trade as string) === "true")
-      setPresetMode(details.is_preset_trade === true || details.is_preset_trade === "1" || (details.is_preset_trade as string) === "true")
+      setLiveTrade(toBoolean(details.is_live_trade))
+      setPresetMode(toBoolean(details.is_preset_trade))
     }
   }, [details])
 

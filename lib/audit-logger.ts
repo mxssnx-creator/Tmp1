@@ -40,10 +40,13 @@ class AuditLogger {
       await setSettings("audit_logs", logs)
 
       // Also log to console for immediate visibility
-      const logLevel = auditLog.status === "failed" ? "error" : "info"
-      console[logLevel as any](
-        `[v0] [Audit] ${auditLog.action} by ${auditLog.user_id}: ${auditLog.entity_id} - ${auditLog.status}`
-      )
+      if (auditLog.status === "failed") {
+        console.error(
+          `[v0] [Audit] ${auditLog.action} by ${auditLog.user_id}: ${auditLog.entity_id} - ${auditLog.status}`
+        )
+      } else {
+        console.info(`[v0] [Audit] ${auditLog.action} by ${auditLog.user_id}: ${auditLog.entity_id} - ${auditLog.status}`)
+      }
     } catch (error) {
       console.error("[v0] Failed to write audit log:", error)
     }

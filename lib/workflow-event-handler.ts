@@ -1,6 +1,6 @@
 import { WorkflowLogger, WorkflowEventType } from "./workflow-logger"
 
-export interface WorkflowEventHandler {
+export interface WorkflowEventSubscriber {
   handle(
     connectionId: string,
     eventType: WorkflowEventType,
@@ -20,7 +20,7 @@ export interface WorkflowHandlerConfig {
  * Handles all trade engine, position, and strategy events with retry logic and error handling
  */
 export class WorkflowEventHandler {
-  private handlers: Map<WorkflowEventType, WorkflowEventHandler[]> = new Map()
+  private handlers: Map<WorkflowEventType, WorkflowEventSubscriber[]> = new Map()
   private config: WorkflowHandlerConfig
   private eventQueue: Array<{
     connectionId: string
@@ -44,7 +44,7 @@ export class WorkflowEventHandler {
    */
   registerHandler(
     eventType: WorkflowEventType,
-    handler: WorkflowEventHandler
+    handler: WorkflowEventSubscriber
   ): void {
     if (!this.handlers.has(eventType)) {
       this.handlers.set(eventType, [])
@@ -141,7 +141,7 @@ export class WorkflowEventHandler {
   /**
    * Get all registered handlers for an event type
    */
-  getHandlers(eventType: WorkflowEventType): WorkflowEventHandler[] {
+  getHandlers(eventType: WorkflowEventType): WorkflowEventSubscriber[] {
     return this.handlers.get(eventType) || []
   }
 

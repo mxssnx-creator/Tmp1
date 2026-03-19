@@ -410,5 +410,3 @@ export class ConnectionCoordinator {
     console.log("[v0] ConnectionCoordinator cleanup completed")
   }
 }
-
-export type { Connection }

@@ -40,6 +40,32 @@ export const RedisConnections = {
     }
     return connections
   },
+
+  async updateConnection(id: string, updates: Record<string, any>) {
+    const client = getRedisClient()
+    const existing = await this.getConnection(id)
+    if (!existing) throw new Error("Connection not found")
+    
+    const updated: Record<string, string> = { ...existing }
+    for (const [k, v] of Object.entries(updates)) {
+      updated[k] = String(v ?? "")
+    }
+    updated.updated_at = new Date().toISOString()
+    
+    const args: string[] = []
+    for (const [k, v] of Object.entries(updated)) {
+      args.push(k, v)
+    }
+    await client.hmset(`connection:${id}`, ...args)
+    return updated
+  },
+
+  async deleteConnection(id: string) {
+    const client = getRedisClient()
+    await client.del(`connection:${id}`)
+    await client.srem("connections:all", id)
+    await client.srem("connections:active", id)
+  },
 }
 
 // ========== Trades ==========
@@ -96,6 +122,20 @@ export const RedisPositions = {
     }
     return positions
   },
+
+  async updatePosition(id: string, updates: Record<string, any>) {
+    const client = getRedisClient()
+    const existing = await this.getPosition(id)
+    if (!existing) throw new Error("Position not found")
+    
+    const updated: Record<string, string> = { ...existing }
+    for (const [k, v] of Object.entries(updates)) {
+      updated[k] = String(v ?? "")
+    }
+    
+    await client.hset(`position:${id}`, updated)
+    return updated
+  },
 }
 
 // ========== Cache ==========
@@ -108,8 +148,26 @@ export const RedisCache = {
 
   async get(key: string) {
     const client = getRedisClient()
-    const data = await client.get(`cache:${key}`)
+    const data = await client.get(`settings:${key}`)
     return data ? JSON.parse(data) : null
+  },
+
+  async getAll() {
+    const client = getRedisClient()
+    const keys = await client.keys("settings:*")
+    const settings: Record<string, any> = {}
+    for (const key of keys) {
+      const settingKey = key.replace("settings:", "")
+      const data = await client.get(key)
+      if (data) {
+        try {
+          settings[settingKey] = JSON.parse(data)
+        } catch {
+          settings[settingKey] = data
+        }
+      }
+    }
+    return settings
   },
 }
 
@@ -124,6 +182,24 @@ export const RedisSettings = {
     const client = getRedisClient()
     const data = await client.get(`settings:${key}`)
     return data ? JSON.parse(data) : null
+  },
+
+  async getAll() {
+    const client = getRedisClient()
+    const keys = await client.keys("settings:*")
+    const settings: Record<string, any> = {}
+    for (const key of keys) {
+      const settingKey = key.replace("settings:", "")
+      const data = await client.get(key)
+      if (data) {
+        try {
+          settings[settingKey] = JSON.parse(data)
+        } catch {
+          settings[settingKey] = data
+        }
+      }
+    }
+    return settings
   },
 }
 

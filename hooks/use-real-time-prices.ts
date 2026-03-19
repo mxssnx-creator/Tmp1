@@ -17,7 +17,7 @@ export function useRealTimePrices(symbols: string[]) {
   const wsUrl =
     typeof window !== "undefined"
       ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/api/ws`
-      : "ws://localhost:3000/api/ws"
+      : "ws://localhost:3001/api/ws"
   const { lastMessage, isConnected } = useWebSocket(wsUrl)
 
   useEffect(() => {

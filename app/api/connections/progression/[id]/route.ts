@@ -205,7 +205,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         startedAt: globalState?.started_at || engineState?.started_at || null,
         updatedAt: progression?.updated_at || engineState?.last_indication_run || new Date().toISOString(),
         details: {
-          historicalDataLoaded: currentIdx >= 3 || progressionState.prehistoricCyclesCompleted > 0,
+          historicalDataLoaded: currentIdx >= 3 || (progressionState.prehistoricCyclesCompleted || 0) > 0,
           indicationsCalculated: currentIdx >= 4 || engineRunning || indicationsCount > 0,
           strategiesProcessed: currentIdx >= 5 || engineRunning || strategiesCount > 0,
           liveProcessingActive: currentIdx >= 5 || engineRunning,

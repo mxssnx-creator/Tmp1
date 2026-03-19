@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit check
-    const isAllowed = checkOrderRateLimit(user.id)
+    const isAllowed = checkOrderRateLimit(String(user.id))
     if (!isAllowed) {
       return NextResponse.json(
         {
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
     const existing = (await getSettings("orders")) || []
     const newOrder = {
       id: `order:${Date.now()}:${Math.random().toString(36).substr(2, 9)}`,
-      user_id: user.id,
+      user_id: String(user.id),
       connection_id,
       symbol: symbol.toUpperCase(),
       order_type: order_type.toLowerCase(),
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
 
     // Log order creation for audit
     await auditLogger.log({
-      user_id: user.id,
+      user_id: String(user.id),
       action: "order_create",
       entity_type: "order",
       entity_id: newOrder.id,

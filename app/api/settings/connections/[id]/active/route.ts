@@ -18,7 +18,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Update connection to be active on dashboard
     const updatedConnection = {
       ...connection,
+      is_active_inserted: "1",
+      is_dashboard_inserted: "1",
       is_enabled_dashboard: "1",
+      is_active: "1",
       updated_at: new Date().toISOString(),
     }
 
@@ -60,6 +63,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const updatedConnection = {
       ...connection,
       is_enabled_dashboard: "0",
+      is_active: "0",
       updated_at: new Date().toISOString(),
     }
 

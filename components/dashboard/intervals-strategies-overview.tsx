@@ -32,7 +32,7 @@ interface StrategyStats {
   successRate: number
 }
 
-export function IntervalsStrategiesOverview({ connectionId }: { connectionId: string }) {
+export function IntervalsStrategiesOverview({ connections }: { connections: any[] }) {
   const [intervals, setIntervals] = useState<IntervalsData>({})
   const [strategies, setStrategies] = useState<StrategyStats[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -41,13 +41,13 @@ export function IntervalsStrategiesOverview({ connectionId }: { connectionId: st
     loadData()
     const intervalId = setInterval(loadData, 5000) // Refresh every 5 seconds
     return () => clearInterval(intervalId)
-  }, [connectionId])
+  }, [connections])
 
   const loadData = async () => {
     try {
       const [intervalsRes, strategiesRes] = await Promise.all([
-        fetch(`/api/monitoring/intervals/${connectionId}`),
-        fetch(`/api/monitoring/strategies/${connectionId}`),
+        fetch(`/api/monitoring/intervals/${connections[0]?.id || connections[0]?.connection_id}`),
+        fetch(`/api/monitoring/strategies/${connections[0]?.id || connections[0]?.connection_id}`),
       ])
 
       if (intervalsRes.ok) {

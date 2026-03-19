@@ -70,9 +70,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Connection not found" }, { status: 404 })
     }
 
+    const sanitizedBody = { ...body }
+    if (sanitizedBody.api_key === "" && connection.api_key) {
+      delete sanitizedBody.api_key
+    }
+    if (sanitizedBody.api_secret === "" && connection.api_secret) {
+      delete sanitizedBody.api_secret
+    }
+
     const updatedConnection = {
       ...connection,
-      ...body,
+      ...sanitizedBody,
       id: connection.id,
       created_at: connection.created_at,
       updated_at: new Date().toISOString(),
@@ -115,9 +123,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Connection not found" }, { status: 404 })
     }
 
+    const sanitizedBody = { ...body }
+    if (sanitizedBody.api_key === "" && connection.api_key) {
+      delete sanitizedBody.api_key
+    }
+    if (sanitizedBody.api_secret === "" && connection.api_secret) {
+      delete sanitizedBody.api_secret
+    }
+
     const updatedConnection = {
       ...connection,
-      ...body,
+      ...sanitizedBody,
       id: connection.id,
       created_at: connection.created_at,
       updated_at: new Date().toISOString(),

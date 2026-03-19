@@ -4,12 +4,21 @@
  */
 
 import { getRedisClient, initRedis, setMigrationsRun, haveMigrationsRun } from "./redis-db"
+import { readBingxCredentialsFromEnv, readEnvByAliases } from "./env-credentials"
 
 interface Migration {
   name: string
   version: number
   up: (client: any) => Promise<void>
   down: (client: any) => Promise<void>
+}
+
+let migrationRunPromise: Promise<{ success: boolean; message: string; version: number }> | null = null
+
+function readCredentialEnvPair(envKey: string, envSecret: string): { apiKey: string; apiSecret: string } {
+  const apiKey = readEnvByAliases([envKey, `NEXT_PUBLIC_${envKey}`])
+  const apiSecret = readEnvByAliases([envSecret, `NEXT_PUBLIC_${envSecret}`])
+  return { apiKey, apiSecret }
 }
 
 const migrations: Migration[] = [
@@ -107,9 +116,7 @@ const migrations: Migration[] = [
         total_strategies: "0", total_active_strategies: "0",
         total_backtests: "0", avg_win_rate: "0", avg_profit_factor: "0",
       })
-      await client.sadd("preset_types:standard", "")
-      await client.sadd("preset_types:advanced", "")
-      await client.sadd("preset_types:custom", "")
+      // Sets are created lazily on first real insert; avoid empty placeholder members.
       await client.set("strategies:counter:active", "0")
       await client.set("strategies:counter:paused", "0")
       await client.set("strategies:counter:stopped", "0")
@@ -189,10 +196,7 @@ const migrations: Migration[] = [
       await client.hset("cache:stats", {
         total_hits: "0", total_misses: "0", hit_rate: "0", total_evictions: "0",
       })
-      await client.sadd("cache:realtime:prices", "")
-      await client.sadd("cache:realtime:positions", "")
-      await client.sadd("cache:realtime:orders", "")
-      await client.sadd("cache:realtime:balances", "")
+      // Sets are created lazily on first real insert; avoid empty placeholder members.
       console.log("[v0] Migration 007: Cache optimization created")
     },
     down: async (client: any) => {
@@ -237,10 +241,7 @@ const migrations: Migration[] = [
       await client.hset("recovery:points", {
         total_recovery_points: "0", last_recovery_time: "", last_recovery_success: "false",
       })
-      await client.sadd("snapshots:trades", "")
-      await client.sadd("snapshots:positions", "")
-      await client.sadd("snapshots:connections", "")
-      await client.sadd("snapshots:strategies", "")
+      // Sets are created lazily on first real insert; avoid empty placeholder members.
       console.log("[v0] Migration 009: Backup and recovery system created")
     },
     down: async (client: any) => {
@@ -345,7 +346,7 @@ const migrations: Migration[] = [
     name: "012-finalize-dashboard-connections",
     version: 12,
     up: async (client: any) => {
-      await client.set("_schema_version", "15")
+      await client.set("_schema_version", "12")
       
       // Base connections: 4 primary exchange templates (bybit-x03, bingx-x01, pionex-x01, orangex-x01)
       // These are PREDEFINED TEMPLATES, not user-created connections
@@ -356,7 +357,7 @@ const migrations: Migration[] = [
       let updatedBase = 0
       let updatedOther = 0
       
-      console.log(`[v0] Migration 015: Initializing connections (base templates set to predefined=1, disabled)`)
+      console.log(`[v0] Migration 012: Initializing connections (base templates set to predefined=1, disabled)`)
       
       for (const connId of connections) {
         const connData = await client.hgetall(`connection:${connId}`)
@@ -373,7 +374,7 @@ const migrations: Migration[] = [
             updated_at: new Date().toISOString(),
           })
           updatedBase++
-          console.log(`[v0] Migration 015: ✓ ${connId} -> predefined=1, inserted=0, enabled=0 (template)`)
+          console.log(`[v0] Migration 012: ✓ ${connId} -> predefined=1, inserted=0, enabled=0 (template)`)
         } else {
           // Other predefined connections: all templates
           await client.hset(`connection:${connId}`, {
@@ -388,7 +389,7 @@ const migrations: Migration[] = [
         }
       }
       
-      console.log(`[v0] Migration 015: COMPLETE - ${updatedBase} base templates, ${updatedOther} other templates (all disabled)`)
+      console.log(`[v0] Migration 012: COMPLETE - ${updatedBase} base templates, ${updatedOther} other templates (all disabled)`)
     },
     down: async (client: any) => {
       await client.set("_schema_version", "11")
@@ -483,20 +484,20 @@ const migrations: Migration[] = [
         if (!connData || Object.keys(connData).length === 0) continue
         
         if (baseExchangeIds.includes(connId)) {
-          // Mark as INSERTED, ENABLED, and ACTIVE_INSERTED by default (base connection)
-          // Base connections are automatically enabled and added to Active panel
+          // Mark as INSERTED and ENABLED in Settings by default (base connection)
+          // Dashboard/Main enable toggle stays OFF by default until user enables it.
           await client.hset(`connection:${connId}`, {
             is_inserted: "1",
             is_enabled: "1",              // ENABLED by default
             is_active_inserted: "1",      // Added to Active panel
-            is_enabled_dashboard: "1",    // Dashboard toggle enabled
-            is_active: "1",
+            is_enabled_dashboard: "0",    // Dashboard toggle OFF by default
+            is_active: "0",
             is_predefined: "1",
             connection_method: "library", // Use native SDK by default
             updated_at: new Date().toISOString(),
           })
           updatedBase++
-          console.log(`[v0] Migration 015: ${connId} -> inserted=1, enabled=1, active_inserted=1, dashboard_enabled=1 (base connection)`)
+          console.log(`[v0] Migration 015: ${connId} -> inserted=1, enabled=1, active_inserted=1, dashboard_enabled=0 (base connection)`)
         } else {
           // Non-base predefined connections: just informational templates
           // NOT inserted, NOT enabled - they are templates only
@@ -529,8 +530,7 @@ const migrations: Migration[] = [
       const baseTemplateIds = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"]
       
       // Check for real BingX credentials from environment
-      const bingxApiKey = process.env.BINGX_API_KEY || ""
-      const bingxApiSecret = process.env.BINGX_API_SECRET || ""
+      const { apiKey: bingxApiKey, apiSecret: bingxApiSecret } = readBingxCredentialsFromEnv()
       const hasBingxCredentials = bingxApiKey.length > 10 && bingxApiSecret.length > 10
       console.log(`[v0] Migration 016: BingX credentials available: ${hasBingxCredentials}`)
       
@@ -548,14 +548,15 @@ const migrations: Migration[] = [
         const isBaseTemplate = baseTemplateIds.includes(connId)
         
         if (isBaseTemplate) {
-          // Base connections: inserted and enabled by default
+          // Base connections: inserted and enabled in Settings by default
+          // Main (dashboard) enable toggle must remain OFF by default.
           // Update with env credentials if available (for BingX)
           const updateData: Record<string, string> = {
             is_inserted: "1",        // INSERTED
             is_enabled: "1",         // ENABLED
             is_active_inserted: "1", // In active panel
-            is_enabled_dashboard: "1",
-            is_active: "1",
+            is_enabled_dashboard: "0",
+            is_active: "0",
             connection_method: "library", // Use native SDK by default
             updated_at: new Date().toISOString(),
           }
@@ -569,7 +570,7 @@ const migrations: Migration[] = [
           
           await client.hset(`connection:${connId}`, updateData)
           updatedTemplates++
-          console.log(`[v0] Migration 016: ✓ ${connId} -> inserted=1, enabled=1, active=1 (base connection)`)
+          console.log(`[v0] Migration 016: ✓ ${connId} -> inserted=1, enabled=1, dashboard_enabled=0 (base connection)`)
         } else if (!isPredefined) {
           // User-created connections: reset dashboard state if not properly set
           if (!connData.is_active_inserted || !connData.is_enabled_dashboard) {
@@ -593,20 +594,127 @@ const migrations: Migration[] = [
   },
 ]
 
+const BASE_CONNECTION_CONFIG: Array<{
+  id: string
+  name: string
+  exchange: string
+  envKey: string
+  envSecret: string
+  autoActive: boolean
+}> = [
+  { id: "bybit-x03", name: "Bybit Base", exchange: "bybit", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET", autoActive: false },
+  { id: "bingx-x01", name: "BingX Base", exchange: "bingx", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET", autoActive: false },
+  { id: "pionex-x01", name: "Pionex Base", exchange: "pionex", envKey: "PIONEX_API_KEY", envSecret: "PIONEX_API_SECRET", autoActive: false },
+  { id: "orangex-x01", name: "OrangeX Base", exchange: "orangex", envKey: "ORANGEX_API_KEY", envSecret: "ORANGEX_API_SECRET", autoActive: false },
+]
+
+async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: number; credentialsInjected: number }> {
+  let createdOrUpdated = 0
+  let credentialsInjected = 0
+
+  const legacyIds = ["bybit-base", "bingx-base", "binance-base", "okx-base", "bybit-default-disabled", "bingx-default-disabled"]
+  for (const legacyId of legacyIds) {
+    const exists = await client.sismember("connections", legacyId)
+    if (exists) {
+      await client.del(`connection:${legacyId}`)
+      await client.srem("connections", legacyId)
+      console.log(`[v0] [Migrations] Removed legacy connection id ${legacyId}`)
+    }
+  }
+
+  for (const cfg of BASE_CONNECTION_CONFIG) {
+    const now = new Date().toISOString()
+    const existing = await client.hgetall(`connection:${cfg.id}`)
+    const hasExisting = existing && Object.keys(existing).length > 0
+
+    const { apiKey, apiSecret } = readCredentialEnvPair(cfg.envKey, cfg.envSecret)
+    const hasRealCredentials = apiKey.length > 10 && apiSecret.length > 10
+
+    const updateData: Record<string, string> = {
+      id: cfg.id,
+      name: (existing?.name as string) || cfg.name,
+      exchange: (existing?.exchange as string) || cfg.exchange,
+      is_predefined: "0",
+      is_inserted: (existing?.is_inserted as string) || "1",
+      is_dashboard_inserted: (existing?.is_dashboard_inserted as string) || "1",
+      is_active_inserted: cfg.autoActive ? "1" : ((existing?.is_active_inserted as string) || "0"),
+      // Base connections are enabled in Settings by default.
+      is_enabled: (existing?.is_enabled as string) || "1",
+      // Dashboard (Main) connections are OFF by default until user enables them.
+      is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+      is_active: (existing?.is_active as string) || "0",
+      connection_method: (existing?.connection_method as string) || "library",
+      connection_library: (existing?.connection_library as string) || "native",
+      api_type: (existing?.api_type as string) || "perpetual_futures",
+      updated_at: now,
+      created_at: (existing?.created_at as string) || now,
+    }
+
+    if (hasRealCredentials) {
+      updateData.api_key = apiKey
+      updateData.api_secret = apiSecret
+      credentialsInjected++
+    } else if (!hasExisting) {
+      updateData.api_key = ""
+      updateData.api_secret = ""
+    } else {
+      // Preserve previously stored credentials if env vars are not present.
+      updateData.api_key = (existing?.api_key as string) || ""
+      updateData.api_secret = (existing?.api_secret as string) || ""
+    }
+
+    await client.hset(`connection:${cfg.id}`, updateData)
+    await client.sadd("connections", cfg.id)
+    createdOrUpdated++
+  }
+
+  return { createdOrUpdated, credentialsInjected }
+}
+
 /**
  * Run all pending migrations
  */
 export async function runMigrations(): Promise<{ success: boolean; message: string; version: number }> {
+  if (migrationRunPromise) {
+    return migrationRunPromise
+  }
+
+  migrationRunPromise = runMigrationsInternal()
+
+  try {
+    return await migrationRunPromise
+  } finally {
+    migrationRunPromise = null
+  }
+}
+
+async function runMigrationsInternal(): Promise<{ success: boolean; message: string; version: number }> {
   try {
     // Check if migrations have already run in this process
-  if (haveMigrationsRun()) {
-  const finalVer = Math.max(...migrations.map((m) => m.version))
-  console.log("[v0] [Migrations] ✓ Already executed in this process, skipping")
-  return { success: true, message: "Already run in this process", version: finalVer }
-  }
+    if (haveMigrationsRun()) {
+      const finalVer = Math.max(...migrations.map((m) => m.version))
+      await initRedis()
+      const client = getRedisClient()
+
+      // Keep process guard synced with persisted migration state.
+      const persistedRunState = await client.get("_migrations_run")
+      if (persistedRunState !== "true") {
+        await client.set("_migrations_run", "true")
+      }
+
+      const ensured = await ensureBaseConnections(client)
+      console.log(`[v0] [Migrations] ✓ Already executed in this process; base ensured=${ensured.createdOrUpdated}, credentialsInjected=${ensured.credentialsInjected}`)
+      return { success: true, message: "Already run in this process", version: finalVer }
+    }
 
     await initRedis()
     const client = getRedisClient()
+
+    const persistedRunState = await client.get("_migrations_run")
+    if (persistedRunState === "true") {
+      await setMigrationsRun()
+    }
+
     const versionStr = await client.get("_schema_version")
     const currentVersion = versionStr ? parseInt(versionStr as string) : 0
     const finalVersion = Math.max(...migrations.map((m) => m.version))
@@ -618,46 +726,10 @@ export async function runMigrations(): Promise<{ success: boolean; message: stri
     
     if (pendingMigrations.length === 0) {
       console.log(`[v0] [Migrations] Already at latest version ${finalVersion}`)
+      const ensured = await ensureBaseConnections(client)
+      console.log(`[v0] [Migrations] ✓ Ensured ${ensured.createdOrUpdated} base connections; injected credentials for ${ensured.credentialsInjected}`)
       
-      // AUTO-FIX: Still ensure base connections are configured (handles env var addition after initial migration)
-      const baseConnections = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"]
-      const envMappings: Record<string, { key: string; secret: string }> = {
-        "bingx-x01": { key: "BINGX_API_KEY", secret: "BINGX_API_SECRET" },
-        "bybit-x03": { key: "BYBIT_API_KEY", secret: "BYBIT_API_SECRET" },
-        "pionex-x01": { key: "PIONEX_API_KEY", secret: "PIONEX_API_SECRET" },
-        "orangex-x01": { key: "ORANGEX_API_KEY", secret: "ORANGEX_API_SECRET" },
-      }
-      
-      let credentialsInjected = 0
-      for (const connId of baseConnections) {
-        const mapping = envMappings[connId]
-        if (mapping) {
-          const apiKey = process.env[mapping.key] || ""
-          const apiSecret = process.env[mapping.secret] || ""
-          if (apiKey.length > 10 && apiSecret.length > 10) {
-            // Check if credentials already exist
-            const existing = await client.hget(`connection:${connId}`, "api_key")
-            if (!existing || existing.length < 10 || existing !== apiKey) {
-              await client.hset(`connection:${connId}`, {
-                api_key: apiKey,
-                api_secret: apiSecret,
-                is_active_inserted: "1",
-                is_enabled: "1",
-                is_enabled_dashboard: "1",
-                connection_method: "library",
-                updated_at: new Date().toISOString(),
-              })
-              console.log(`[v0] [Migrations] Auto-injected ${connId} credentials from environment`)
-              credentialsInjected++
-            }
-          }
-        }
-      }
-      if (credentialsInjected > 0) {
-        console.log(`[v0] [Migrations] ✓ Injected credentials for ${credentialsInjected} connections`)
-      }
-      
-      setMigrationsRun(true)
+      await setMigrationsRun()
       return { success: true, message: `Already at latest version ${finalVersion}`, version: finalVersion }
     }
 
@@ -689,43 +761,11 @@ export async function runMigrations(): Promise<{ success: boolean; message: stri
     const finalVersionCheck = await client.get("_schema_version")
     console.log(`[v0] [Migrations] ✓ Verification: Schema version is now ${finalVersionCheck}`)
     
-    // AUTO-FIX: Ensure base connections are properly configured with credentials from env
-    const baseConnections = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"]
-    const envMappings: Record<string, { key: string; secret: string }> = {
-      "bingx-x01": { key: "BINGX_API_KEY", secret: "BINGX_API_SECRET" },
-      "bybit-x03": { key: "BYBIT_API_KEY", secret: "BYBIT_API_SECRET" },
-      "pionex-x01": { key: "PIONEX_API_KEY", secret: "PIONEX_API_SECRET" },
-      "orangex-x01": { key: "ORANGEX_API_KEY", secret: "ORANGEX_API_SECRET" },
-    }
-    
-    for (const connId of baseConnections) {
-      const updateData: Record<string, string> = {
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
-        connection_method: "library",
-        updated_at: new Date().toISOString(),
-      }
-      
-      // Check for env credentials
-      const mapping = envMappings[connId]
-      if (mapping) {
-        const apiKey = process.env[mapping.key] || ""
-        const apiSecret = process.env[mapping.secret] || ""
-        if (apiKey.length > 10 && apiSecret.length > 10) {
-          updateData.api_key = apiKey
-          updateData.api_secret = apiSecret
-          console.log(`[v0] [Migrations] Injecting ${connId} credentials from environment`)
-        }
-      }
-      
-      await client.hset(`connection:${connId}`, updateData)
-    }
-    console.log(`[v0] [Migrations] ✓ Auto-fixed ${baseConnections.length} base connections`)
+    const ensured = await ensureBaseConnections(client)
+    console.log(`[v0] [Migrations] ✓ Ensured ${ensured.createdOrUpdated} base connections; injected credentials for ${ensured.credentialsInjected}`)
     
     // Mark migrations as run in this process
-    setMigrationsRun(true)
+    await setMigrationsRun()
     
     return { success: true, message: `Migrated from v${currentVersion} to v${finalVersion}`, version: finalVersion }
   } catch (error) {

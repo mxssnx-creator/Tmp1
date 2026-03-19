@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { readBingxCredentialsFromEnv } from "@/lib/env-credentials"
 
 export const runtime = "nodejs"
 
@@ -36,23 +37,24 @@ export async function GET(request: NextRequest) {
     
     // AUTO-INJECT: Check for credentials in environment and inject them into connections
     // This ensures credentials are available even if migrations ran before env vars were set
-    const bingxKey = process.env.BINGX_API_KEY || ""
-    const bingxSecret = process.env.BINGX_API_SECRET || ""
+    const { apiKey: bingxKey, apiSecret: bingxSecret } = readBingxCredentialsFromEnv()
     if (bingxKey.length > 10 && bingxSecret.length > 10) {
       const { getRedisClient } = await import("@/lib/redis-db")
       const redisClient = getRedisClient()
       const existingConn = await redisClient.hgetall("connection:bingx-x01")
       // Only update if credentials are missing or different
-      if (!existingConn?.api_key || existingConn.api_key.length < 10 || existingConn.api_key !== bingxKey) {
-        await redisClient.hset("connection:bingx-x01", {
-          api_key: bingxKey,
-          api_secret: bingxSecret,
-          is_active_inserted: "1",
-          is_enabled: "1",
-          is_enabled_dashboard: "1",
-          connection_method: "library",
-          updated_at: new Date().toISOString(),
-        })
+       if (!existingConn?.api_key || existingConn.api_key.length < 10 || existingConn.api_key !== bingxKey) {
+         const dashboardEnabled = existingConn?.is_enabled_dashboard === "1" || existingConn?.is_enabled_dashboard === "true"
+         await redisClient.hset("connection:bingx-x01", {
+           api_key: bingxKey,
+           api_secret: bingxSecret,
+           is_active_inserted: (existingConn?.is_active_inserted as string) || "1",
+           is_enabled: (existingConn?.is_enabled as string) || "1",
+           is_enabled_dashboard: (existingConn?.is_enabled_dashboard as string) || "0",
+           is_active: dashboardEnabled ? "1" : "0",
+           connection_method: "library",
+           updated_at: new Date().toISOString(),
+         })
         console.log("[v0] [Init] Auto-injected BingX credentials from environment")
       }
     }
@@ -71,6 +73,20 @@ export async function GET(request: NextRequest) {
       const connections = await getAllConnections()
       connectionsCount = connections.length
       enabledConnectionsCount = connections.filter((c: any) => c.is_enabled !== false).length
+
+      const bingxCandidates = connections.filter((c: any) => (c.exchange || "").toLowerCase() === "bingx")
+      const canonicalBingx = connections.find((c: any) => c.id === "bingx-x01")
+
+      ;(migrationStatus as any).connectionSanity = {
+        bingxCandidateCount: bingxCandidates.length,
+        canonicalBingxId: canonicalBingx?.id || null,
+        canonicalBingxHasCredentials: !!(
+          canonicalBingx?.api_key &&
+          canonicalBingx?.api_secret &&
+          canonicalBingx.api_key.length > 10 &&
+          canonicalBingx.api_secret.length > 10
+        ),
+      }
     } catch (error) {
       console.warn("[v0] Failed to get connections count:", error)
     }
@@ -93,6 +109,7 @@ export async function GET(request: NextRequest) {
           current_version: migrationStatus.currentVersion,
           latest_version: migrationStatus.latestVersion,
           up_to_date: migrationStatus.currentVersion === migrationStatus.latestVersion,
+          connection_sanity: (migrationStatus as any).connectionSanity,
         },
         connections: {
           total: connectionsCount,

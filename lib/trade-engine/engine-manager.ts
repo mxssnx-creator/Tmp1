@@ -15,9 +15,12 @@ import { ProgressionStateManager } from "@/lib/progression-state-manager"
 
 export interface EngineConfig {
   connectionId: string
-  indicationInterval: number // seconds
-  strategyInterval: number // seconds
-  realtimeInterval: number // seconds
+  connection_name?: string
+  exchange?: string
+  engine_type?: string
+  indicationInterval?: number // seconds, default 1
+  strategyInterval?: number // seconds, default 1
+  realtimeInterval?: number // seconds, default 1
 }
 
 export interface ComponentHealth {
@@ -247,7 +250,6 @@ export class TradeEngineManager {
         this.connectionId,
         symbol,
         "market_data",
-        start,
         end
       )
     } catch (error) {

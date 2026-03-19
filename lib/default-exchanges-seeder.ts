@@ -1,161 +1,147 @@
-import { createConnection, getAllConnections, getConnection, initRedis } from "@/lib/redis-db"
+import { createConnection, deleteConnection, getAllConnections, getConnection, initRedis, updateConnection } from "@/lib/redis-db"
 
-/**
- * PREDEFINED EXCHANGE INFO - Just informational templates (not connections)
- * These are reference data about supported exchanges
- */
-export const PREDEFINED_EXCHANGE_INFO = [
-  {
-    exchange: "bybit",
-    name: "Bybit",
-    description: "Bybit futures trading platform",
-    api_type: "perpetual_futures",
-    margin_type: "cross",
-    position_mode: "hedge",
-  },
-  {
-    exchange: "bingx",
-    name: "BingX",
-    description: "BingX perpetual futures platform",
-    api_type: "perpetual_futures",
-    margin_type: "cross",
-    position_mode: "hedge",
-  },
-  {
-    exchange: "binance",
-    name: "Binance",
-    description: "Binance futures trading platform",
-    api_type: "perpetual_futures",
-    margin_type: "cross",
-    position_mode: "hedge",
-  },
-  {
-    exchange: "okx",
-    name: "OKX",
-    description: "OKX futures trading platform",
-    api_type: "perpetual_futures",
-    margin_type: "cross",
-    position_mode: "hedge",
-  },
+type BaseSeedConfig = {
+  id: string
+  exchange: string
+  name: string
+  apiType: string
+  contractType: string
+  connectionMethod: string
+  connectionLibrary: string
+  envKey: string
+  envSecret: string
+}
+
+const CANONICAL_BASE_CONNECTIONS: BaseSeedConfig[] = [
+  { id: "bybit-x03", exchange: "bybit", name: "Bybit X03", apiType: "unified", contractType: "linear", connectionMethod: "library", connectionLibrary: "native", envKey: "BYBIT_API_KEY", envSecret: "BYBIT_API_SECRET" },
+  { id: "bingx-x01", exchange: "bingx", name: "BingX X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native", envKey: "BINGX_API_KEY", envSecret: "BINGX_API_SECRET" },
+  { id: "pionex-x01", exchange: "pionex", name: "Pionex X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native", envKey: "PIONEX_API_KEY", envSecret: "PIONEX_API_SECRET" },
+  { id: "orangex-x01", exchange: "orangex", name: "OrangeX X01", apiType: "perpetual_futures", contractType: "usdt-perpetual", connectionMethod: "library", connectionLibrary: "native", envKey: "ORANGEX_API_KEY", envSecret: "ORANGEX_API_SECRET" },
 ]
 
+const LEGACY_CONNECTION_IDS = [
+  "bybit-base",
+  "bingx-base",
+  "binance-base",
+  "okx-base",
+  "bybit-default-disabled",
+  "bingx-default-disabled",
+]
+
+function readCredentialEnv(name: string): string {
+  const raw = process.env[name] || ""
+  return raw.trim().replace(/^['\"]|['\"]$/g, "")
+}
+
 /**
- * Seeds BASE CONNECTIONS from predefined exchange info
- * Base connections are ENABLED by default in Settings
- * But NOT inserted into Active panel (user must add them)
+ * Backward-compatible entrypoint. Ensures canonical base connections only.
  */
 export async function seedDefaultExchanges() {
-  console.log("[v0] Seeding base connections from predefined info...")
-  await initRedis()
-
-  try {
-    for (const info of PREDEFINED_EXCHANGE_INFO) {
-      const connectionId = `${info.exchange}-base`
-
-      const existing = await getConnection(connectionId)
-      if (existing) {
-        console.log(`[v0] Base connection ${info.exchange} already exists, skipping`)
-        continue
-      }
-
-      // Create BASE CONNECTION - ENABLED by default, NOT in Active panel
-      const baseConnection = {
-        id: connectionId,
-        user_id: 1,
-        name: `${info.name} Connection`,
-        exchange: info.exchange,
-        exchange_id: info.exchange.toUpperCase(),
-        api_type: info.api_type,
-        api_subtype: "perpetual",
-        connection_method: "rest",
-        connection_library: "native",
-        api_key: "",
-        api_secret: "",
-        api_passphrase: "",
-        margin_type: info.margin_type,
-        position_mode: info.position_mode,
-        is_testnet: false, // Production by default
-        is_enabled: true, // ENABLED in Settings by default
-        is_live_trade: false,
-        is_preset_trade: false,
-        is_active: false,
-        is_predefined: false, // NOT predefined - this is a real connection
-        is_active_inserted: false, // NOT in Active panel by default
-        is_enabled_dashboard: false, // Dashboard toggle OFF
-        is_inserted: false,
-        volume_factor: 1.0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        last_test_status: "not_tested",
-        last_test_log: [],
-        connection_settings: {
-          description: info.description,
-          baseVolumeFactorLive: 1.0,
-          baseVolumeFactorPreset: 1.0,
-          profitFactorMinBase: 0.6,
-          profitFactorMinMain: 0.6,
-          profitFactorMinReal: 0.6,
-          trailingWithTrailing: true,
-          trailingOnly: false,
-          blockEnabled: true,
-          blockOnly: false,
-          dcaEnabled: false,
-          dcaOnly: false,
-        },
-      }
-
-      await createConnection(baseConnection)
-      console.log(`[v0] Created base connection: ${info.exchange} (enabled in Settings)`)
-    }
-
-    console.log("[v0] Base connections seeding completed")
-    return { success: true, message: "Base connections created successfully" }
-  } catch (error) {
-    console.error("[v0] Error seeding base connections:", error)
-    return { success: false, error: String(error) }
-  }
+  return ensureDefaultExchangesExist()
 }
 
 /**
- * Ensures base connections exist for all predefined exchanges
+ * Ensures canonical base connections exist and injects env credentials when available.
+ * Also removes legacy `*-base` / `*-default-disabled` duplicates that caused blank BingX entries.
  */
 export async function ensureDefaultExchangesExist() {
-  console.log("[v0] Ensuring base connections exist...")
   await initRedis()
 
   try {
-    const allConnections = await getAllConnections()
-    const baseConnectionIds = PREDEFINED_EXCHANGE_INFO.map((e) => `${e.exchange}-base`)
-    
-    // Check if any base connections are missing
-    const existingIds = allConnections?.map((c) => c.id) || []
-    const missingConnections = baseConnectionIds.filter((id) => !existingIds.includes(id))
+    let removedLegacy = 0
+    let created = 0
+    let updated = 0
+    let credentialsInjected = 0
 
-    if (missingConnections.length > 0) {
-      console.log(`[v0] Missing base connections: ${missingConnections.join(", ")}`)
-      await seedDefaultExchanges()
-    } else {
-      console.log("[v0] All base connections exist")
+    const allConnections = await getAllConnections()
+    const existingIds = new Set((allConnections || []).map((c: any) => c.id))
+
+    for (const legacyId of LEGACY_CONNECTION_IDS) {
+      if (existingIds.has(legacyId)) {
+        await deleteConnection(legacyId)
+        removedLegacy++
+      }
     }
 
-    return { success: true }
+    for (const cfg of CANONICAL_BASE_CONNECTIONS) {
+      const now = new Date().toISOString()
+      const existing = await getConnection(cfg.id)
+
+      const apiKey = readCredentialEnv(cfg.envKey)
+      const apiSecret = readCredentialEnv(cfg.envSecret)
+      const hasEnvCreds = apiKey.length > 10 && apiSecret.length > 10
+
+      const normalizedBase = {
+        id: cfg.id,
+        name: existing?.name || cfg.name,
+        exchange: cfg.exchange,
+        api_type: existing?.api_type || cfg.apiType,
+        contract_type: existing?.contract_type || cfg.contractType,
+        connection_method: existing?.connection_method || cfg.connectionMethod,
+        connection_library: existing?.connection_library || cfg.connectionLibrary,
+        margin_type: existing?.margin_type || "cross",
+        position_mode: existing?.position_mode || "hedge",
+        is_testnet: existing?.is_testnet ?? false,
+        is_predefined: existing?.is_predefined ?? true,
+        is_inserted: existing?.is_inserted ?? "1",
+        is_active_inserted: existing?.is_active_inserted ?? "1",
+        is_enabled: existing?.is_enabled ?? "1",
+        is_enabled_dashboard: existing?.is_enabled_dashboard ?? "0",
+        is_active: existing?.is_active ?? "0",
+        created_at: existing?.created_at || now,
+        updated_at: now,
+      } as Record<string, any>
+
+      if (hasEnvCreds) {
+        normalizedBase.api_key = apiKey
+        normalizedBase.api_secret = apiSecret
+      } else {
+        normalizedBase.api_key = existing?.api_key || ""
+        normalizedBase.api_secret = existing?.api_secret || ""
+      }
+
+      if (!existing) {
+        await createConnection(normalizedBase)
+        created++
+      } else {
+        await updateConnection(cfg.id, normalizedBase)
+        updated++
+      }
+
+      if (hasEnvCreds) {
+        credentialsInjected++
+      }
+    }
+
+    console.log(
+      `[v0] [BaseSeed] canonical ensured created=${created} updated=${updated} legacyRemoved=${removedLegacy} credentialsInjected=${credentialsInjected}`,
+    )
+
+    return {
+      success: true,
+      created,
+      updated,
+      removedLegacy,
+      credentialsInjected,
+    }
   } catch (error) {
-    console.error("[v0] Error ensuring base connections:", error)
+    console.error("[v0] [BaseSeed] ensure failed:", error)
     return { success: false, error: String(error) }
   }
 }
 
 /**
- * Get list of available base connections (enabled in Settings, can be added to Active panel)
+ * Returns canonical base connections enabled in Settings and not yet active on dashboard.
  */
 export async function getAvailableBaseConnections() {
   await initRedis()
   const allConnections = await getAllConnections()
-  
-  // Return base connections that are ENABLED but NOT yet in Active panel
-  return allConnections?.filter((c) => {
-    const isEnabled = c.is_enabled === true || c.is_enabled === "1"
-    const isInActivePanel = c.is_active_inserted === true || c.is_active_inserted === "1"
-    return isEnabled && !isInActivePanel
-  }) || []
+  const canonicalIds = new Set(CANONICAL_BASE_CONNECTIONS.map((c) => c.id))
+
+  return (allConnections || []).filter((c: any) => {
+    if (!canonicalIds.has(c.id)) return false
+    const isEnabled = c.is_enabled === true || c.is_enabled === "1" || c.is_enabled === "true"
+    const isDashboardInserted = c.is_active_inserted === true || c.is_active_inserted === "1" || c.is_active_inserted === "true"
+    return isEnabled && !isDashboardInserted
+  })
 }

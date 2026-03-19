@@ -263,7 +263,7 @@ export async function withErrorHandling<T>(
   maxRetries: number = 3
 ): Promise<{ success: boolean; data?: T; error?: string; code?: ErrorCode }> {
   let lastError: any
-  let lastCode: ErrorCode
+  let lastCode: ErrorCode = ErrorCode.UNKNOWN
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

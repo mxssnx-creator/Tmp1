@@ -17,6 +17,8 @@ interface ActiveConnectionWithDetails extends ActiveConnection {
   details?: Connection
 }
 
+const toBoolean = (value: unknown): boolean => value === true || value === "1" || value === "true"
+
 export function DashboardActiveConnectionsManager() {
   // Version marker with system version tracking - forces browser cache refresh
   const VERSION = `${COMPONENT_VERSIONS.dashboardManager}-20260226`
@@ -80,17 +82,14 @@ export function DashboardActiveConnectionsManager() {
         // is_active_inserted = "1" means this connection is in Active panel
         // This applies to BOTH predefined templates (when enabled) AND user-created connections
         const isActiveInserted =
-          conn.is_active_inserted === "1" ||
-          conn.is_active_inserted === true ||
-          conn.is_dashboard_inserted === "1" ||
-          conn.is_dashboard_inserted === true
+          toBoolean(conn.is_active_inserted) ||
+          toBoolean(conn.is_dashboard_inserted)
 
         // isEnabledDashboard = connection's dashboard toggle is ON (processing enabled)
         const isEnabledDashboard =
-          conn.is_enabled_dashboard === true ||
-          conn.is_enabled_dashboard === "1"
+          toBoolean(conn.is_enabled_dashboard)
 
-        if (isBase && isActiveInserted) {
+        if (isBase || isActiveInserted || isEnabledDashboard) {
           if (seenIds.has(conn.id)) continue
           seenIds.add(conn.id)
           activeConns.push({
@@ -98,7 +97,7 @@ export function DashboardActiveConnectionsManager() {
             connectionId: conn.id,
             exchangeName: conn.exchange ? conn.exchange.charAt(0).toUpperCase() + conn.exchange.slice(1) : "Unknown",
             isActive: isEnabledDashboard, // Dashboard toggle state
-            isBaseEnabled: true,
+            isBaseEnabled: isBase,
             addedAt: conn.created_at || new Date().toISOString(),
             details: conn,
           })
@@ -160,10 +159,6 @@ export function DashboardActiveConnectionsManager() {
     }
   }, [])
 
-  useEffect(() => {
-    console.log(`[v0] [Manager] Component loaded - ${VERSION}`)
-  }, [])
-
   const handleToggle = async (connectionId: string, currentState: boolean) => {
     const newState = !currentState
     
@@ -186,16 +181,13 @@ export function DashboardActiveConnectionsManager() {
     try {
       console.log(`[v0] [Manager] ${newState ? "ENABLING" : "DISABLING"} ${connName}...`)
       
-      // 1. Toggle active state via API (also remove from dashboard permanently if disabling)
+      // 1. Toggle active state via API while keeping insertion state stable
       console.log(`[v0] [Manager] → Calling toggle-dashboard API...`)
       const toggleRes = await fetch(`/api/settings/connections/${connectionId}/toggle-dashboard`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           is_enabled_dashboard: newState,
-          // If disabling, also remove from dashboard permanently (is_dashboard_inserted = "0")
-          // If enabling, keep dashboard_inserted as is
-          ...(newState ? {} : { is_dashboard_inserted: "0" })
         }),
         cache: "no-store"
       })
@@ -233,7 +225,7 @@ export function DashboardActiveConnectionsManager() {
         })
       } else {
         // When enabling, just show that live trade must be enabled manually
-        toast.success("Connection added to Active Connections", {
+        toast.success("Connection added to Main Connections", {
           description: "Use the Live Trade slider to enable real exchange trading",
         })
       }
@@ -335,7 +327,7 @@ export function DashboardActiveConnectionsManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-sm">Active Connections</h3>
+          <h3 className="font-semibold text-sm">Main Connections (Active Connections)</h3>
           <p className="text-xs text-muted-foreground">
             All connections disabled by default. Enable to start engine progression.
           </p>

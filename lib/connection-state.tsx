@@ -45,6 +45,7 @@ interface ConnectionState {
 }
 
 const ConnectionStateContext = createContext<ConnectionState | undefined>(undefined)
+const toBoolean = (value: unknown): boolean => value === true || value === 1 || value === "1" || value === "true"
 
 export function ConnectionStateProvider({ children }: { children: ReactNode }) {
   // Base connections state (Settings)
@@ -82,35 +83,28 @@ export function ConnectionStateProvider({ children }: { children: ReactNode }) {
         const data = await response.json()
         setBaseConnections(data.connections || [])
         
-        // Initialize status map - only auto-inserted connections (bybit, bingx) are enabled by default
-        const AUTO_INSERTED = ["bybit", "bingx"]
+        // Initialize status map from persisted values to avoid visual switching/reset.
         const statusMap = new Map<string, { enabled: boolean; inserted: boolean }>()
         data.connections?.forEach((conn: ExchangeConnection) => {
-          const exchange = (conn.exchange || "").toLowerCase().trim()
-          const isAutoInserted = AUTO_INSERTED.includes(exchange)
-          const isInserted = conn.is_inserted === "1" || conn.is_inserted === true
+          const isInserted = toBoolean((conn as any).is_inserted)
+          const isEnabled = toBoolean((conn as any).is_enabled)
           
           statusMap.set(conn.id, { 
-            // Auto-inserted connections start enabled; others start disabled
-            enabled: isAutoInserted && isInserted,
-            inserted: false 
+            enabled: isEnabled,
+            inserted: isInserted,
           })
         })
         setBaseConnectionStatuses(statusMap)
         
         // Also update Active connections if any are marked as visible on dashboard
-        const activeConns = data.connections?.filter((c: ExchangeConnection) => 
-          c.is_enabled_dashboard === true || c.is_enabled_dashboard === "1"
-        ) || []
+        const activeConns = data.connections?.filter((c: ExchangeConnection) => toBoolean((c as any).is_enabled_dashboard)) || []
         
         if (activeConns.length > 0) {
           setExchangeConnectionsActive(activeConns)
-          // Active connections are ALWAYS disabled by default on dashboard
-          // Their active state is independent from base connection is_enabled
+          // Reflect persisted dashboard toggle state directly.
           const activeStatusMap = new Map<string, boolean>()
           activeConns.forEach((conn: ExchangeConnection) => {
-            // Default to false (disabled) - user must explicitly enable via dashboard toggle
-            activeStatusMap.set(conn.id, false)
+            activeStatusMap.set(conn.id, toBoolean((conn as any).is_enabled_dashboard))
           })
           setExchangeConnectionsActiveStatus(activeStatusMap)
         }
@@ -212,7 +206,7 @@ export function ConnectionStateProvider({ children }: { children: ReactNode }) {
       
       // Find the connection to log its name
       const conn = exchangeConnectionsActive.find(c => c.id === `active-${id}`) || exchangeConnectionsActive.find(c => c.id === id)
-      const connName = conn?.name || conn?.connectionId || id
+      const connName = conn?.name || conn?.id || id
       console.log(`[v0] [ConnectionStateToggle] ${newStatus ? "✓ ENABLED" : "✗ DISABLED"}: ${connName} (${id})`)
       
       return next

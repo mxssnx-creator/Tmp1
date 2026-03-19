@@ -23,6 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     
     // Get progression state (cycles, trades, etc.)
     const progressionState = await ProgressionStateManager.getProgressionState(connectionId)
+    const engineState = await getSettings(`trade_engine_state:${connectionId}`)
     
     // Get engine progression phase
     const engineProgression = await getSettings(`engine_progression:${connectionId}`)
@@ -39,16 +40,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       structuredLogs = []
     }
 
+    const mergedLogs = logs.length > 0
+      ? logs
+      : structuredLogs.map((log: any) => ({
+          timestamp: log.timestamp || new Date().toISOString(),
+          level: log.status === "error" ? "error" : "info",
+          phase: log.phase || log.engine || "engine",
+          message: log.action || "structured log",
+          details: log.details || {},
+          connectionId,
+        }))
+
     return NextResponse.json({
       success: true,
       connectionId,
-      logsCount: logs.length,
-      logs,
+      logsCount: mergedLogs.length,
+      logs: mergedLogs,
       structuredLogs,
       structuredLogsCount: structuredLogs.length,
       progressionState: {
-        cyclesCompleted: progressionState.cyclesCompleted,
-        successfulCycles: progressionState.successfulCycles,
+        cyclesCompleted: Math.max(progressionState.cyclesCompleted, Number(engineState?.indication_cycle_count || 0)),
+        successfulCycles: Math.max(progressionState.successfulCycles, Number(engineState?.strategy_cycle_count || 0)),
         failedCycles: progressionState.failedCycles,
         totalTrades: progressionState.totalTrades,
         successfulTrades: progressionState.successfulTrades,

@@ -22,6 +22,7 @@ const logBuffer: Map<string, string[]> = new Map()
 const BUFFER_FLUSH_SIZE = 10 // Flush every 10 logs (reduced for more responsive logging)
 const BUFFER_FLUSH_INTERVAL = 3000 // Or every 3 seconds (reduced for more responsive logging)
 let flushTimerStarted = false
+let flushTimer: NodeJS.Timeout | null = null
 
 // Important phases that should flush immediately
 const IMMEDIATE_FLUSH_PHASES = [
@@ -58,7 +59,9 @@ export async function logProgressionEvent(
     // Start flush timer if not started
     if (!flushTimerStarted) {
       flushTimerStarted = true
-      setInterval(flushAllLogBuffers, BUFFER_FLUSH_INTERVAL)
+      flushTimer = setInterval(flushAllLogBuffers, BUFFER_FLUSH_INTERVAL)
+      // Avoid preventing process exit in scripts/tests.
+      flushTimer.unref?.()
     }
     
     // Immediate flush for important phases or errors

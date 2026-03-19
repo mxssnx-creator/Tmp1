@@ -85,7 +85,9 @@ function EditConnectionDialog({ connection, onSave, exchangeName }: { connection
     is_testnet: connection.is_testnet || false,
     connection_method: connection.connection_method || "rest",
     connection_library: connection.connection_library || "native",
+    api_type: connection.api_type || "perpetual",
     api_subtype: connection.api_subtype || "perpetual",
+    is_live_trade: connection.is_live_trade ?? false,
   })
 
   const handleTestConnection = async () => {
@@ -452,6 +454,7 @@ export default function ExchangeConnectionManager() {
 
   // Default exchanges to display
   const DEFAULT_EXCHANGES = ["bybit", "bingx", "pionex", "orangex"]
+  const toBoolean = (value: unknown): boolean => value === true || value === 1 || value === "1" || value === "true"
 
   // Separate predefined (templates) from user-created connections
   const predefinedConnections = connections.filter((c: any) => c.is_predefined === true || c.is_predefined === "1")
@@ -460,11 +463,10 @@ export default function ExchangeConnectionManager() {
   // For display: show user-created connections + base inserted connections
   const displayedConnections = connections.filter((c: any) => {
     const exch = (c.exchange || "").toLowerCase()
-    // Show if user-created OR if it's a base exchange that's been inserted
+    // Show if user-created OR any base exchange connection (keep all 4 base visible consistently)
     const isUserCreated = !(c.is_predefined === true || c.is_predefined === "1")
-    const isInserted = c.is_active_inserted === true || c.is_active_inserted === "1"
     const isBase = exch === "bybit" || exch === "bingx" || exch === "pionex" || exch === "orangex"
-    return isUserCreated || (isBase && isInserted)
+    return isUserCreated || isBase
   })
 
   const loadConnections = async () => {
@@ -497,12 +499,12 @@ export default function ExchangeConnectionManager() {
         })
         .map((c: any) => ({
           ...c,
-          is_enabled: Boolean(c.is_enabled),
-          is_testnet: Boolean(c.is_testnet),
-          is_live_trade: Boolean(c.is_live_trade),
-          is_preset_trade: Boolean(c.is_preset_trade),
-          is_active: Boolean(c.is_active),
-          is_predefined: Boolean(c.is_predefined),
+          is_enabled: toBoolean(c.is_enabled),
+          is_testnet: toBoolean(c.is_testnet),
+          is_live_trade: toBoolean(c.is_live_trade),
+          is_preset_trade: toBoolean(c.is_preset_trade),
+          is_active: toBoolean(c.is_active),
+          is_predefined: toBoolean(c.is_predefined),
           volume_factor: typeof c.volume_factor === "number" ? c.volume_factor : 1,
           margin_type: c.margin_type || "cross",
           position_mode: c.position_mode || "hedge",
@@ -683,7 +685,7 @@ export default function ExchangeConnectionManager() {
         )
       )
 
-      toast.success(enabled ? "Connection now visible on dashboard" : "Connection hidden from dashboard")
+      toast.success(enabled ? "Connection now enabled in Main Connections" : "Connection disabled in Main Connections")
       
       console.log("[v0] [Dashboard] Toggle successful for:", id, "is_enabled_dashboard:", enabled)
     } catch (error) {
@@ -697,7 +699,7 @@ export default function ExchangeConnectionManager() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg">Exchange Connections</h3>
+          <h3 className="font-semibold text-lg">Base Connections</h3>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Connection
@@ -735,7 +737,7 @@ export default function ExchangeConnectionManager() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg">Exchange Connections</h3>
+          <h3 className="font-semibold text-lg">Base Connections</h3>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Connection
@@ -776,9 +778,9 @@ export default function ExchangeConnectionManager() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-lg">Exchange Connections</h3>
+            <h3 className="font-semibold text-lg">Base Connections</h3>
             <p className="text-sm text-muted-foreground">
-              Configure API credentials and connection settings - These are base configurations independent of active trading connections
+              Configure API credentials and connection settings. These are base configurations independent of Main Connections (Active Connections).
             </p>
           </div>
           <Button onClick={() => setShowAddDialog(true)}>
@@ -802,7 +804,7 @@ export default function ExchangeConnectionManager() {
             {displayedConnections.map((conn) => (
               <ConnectionCard
                 key={conn.id}
-                connection={conn}
+                connection={conn as any}
                 onToggle={() => toggleEnabled(conn.id, !conn.is_enabled)}
                 onActivate={() => {
                   // Set as active connection

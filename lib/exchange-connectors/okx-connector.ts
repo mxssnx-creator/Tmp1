@@ -706,4 +706,45 @@ export class OKXConnector extends BaseExchangeConnector {
       return { success: false, error: errorMsg }
     }
   }
+
+  async getTicker(symbol: string): Promise<{ bid: number; ask: number; last: number } | null> {
+    try {
+      this.log(`Fetching ticker for ${symbol}`)
+
+      const timestamp = new Date().toISOString()
+      const baseUrl = this.getBaseUrl()
+      const method = "GET"
+      const requestPath = `/api/v5/market/ticker?instId=${symbol}`
+      const body = ""
+      const prehash = timestamp + method + requestPath + body
+      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+
+      const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
+        headers: {
+          "OK-ACCESS-KEY": this.credentials.apiKey,
+          "OK-ACCESS-SIGN": signature,
+          "OK-ACCESS-TIMESTAMP": timestamp,
+          "OK-ACCESS-PASSPHRASE": this.credentials.apiPassphrase || "",
+        },
+      })
+
+      const data = await response.json()
+
+      if (data.code !== "0" || !data.data?.[0]) {
+        return null
+      }
+
+      const ticker = data.data[0]
+      const bid = Number.parseFloat(ticker.bidPx || "0")
+      const ask = Number.parseFloat(ticker.askPx || "0")
+      const last = Number.parseFloat(ticker.last || "0")
+
+      this.log(`✓ Ticker fetched: bid=${bid}, ask=${ask}, last=${last}`)
+      return { bid, ask, last }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch ticker: ${errorMsg}`)
+      return null
+    }
+  }
 }

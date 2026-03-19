@@ -15,7 +15,7 @@ export async function GET() {
 
     // Get all data to verify migrations
     const connections = await getAllConnections()
-    const dbKeys = await client.dbsize()
+    const dbKeys = await client.dbSize()
     
     // Migration markers
     const migrationsCompleted = await client.hgetall("migrations:completed") || {}
@@ -37,8 +37,7 @@ export async function GET() {
     }
 
     // Get Redis stats
-    const info = await client.info("stats")
-    const memoryInfo = await client.info("memory")
+    const dbSize = await client.dbSize()
 
     return NextResponse.json({
       success: true,
@@ -54,9 +53,9 @@ export async function GET() {
         connections: analysis,
       },
       redisStats: {
-        uptime: info?.uptime_in_seconds || 0,
-        connectedClients: info?.connected_clients || 0,
-        usedMemory: memoryInfo?.used_memory_human || "unknown",
+        uptime: Math.floor(process.uptime()),
+        totalKeys: dbSize,
+        note: "Using process metrics (local Redis in-memory)",
       },
       expectedState: {
         note: "All 0 values are correct and expected when no API credentials have been added yet",

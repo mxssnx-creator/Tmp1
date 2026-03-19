@@ -71,8 +71,8 @@ export function Dashboard() {
     totalBalance: 0,
     indicationsActive: 0,
     strategiesActive: 0,
-    systemLoad: 45,
-    databaseSize: 128,
+    systemLoad: 0,
+    databaseSize: 0,
   })
 
   // Filter ExchangeConnectionsActive by selected exchange
@@ -148,7 +148,7 @@ export function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-1">CTS v3.2 Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Monitor and control your active trading connections</p>
+          <p className="text-muted-foreground text-sm">Monitor and control your Main Connections (Active Connections)</p>
         </div>
         <Button onClick={loadExchangeConnectionsActive} size="sm" variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -166,8 +166,8 @@ export function Dashboard() {
         <GlobalTradeEngineControls />
       </ErrorBoundary>
 
-      {/* Active Connections - With global engine guard, progression tracking, sticky state */}
-      <ErrorBoundary name="Active Connections">
+      {/* Main Connections (Active Connections) - With global engine guard, progression tracking, sticky state */}
+      <ErrorBoundary name="Main Connections">
         <DashboardActiveConnectionsManager />
       </ErrorBoundary>
 

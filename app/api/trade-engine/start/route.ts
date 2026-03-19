@@ -38,6 +38,15 @@ export async function POST(request: NextRequest) {
     
     console.log("[v0] [Trade Engine] Global Coordinator state saved to Redis + Upstash: status=running")
 
+    // Start/refresh coordinator workers immediately so progression/logging begins without delay.
+    try {
+      await coordinator.startAll()
+      await coordinator.refreshEngines()
+      console.log("[v0] [Trade Engine] Coordinator workers started and refreshed")
+    } catch (engineStartError) {
+      console.warn("[v0] [Trade Engine] Coordinator worker startup warning:", engineStartError)
+    }
+
     // Auto-resume connections that were paused when global engine was stopped
     let resumedConnections: string[] = []
     try {

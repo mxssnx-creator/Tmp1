@@ -1,14 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getAllConnections, initRedis, createConnection, updateConnection } from "@/lib/redis-db"
+import { getAllConnections, initRedis, createConnection } from "@/lib/redis-db"
 import { generateConnectionIdFromApiKey, isApiKeyInUse } from "@/lib/connection-id-manager"
 import { CONNECTION_PREDEFINITIONS } from "@/lib/connection-predefinitions"
 import { API_VERSIONS } from "@/lib/system-version"
+import { ensureDefaultExchangesExist } from "@/lib/default-exchanges-seeder"
 
 export const runtime = "nodejs"
 
 const API_VERSION = API_VERSIONS.connections
-const ACTIVE_AUTO_INSERTED = ["bybit", "bingx"]
-
 export async function GET(request: NextRequest) {
   try {
     // Set explicit cache-control headers to prevent caching
@@ -28,47 +27,8 @@ export async function GET(request: NextRequest) {
     console.log(`[v0] [API] [Connections] ${API_VERSION} - Client version: ${clientVersion}`)
 
     await initRedis()
+    await ensureDefaultExchangesExist()
     let connections = await getAllConnections()
-
-    // CRITICAL MIGRATION: Enforce ONLY bybit and bingx as active-insertable
-    // This must run on every request to ensure consistency
-    console.log(`[v0] [API] [Connections] ${API_VERSION}: Checking ${connections.length} connections for migration...`)
-    
-    // Only update connections if active_inserted flags are incorrect
-    // Don't update on every request - that causes performance issues and potential duplicates
-    let migratedCount = 0
-    const connectionsNeedingUpdate: any[] = []
-    
-    for (const c of connections) {
-      const exch = (c.exchange || "").toLowerCase().trim()
-      const shouldBeActive = ACTIVE_AUTO_INSERTED.includes(exch)
-      const activeInserted = c.is_active_inserted === "1" || c.is_active_inserted === true
-      const needsActiveSet = shouldBeActive && !activeInserted
-      const needsActiveReset = !shouldBeActive && activeInserted
-      
-      if (needsActiveSet || needsActiveReset) {
-        connectionsNeedingUpdate.push({ connection: c, shouldBeActive })
-      }
-    }
-    
-    // Only perform updates if there are actual changes needed
-    if (connectionsNeedingUpdate.length > 0) {
-      for (const { connection: c, shouldBeActive } of connectionsNeedingUpdate) {
-        const newValue = shouldBeActive ? "1" : "0"
-        await updateConnection(c.id, {
-          ...c,
-          is_active_inserted: newValue,
-          updated_at: new Date().toISOString(),
-        })
-        migratedCount++
-        console.log(`[v0] [API] [Connections] ${API_VERSION}: ${c.exchange}: is_active_inserted=${shouldBeActive ? "SET to 1" : "RESET to 0"}`)
-      }
-      console.log(`[v0] [API] [Connections] ${API_VERSION}: Updated ${migratedCount} connections`)
-      // Reload after updates
-      connections = await getAllConnections()
-    } else {
-      console.log(`[v0] [API] [Connections] ${API_VERSION}: All active flags correct, no updates needed`)
-    }
 
     // Auto-initialize ONLY user-created connections (not predefined templates)
     // Predefined connections are informational only and should NOT be stored in Redis
@@ -162,6 +122,7 @@ export async function POST(request: Request) {
       connection_library: body.connection_library || "native",
       margin_type: body.margin_type || "cross",
       position_mode: body.position_mode || "hedge",
+      contract_type: body.contract_type || "usdt-perpetual",
       is_testnet: body.is_testnet || false,
       is_enabled: body.is_enabled === true, // Settings: enabled by default for base connections
       is_inserted: true, // User-created connection is "inserted" (available for use)
@@ -191,7 +152,7 @@ export async function POST(request: Request) {
       try {
         console.log("[v0] [API] Auto-testing newly created connection:", connectionId)
         const testResponse = await fetch(
-          new URL(`/api/settings/connections/${connectionId}/test`, process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000").toString(),
+          new URL(`/api/settings/connections/${connectionId}/test`, process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3001")).toString(),
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

@@ -56,7 +56,7 @@ export const ConnectionDataArchive = {
     }
     
     // Store archive with 30-day expiry
-    await client.set(archiveKey, JSON.stringify(archiveData), { ex: 30 * 24 * 60 * 60 })
+    await client.set(archiveKey, JSON.stringify(archiveData), { EX: 30 * 24 * 60 * 60 })
     console.log(`[v0] Archived connection data for ${connectionId}:`, archiveData)
     
     return archiveKey

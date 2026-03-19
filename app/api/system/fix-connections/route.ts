@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { initRedis, getRedisClient } from "@/lib/redis-db"
+import { readBingxCredentialsFromEnv, readEnvByAliases } from "@/lib/env-credentials"
 
 export const dynamic = "force-dynamic"
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic"
  * Fixes all 4 base connections (bybit, bingx, pionex, orangex) to be:
  * - is_active_inserted = 1 (in Active panel)
  * - is_enabled = 1 (enabled)
- * - is_enabled_dashboard = 1 (dashboard toggle on)
+ * - is_enabled_dashboard = 0 (dashboard toggle off by default)
  * - connection_method = library (use native SDK)
  * 
  * Also injects credentials from environment variables if available.
@@ -28,6 +29,13 @@ export async function POST() {
     
     const results: Record<string, any> = {}
     
+    const readPair = (key: string, secret: string) => ({
+      apiKey: readEnvByAliases([key, `NEXT_PUBLIC_${key}`]),
+      apiSecret: readEnvByAliases([secret, `NEXT_PUBLIC_${secret}`]),
+    })
+
+    const bingxEnv = readBingxCredentialsFromEnv()
+
     for (const conn of baseConnections) {
       // Check if connection exists
       const exists = await client.sismember("connections", conn.id)
@@ -37,16 +45,20 @@ export async function POST() {
         is_inserted: "1",
         is_enabled: "1",
         is_active_inserted: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_enabled_dashboard: "0",
+        is_active: "0",
         is_predefined: "1",
         connection_method: "library",
         updated_at: new Date().toISOString(),
       }
       
       // Check for credentials in environment
-      const apiKey = process.env[conn.envKey] || ""
-      const apiSecret = process.env[conn.envSecret] || ""
+      const envPair =
+        conn.id === "bingx-x01"
+          ? { apiKey: bingxEnv.apiKey, apiSecret: bingxEnv.apiSecret }
+          : readPair(conn.envKey, conn.envSecret)
+      const apiKey = envPair.apiKey
+      const apiSecret = envPair.apiSecret
       const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
       
       if (hasCredentials) {
@@ -61,7 +73,7 @@ export async function POST() {
           status: "updated",
           active_inserted: true,
           enabled: true,
-          dashboard_enabled: true,
+          dashboard_enabled: false,
           has_credentials: hasCredentials,
         }
         console.log(`[v0] [FixConnections] ${conn.id}: Updated - active_inserted=1, credentials=${hasCredentials}`)

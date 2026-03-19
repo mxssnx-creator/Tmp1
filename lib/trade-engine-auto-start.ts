@@ -51,16 +51,16 @@ export async function initializeTradeEngineAutoStart(): Promise<void> {
       return
     }
 
-    // Filter for connections that are ACTIVE-INSERTED (in Active panel) with valid credentials
-    // is_active_inserted=1 means they're added to the Active panel by user
-    // This is the ONLY requirement to start engines (not is_enabled)
+    // Filter for connections that are in Main panel AND explicitly dashboard-enabled
+    // Engine processing must follow dashboard enable state.
     const enabledConnections = connections.filter((c) => {
       const isActiveInserted = c.is_active_inserted === true || c.is_active_inserted === "true" || c.is_active_inserted === "1"
+      const isDashboardEnabled = c.is_enabled_dashboard === true || c.is_enabled_dashboard === "true" || c.is_enabled_dashboard === "1"
       const hasValidKey = c.api_key && c.api_key.length >= 20 && !c.api_key.includes("PLACEHOLDER")
-      return isActiveInserted && hasValidKey
+      return isActiveInserted && isDashboardEnabled && hasValidKey
     })
 
-    console.log(`[v0] [Auto-Start] Found ${enabledConnections.length} eligible connections (inserted + enabled + valid keys) out of ${connections.length} total`)
+    console.log(`[v0] [Auto-Start] Found ${enabledConnections.length} eligible connections (main-inserted + dashboard-enabled + valid keys) out of ${connections.length} total`)
 
     if (enabledConnections.length === 0) {
       console.log("[v0] [Auto-Start] No enabled connections - monitoring for changes...")
@@ -128,12 +128,12 @@ function startConnectionMonitoring(): void {
         return
       }
 
-      // Filter for ACTIVE-INSERTED connections with valid API keys only
-      // These are connections the user has added to the Active panel
+      // Filter for Main-inserted + dashboard-enabled connections with valid API keys only
       const enabledConnections = connections.filter((c) => {
         const isActiveInserted = c.is_active_inserted === true || c.is_active_inserted === "true" || c.is_active_inserted === "1"
+        const isDashboardEnabled = c.is_enabled_dashboard === true || c.is_enabled_dashboard === "true" || c.is_enabled_dashboard === "1"
         const hasValidKey = c.api_key && c.api_key.length >= 20 && !c.api_key.includes("PLACEHOLDER")
-        return isActiveInserted && hasValidKey
+        return isActiveInserted && isDashboardEnabled && hasValidKey
       })
 
       // If enabled connection count changed, log it
@@ -155,7 +155,7 @@ function startConnectionMonitoring(): void {
       for (const connection of enabledConnections) {
         try {
           // Check if engine is already running for this connection
-          const engineStatus = coordinator.getEngineStatus(connection.id)
+          const engineStatus = await coordinator.getEngineStatus(connection.id)
 
           if (!engineStatus || engineStatus.status === "stopped") {
             console.log(`[v0] [Monitor] Auto-starting trade engine for: ${connection.name}`)

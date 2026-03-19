@@ -95,8 +95,8 @@ export function SystemMonitoringPanel() {
     return <div className="text-center text-destructive">Failed to load system monitoring</div>
   }
 
-  const cpuStatus = monitor.cpu > 80 ? "destructive" : monitor.cpu > 60 ? "warning" : "default"
-  const memStatus = monitor.memory > 80 ? "destructive" : monitor.memory > 60 ? "warning" : "default"
+  const cpuStatus = monitor.cpu > 80 ? "destructive" : monitor.cpu > 60 ? "secondary" : "default"
+  const memStatus = monitor.memory > 80 ? "destructive" : monitor.memory > 60 ? "secondary" : "default"
 
   return (
     <div className="space-y-4">

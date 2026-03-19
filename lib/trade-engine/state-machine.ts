@@ -125,19 +125,20 @@ export class TradeEngineStateMachine {
 
       // Update local position tracking
       for (const exPos of exchangePositions) {
+        const exPosAny = exPos as any
         const localPos: LivePosition = {
           id: `${exPos.symbol}-${Date.now()}`,
-          connection_id: this.config.connectionId,
+          connection_id: this.config!.connectionId,
           symbol: exPos.symbol,
-          side: exPos.side === "LONG" ? "long" : "short",
-          entry_price: parseFloat(exPos.entryPrice),
-          current_price: parseFloat(exPos.markPrice),
-          quantity: parseFloat(exPos.contracts),
-          leverage: parseFloat(exPos.leverage),
-          margin_type: exPos.marginType === "CROSSED" ? "cross" : "isolated",
-          unrealized_pnl: parseFloat(exPos.unrealizedPnl),
-          unrealized_pnl_percent: (parseFloat(exPos.unrealizedPnl) / (parseFloat(exPos.contracts) * parseFloat(exPos.entryPrice))) * 100,
-          liquidation_price: exPos.liquidationPrice ? parseFloat(exPos.liquidationPrice) : undefined,
+          side: exPosAny.side?.toUpperCase() === "LONG" ? "long" : "short",
+          entry_price: typeof exPos.entryPrice === "number" ? exPos.entryPrice : parseFloat(String(exPos.entryPrice)),
+          current_price: typeof exPos.markPrice === "number" ? exPos.markPrice : parseFloat(String(exPos.markPrice)),
+          quantity: typeof exPos.contracts === "number" ? exPos.contracts : parseFloat(String(exPos.contracts)),
+          leverage: typeof exPos.leverage === "number" ? exPos.leverage : parseFloat(String(exPos.leverage)),
+          margin_type: exPosAny.marginType?.toUpperCase() === "CROSSED" ? "cross" : "isolated",
+          unrealized_pnl: typeof exPos.unrealizedPnl === "number" ? exPos.unrealizedPnl : parseFloat(String(exPos.unrealizedPnl)),
+          unrealized_pnl_percent: (typeof exPos.unrealizedPnl === "number" ? exPos.unrealizedPnl : parseFloat(String(exPos.unrealizedPnl))) / ((typeof exPos.contracts === "number" ? exPos.contracts : parseFloat(String(exPos.contracts))) * (typeof exPos.entryPrice === "number" ? exPos.entryPrice : parseFloat(String(exPos.entryPrice)))) * 100,
+          liquidation_price: exPos.liquidationPrice ? (typeof exPos.liquidationPrice === "number" ? exPos.liquidationPrice : parseFloat(String(exPos.liquidationPrice))) : undefined,
           timestamp: Date.now(),
           last_update: Date.now(),
         }

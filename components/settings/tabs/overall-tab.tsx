@@ -381,7 +381,7 @@ export function OverallTab({
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {(settings.mainSymbols || ["BTC", "ETH", "BNB", "XRP", "ADA", "SOL"]).map((symbol) => (
+                    {(settings.mainSymbols || ["BTC", "ETH", "BNB", "XRP", "ADA", "SOL"]).map((symbol: string) => (
                       <Badge key={symbol} variant="secondary" className="flex items-center gap-1 px-3 py-1">
                         {symbol}
                         <button onClick={() => removeMainSymbol(symbol)} className="ml-1 hover:text-destructive" type="button">
@@ -416,7 +416,7 @@ export function OverallTab({
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {(settings.forcedSymbols || ["XRP", "BCH"]).map((symbol) => (
+                    {(settings.forcedSymbols || ["XRP", "BCH"]).map((symbol: string) => (
                       <Badge key={symbol} variant="default" className="flex items-center gap-1 px-3 py-1">
                         {symbol}
                         <button
@@ -474,8 +474,8 @@ export function OverallTab({
             {/* Connection Manager Card */}
             <Card className="settings-card border-2">
               <CardHeader className="settings-card-header">
-                <CardTitle>Exchange Connections</CardTitle>
-                <CardDescription>Configure and manage exchange API connections</CardDescription>
+                <CardTitle>Base Connections</CardTitle>
+                <CardDescription>Configure and manage base exchange API connections</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button 

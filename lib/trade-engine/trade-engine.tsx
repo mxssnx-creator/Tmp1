@@ -125,8 +125,8 @@ export class TradeEngine {
 
       await this.loadPrehistoricData()
 
-      const symbols = await this.getSymbols()
-      await this.realtimeProcessor.initializeStream("wss://stream.bybit.com/v5/public/linear", symbols)
+      await this.getSymbols()
+      await this.realtimeProcessor.initializeStream()
 
       this.isRunning = true
 

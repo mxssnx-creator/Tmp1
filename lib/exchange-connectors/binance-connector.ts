@@ -210,10 +210,10 @@ export class BinanceConnector extends BaseExchangeConnector {
       const timestamp = Date.now()
       const apiType = this.credentials.apiType || "perpetual_futures"
       
-      const params = {
+      const params: Record<string, string> = {
         symbol,
         orderId,
-        timestamp,
+        timestamp: String(timestamp),
       }
 
       const queryString = new URLSearchParams(params).toString()
@@ -254,10 +254,10 @@ export class BinanceConnector extends BaseExchangeConnector {
       const timestamp = Date.now()
       const apiType = this.credentials.apiType || "perpetual_futures"
       
-      const params = {
+      const params: Record<string, string> = {
         symbol,
         orderId,
-        timestamp,
+        timestamp: String(timestamp),
       }
 
       const queryString = new URLSearchParams(params).toString()
@@ -267,7 +267,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       if (apiType === "spot") {
         endpoint = "/api/v3/order"
       } else {
-        endpoint = "/fapi/v1/orders"
+        endpoint = "/fapi/v1/order"
       }
 
       const response = await this.rateLimitedFetch(`${baseUrl}${endpoint}?${queryString}&signature=${signature}`, {
@@ -462,9 +462,9 @@ export class BinanceConnector extends BaseExchangeConnector {
       const baseUrl = "https://api.binance.com"
       const timestamp = Date.now()
       
-      const params = {
+      const params: Record<string, string> = {
         coin,
-        timestamp,
+        timestamp: String(timestamp),
       }
 
       const queryString = new URLSearchParams(params).toString()
@@ -498,12 +498,12 @@ export class BinanceConnector extends BaseExchangeConnector {
       const baseUrl = "https://api.binance.com"
       const timestamp = Date.now()
       
-      const params = {
+      const params: Record<string, string> = {
         coin,
         withdrawOrderId: `withdraw_${Date.now()}`,
         address,
         amount: String(amount),
-        timestamp,
+        timestamp: String(timestamp),
       }
 
       const queryString = new URLSearchParams(params).toString()
@@ -538,9 +538,9 @@ export class BinanceConnector extends BaseExchangeConnector {
       const baseUrl = "https://api.binance.com"
       const timestamp = Date.now()
       
-      const params = {
-        timestamp,
-        limit,
+      const params: Record<string, string> = {
+        timestamp: String(timestamp),
+        limit: String(limit),
       }
 
       const queryString = new URLSearchParams(params).toString()
@@ -566,10 +566,10 @@ export class BinanceConnector extends BaseExchangeConnector {
       const baseUrl = this.getBaseUrl()
       const timestamp = Date.now()
       
-      const params = {
+      const params: Record<string, string> = {
         symbol,
         leverage: String(leverage),
-        timestamp,
+        timestamp: String(timestamp),
       }
 
       const queryString = new URLSearchParams(params).toString()
@@ -602,10 +602,10 @@ export class BinanceConnector extends BaseExchangeConnector {
       const baseUrl = this.getBaseUrl()
       const timestamp = Date.now()
       
-      const params = {
+      const params: Record<string, string> = {
         symbol,
         marginType: marginType === "cross" ? "CROSSED" : "ISOLATED",
-        timestamp,
+        timestamp: String(timestamp),
       }
 
       const queryString = new URLSearchParams(params).toString()
@@ -638,9 +638,9 @@ export class BinanceConnector extends BaseExchangeConnector {
       const baseUrl = this.getBaseUrl()
       const timestamp = Date.now()
       
-      const params = {
+      const params: Record<string, string> = {
         dualSidePosition: hedgeMode ? "true" : "false",
-        timestamp,
+        timestamp: String(timestamp),
       }
 
       const queryString = new URLSearchParams(params).toString()
@@ -663,6 +663,55 @@ export class BinanceConnector extends BaseExchangeConnector {
       const errorMsg = error instanceof Error ? error.message : String(error)
       this.logError(`✗ Failed to set position mode: ${errorMsg}`)
       return { success: false, error: errorMsg }
+    }
+  }
+
+  async getTicker(symbol: string): Promise<{ bid: number; ask: number; last: number } | null> {
+    try {
+      this.log(`Fetching ticker for ${symbol}`)
+
+      const baseUrl = this.getBaseUrl()
+      const apiType = this.credentials.apiType || "perpetual_futures"
+      
+      let endpoint = ""
+      if (apiType === "spot") {
+        endpoint = `/api/v3/ticker/bookTicker?symbol=${symbol}`
+      } else {
+        endpoint = `/fapi/v1/ticker/bookTicker?symbol=${symbol}`
+      }
+
+      const response = await this.rateLimitedFetch(`${baseUrl}${endpoint}`, {
+        headers: { "X-MBX-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        return null
+      }
+
+      const bid = Number.parseFloat(data.bidPrice || "0")
+      const ask = Number.parseFloat(data.askPrice || "0")
+      
+      let lastEndpoint = ""
+      if (apiType === "spot") {
+        lastEndpoint = `/api/v3/ticker/price?symbol=${symbol}`
+      } else {
+        lastEndpoint = `/fapi/v1/ticker/price?symbol=${symbol}`
+      }
+      
+      const lastResponse = await this.rateLimitedFetch(`${baseUrl}${lastEndpoint}`, {
+        headers: { "X-MBX-APIKEY": this.credentials.apiKey },
+      })
+      const lastData = await lastResponse.json()
+      const last = Number.parseFloat(lastData.price || "0")
+
+      this.log(`✓ Ticker fetched: bid=${bid}, ask=${ask}, last=${last}`)
+      return { bid, ask, last }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch ticker: ${errorMsg}`)
+      return null
     }
   }
 }

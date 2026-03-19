@@ -112,8 +112,8 @@ export async function evaluateToMainPositions(
       mainPositions.push(mainPosition)
 
       // Store main position
-      const key = `main:position:${mainPosition.id}`
-      await client.setex(key, 604800, JSON.stringify(mainPosition)) // 7 days
+      const storageKey = `main:position:${mainPosition.id}`
+      await client.setex(storageKey, 604800, JSON.stringify(mainPosition)) // 7 days
 
       console.log(
         `${LOG_PREFIX} Created main position: ${symbol} ${direction} (strength=${avgStrength.toFixed(

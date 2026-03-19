@@ -27,6 +27,8 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { ExchangeConnection } from "@/lib/types"
+
+export type { ExchangeConnection }
 import {
   EXCHANGE_CONNECTION_METHODS,
   CONNECTION_METHODS,
@@ -57,8 +59,8 @@ export function ConnectionCard({
   isNewlyAdded = false,
 }: ConnectionCardProps) {
   const exchange = (connection.exchange || "").toLowerCase().trim()
-  const isInserted = connection.is_inserted === "1" || connection.is_inserted === true
-  const isEnabled = connection.is_enabled === "1" || connection.is_enabled === true || connection.is_enabled === "true"
+  const isInserted = Boolean(connection.is_inserted)
+  const isEnabled = Boolean(connection.is_enabled)
   const [testingConnection, setTestingConnection] = useState(false)
   const [workingStatus, setWorkingStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
   const [testLogs, setTestLogs] = useState<string[]>([])
@@ -478,11 +480,8 @@ export function ConnectionCard({
                 <div className="bg-muted p-3 rounded-md text-xs font-mono max-h-64 overflow-y-auto space-y-0.5 border border-border">
                   {(testLogs.length > 0 
                     ? testLogs 
-                    : (Array.isArray(connection.last_test_log) 
-                        ? connection.last_test_log 
-                        : connection.last_test_log?.split('\n') || []
-                      )
-                  ).map((line, i) => (
+                    : (connection.last_test_log || [])
+                  ).map((line: string, i: number) => (
                     <div key={i} className="text-muted-foreground font-mono text-xs leading-relaxed">
                       {line || '\u00A0'}
                     </div>

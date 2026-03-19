@@ -147,7 +147,7 @@ export async function checkDatabaseIntegrity(): Promise<IntegrityReport> {
       for (const symbol of symbols.slice(0, 3)) {
         const candlesKey = `market_data:candles:${conn.id}:${symbol}`
         const candles = await client.hgetall(candlesKey)
-        if (Object.keys(candles).length === 0 && symbols.length > 0) {
+        if ((!candles || Object.keys(candles).length === 0) && symbols.length > 0) {
           errors.push(`${conn.id}:${symbol} registered but no candle data`)
         }
       }

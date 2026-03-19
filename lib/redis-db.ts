@@ -63,9 +63,12 @@ export class InlineLocalRedis {
     if (globalCleanup.__redis_cleanup_started) return
     globalCleanup.__redis_cleanup_started = true
     
-    setInterval(() => {
+    const ttlCleanupTimer = setInterval(() => {
       this.cleanupExpiredKeys()
     }, 60000) // Every 60 seconds
+
+    // Avoid blocking script/test process exit.
+    ttlCleanupTimer.unref?.()
   }
   
   /**
@@ -539,15 +542,8 @@ export async function getAllConnections(): Promise<any[]> {
     return []
   }
 
-  const connections = []
-  for (const id of connIds) {
-    const data = await client.hgetall(`connection:${id}`)
-    if (data && Object.keys(data).length > 0) {
-      connections.push(data)
-    }
-  }
-
-  return connections
+  const connectionRecords = await Promise.all(connIds.map((id) => client.hgetall(`connection:${id}`)))
+  return connectionRecords.filter((data): data is Record<string, string> => !!data && Object.keys(data).length > 0)
 }
 
 export async function getConnection(id: string): Promise<any | null> {
@@ -629,11 +625,12 @@ export async function getMarketData(symbol: string): Promise<any | null> {
 export async function setMigrationsRun(): Promise<void> {
   const client = getClient()
   await client.set("_migrations_run", "true")
+  ;(globalThis as any).__migrations_run = true
 }
 
 export function haveMigrationsRun(): boolean {
-  // Check process memory
-  return (global as any).__migrations_run === true
+  // Process-local guard to avoid repeated migration scans in the same runtime.
+  return (globalThis as any).__migrations_run === true
 }
 
 // ========== Aliases for backward compatibility ==========
@@ -731,11 +728,10 @@ export async function verifyRedisHealth(): Promise<{ healthy: boolean; message: 
 export async function getActiveConnectionsForEngine(): Promise<any[]> {
   const allConnections = await getAllConnections()
   // Filter for connections that are:
-  // 1. Active-inserted (in Active panel) AND enabled (is_enabled OR is_enabled_dashboard)
+  // 1. Added to active panel AND explicitly enabled on dashboard
   // 2. Either has credentials OR is set to testnet/demo mode
   const filtered = allConnections.filter((c: any) => {
     const isActiveInserted = c.is_active_inserted === "1" || c.is_active_inserted === true
-    const isEnabled = c.is_enabled === "1" || c.is_enabled === true
     const isDashboardEnabled = c.is_enabled_dashboard === "1" || c.is_enabled_dashboard === true
     
     // Check for credentials (from connection OR from environment)
@@ -747,8 +743,8 @@ export async function getActiveConnectionsForEngine(): Promise<any[]> {
     const isTestnet = c.is_testnet === "1" || c.is_testnet === true
     const isDemoMode = c.demo_mode === "1" || c.demo_mode === true
     
-    // Connection must be in Active panel AND enabled
-    const isReadyForEngine = isActiveInserted && (isEnabled || isDashboardEnabled)
+    // Engine processing follows dashboard activation, not settings-default enabled state.
+    const isReadyForEngine = isActiveInserted && isDashboardEnabled
     
     // AND either have valid credentials OR be in testnet/demo mode
     return isReadyForEngine && (hasCredentials || isTestnet || isDemoMode)
@@ -767,19 +763,13 @@ export async function getInsertedAndEnabledConnections(): Promise<any[]> {
   const allConnections = await getAllConnections()
   // Return connections that are:
   // 1. Active-inserted into Active panel (is_active_inserted="1")
-  // 2. AND active/enabled (is_active="1" OR is_enabled="1")
+  // 2. AND dashboard-enabled (is_enabled_dashboard="1")
   // This is the filter used by the trade engine coordinator to find active connections
   return allConnections.filter((c: any) => {
     // Check for active panel flags (modern approach)
     const isActiveInserted = c.is_active_inserted === "1" || c.is_active_inserted === true
-    const isActive = c.is_active === "1" || c.is_active === true
-    
-    // Fall back to old flags if needed
-    const isInserted = c.is_inserted === "1" || c.is_inserted === true
-    const isEnabled = c.is_enabled === "1" || c.is_enabled === true
-    
-    // Match either set of flags
-    return (isActiveInserted && isActive) || (isInserted && isEnabled)
+    const isDashboardEnabled = c.is_enabled_dashboard === "1" || c.is_enabled_dashboard === true
+    return isActiveInserted && isDashboardEnabled
   })
 }
 
@@ -827,14 +817,8 @@ export async function deletePosition(id: string): Promise<void> {
 export async function getConnectionPositions(connectionId: string): Promise<any[]> {
   const client = getClient()
   const positionIds = await client.smembers("positions")
-  const positions = []
-  for (const id of positionIds) {
-    const pos = await getPosition(id)
-    if (pos && pos.connection_id === connectionId) {
-      positions.push(pos)
-    }
-  }
-  return positions
+  const positions = await Promise.all(positionIds.map((id) => getPosition(id)))
+  return positions.filter((pos) => pos && pos.connection_id === connectionId)
 }
 
 // ========== Trade Operations ==========
@@ -868,12 +852,131 @@ export async function updateTrade(id: string, updates: Record<string, any>): Pro
 export async function getConnectionTrades(connectionId: string): Promise<any[]> {
   const client = getClient()
   const tradeIds = await client.smembers("trades")
-  const trades = []
-  for (const id of tradeIds) {
-    const trade = await getTrade(id)
-    if (trade && trade.connection_id === connectionId) {
-      trades.push(trade)
+  const trades = await Promise.all(tradeIds.map((id) => getTrade(id)))
+  return trades.filter((trade) => trade && trade.connection_id === connectionId)
+}
+
+export interface Connection {
+  id: string
+  name: string
+  exchange: string
+  api_key: string
+  api_secret: string
+  api_passphrase?: string
+  api_type?: string
+  api_subtype?: string
+  connection_method?: string
+  connection_library?: string
+  margin_type?: string
+  position_mode?: string
+  is_testnet?: boolean
+  is_enabled?: boolean
+  is_enabled_dashboard?: boolean
+  is_live_trade?: boolean
+  is_active?: boolean
+  is_predefined?: boolean
+  is_inserted?: boolean
+  is_active_inserted?: boolean
+  demo_mode?: boolean
+  created_at?: string
+  updated_at?: string
+  last_test_log?: string[]
+  last_test_status?: string
+  last_test_balance?: number
+  last_test_error?: string
+  last_test_timestamp?: string
+  last_test_btc_price?: number
+  last_test_at?: string
+  [key: string]: any
+}
+
+export const redisDb = {
+  get: async (key: string): Promise<string | null> => {
+    const client = getClient()
+    return client.get(key)
+  },
+  set: async (key: string, value: string, options?: { ex?: number }): Promise<void> => {
+    const client = getClient()
+    if (options?.ex) {
+      await client.setex(key, options.ex, value)
+    } else {
+      await client.set(key, value)
     }
-  }
-  return trades
+  },
+  del: async (key: string): Promise<number> => {
+    const client = getClient()
+    return client.del(key)
+  },
+  hget: async (key: string, field: string): Promise<string | null> => {
+    const client = getClient()
+    return client.hget(key, field)
+  },
+  hset: async (key: string, data: Record<string, string>): Promise<number> => {
+    const client = getClient()
+    return client.hset(key, data)
+  },
+  hgetall: async (key: string): Promise<Record<string, string> | null> => {
+    const client = getClient()
+    return client.hgetall(key)
+  },
+  hdel: async (key: string, ...fields: string[]): Promise<number> => {
+    const client = getClient()
+    return client.hdel(key, ...fields)
+  },
+  sadd: async (key: string, ...members: string[]): Promise<number> => {
+    const client = getClient()
+    return client.sadd(key, ...members)
+  },
+  smembers: async (key: string): Promise<string[]> => {
+    const client = getClient()
+    return client.smembers(key)
+  },
+  srem: async (key: string, ...members: string[]): Promise<number> => {
+    const client = getClient()
+    return client.srem(key, ...members)
+  },
+  keys: async (pattern: string): Promise<string[]> => {
+    const client = getClient()
+    return client.keys(pattern)
+  },
+  expire: async (key: string, seconds: number): Promise<number> => {
+    const client = getClient()
+    return client.expire(key, seconds)
+  },
+  lpush: async (key: string, ...values: string[]): Promise<number> => {
+    const client = getClient()
+    return client.lpush(key, ...values)
+  },
+  rpush: async (key: string, ...values: string[]): Promise<number> => {
+    const client = getClient()
+    return client.rpush(key, ...values)
+  },
+  lrange: async (key: string, start: number, stop: number): Promise<string[]> => {
+    const client = getClient()
+    return client.lrange(key, start, stop)
+  },
+  zadd: async (key: string, score: number, member: string): Promise<number> => {
+    const client = getClient()
+    return client.zadd(key, score, member)
+  },
+  zrangebyscore: async (key: string, min: number | string, max: number | string): Promise<string[]> => {
+    const client = getClient()
+    return client.zrangebyscore(key, min, max)
+  },
+  zremrangebyscore: async (key: string, min: number | string, max: number | string): Promise<number> => {
+    const client = getClient()
+    return client.zremrangebyscore(key, min, max)
+  },
+  ping: async (): Promise<string> => {
+    const client = getClient()
+    return client.ping()
+  },
+  info: async (): Promise<string> => {
+    const client = getClient()
+    return client.info()
+  },
+  dbSize: async (): Promise<number> => {
+    const client = getClient()
+    return client.dbSize()
+  },
 }

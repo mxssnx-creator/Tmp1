@@ -13,17 +13,17 @@ export async function GET() {
   try {
     await initRedis()
     const allConnections = await getAllConnections()
+    const baseIds = new Set(["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"])
     
     // Filter for base connections that are enabled but NOT in Active panel
     const availableConnections = allConnections.filter((c: any) => {
+      if (!baseIds.has(c.id)) return false
       // Must be enabled in Settings
       const isEnabled = c.is_enabled === true || c.is_enabled === "1" || c.is_enabled === "true"
-      // Must NOT be a predefined info template
-      const isPredefined = c.is_predefined === true || c.is_predefined === "1" || c.is_predefined === "true"
       // Must NOT already be in Active panel
       const isInActivePanel = c.is_active_inserted === true || c.is_active_inserted === "1" || c.is_active_inserted === "true"
       
-      return isEnabled && !isPredefined && !isInActivePanel
+      return isEnabled && !isInActivePanel
     })
     
     console.log(`[v0] [Available] Found ${availableConnections.length} available connections`)
@@ -36,7 +36,7 @@ export async function GET() {
         exchange: c.exchange,
         api_type: c.api_type,
         last_test_status: c.last_test_status,
-        has_credentials: !!(c.api_key || c.apiKey),
+        has_credentials: (c.api_key || "").length > 10 && (c.api_secret || "").length > 10,
       })),
       count: availableConnections.length,
     })

@@ -661,4 +661,35 @@ export class BybitConnector extends BaseExchangeConnector {
       return { success: false, error: errorMsg }
     }
   }
+
+  async getTicker(symbol: string): Promise<{ bid: number; ask: number; last: number } | null> {
+    try {
+      this.log(`Fetching ticker for ${symbol}`)
+
+      const baseUrl = this.getBaseUrl()
+      const category = this.credentials.apiType === "spot" ? "spot" : "linear"
+
+      const response = await this.rateLimitedFetch(
+        `${baseUrl}/v5/market/tickers?category=${category}&symbol=${symbol}`
+      )
+
+      const data = await response.json()
+
+      if (data.retCode !== 0 || !data.result?.list?.[0]) {
+        return null
+      }
+
+      const ticker = data.result.list[0]
+      const bid = Number.parseFloat(ticker.bid1Price || "0")
+      const ask = Number.parseFloat(ticker.ask1Price || "0")
+      const last = Number.parseFloat(ticker.lastPrice || "0")
+
+      this.log(`✓ Ticker fetched: bid=${bid}, ask=${ask}, last=${last}`)
+      return { bid, ask, last }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch ticker: ${errorMsg}`)
+      return null
+    }
+  }
 }

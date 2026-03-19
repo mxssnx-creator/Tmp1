@@ -141,7 +141,7 @@ export default function ChatHistoryPage() {
                   <h3 className="font-semibold">Assistant Output Messages</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Download only the assistant's responses - useful for reviewing solutions and documentation.
+                  Download only the assistant&apos;s responses - useful for reviewing solutions and documentation.
                 </p>
                 <Button onClick={() => handleDownload("output")} className="w-full mt-2">
                   <Download className="h-4 w-4 mr-2" />

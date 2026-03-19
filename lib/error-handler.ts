@@ -1,4 +1,5 @@
 import Logger from "./logger"
+import { getSettings, setSettings } from "./redis-db"
 
 export interface ErrorContext {
   route?: string
@@ -51,7 +52,29 @@ export class ErrorHandler {
     // If it's a critical error, you could send alerts here
     if (error instanceof AppError && !error.isOperational) {
       console.error("[v0] CRITICAL ERROR - Non-operational error occurred:", error)
-      // TODO: Send alert to monitoring service (e.g., Sentry, email, Slack)
+      await this.sendAlert(error, context)
+    }
+  }
+
+  private async sendAlert(error: AppError, context?: ErrorContext): Promise<void> {
+    try {
+      const alerts = (await getSettings("critical_alerts")) || []
+      const alert = {
+        id: `alert:${Date.now()}`,
+        message: error.message,
+        statusCode: error.statusCode,
+        context,
+        timestamp: new Date().toISOString(),
+        stack: error.stack,
+      }
+      alerts.push(alert)
+      if (alerts.length > 100) {
+        alerts.shift()
+      }
+      await setSettings("critical_alerts", alerts)
+      console.error("[v0] Alert sent to monitoring service:", alert.id)
+    } catch (err) {
+      console.error("[v0] Failed to send alert:", err)
     }
   }
 

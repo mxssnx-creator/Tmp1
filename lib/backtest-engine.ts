@@ -510,15 +510,12 @@ export class BacktestEngine {
   }
 }
 
-/**
- * Helper function to run backtest for a preset
- */
 export async function runPresetBacktest(presetId: string, connectionId: string, periodDays = 30): Promise<string> {
   const endDate = new Date()
   const startDate = new Date(endDate.getTime() - periodDays * 24 * 60 * 60 * 1000)
 
-  // Get symbols from connection or use default
-  const symbols = ["BTCUSDT", "ETHUSDT", "XRPUSDT"] // TODO: Get from connection
+  const connection = await getSettings(`connection:${connectionId}`)
+  const symbols = connection?.symbols || ["BTCUSDT", "ETHUSDT", "XRPUSDT"]
 
   const engine = new BacktestEngine(presetId, connectionId, startDate, endDate, symbols)
   return await engine.runBacktest()

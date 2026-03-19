@@ -63,9 +63,12 @@ export class InlineLocalRedis {
     if (globalCleanup.__redis_cleanup_started) return
     globalCleanup.__redis_cleanup_started = true
     
-    setInterval(() => {
+    const ttlCleanupTimer = setInterval(() => {
       this.cleanupExpiredKeys()
     }, 60000) // Every 60 seconds
+
+    // Avoid blocking script/test process exit.
+    ttlCleanupTimer.unref?.()
   }
   
   /**

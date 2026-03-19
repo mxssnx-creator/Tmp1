@@ -201,6 +201,9 @@ export function startPeriodicConnectionTesting() {
     const result = await testAllExchangeConnections()
     console.log(`[v0] [Periodic] [${timestamp}] Completed: ${result.tested} tested, ${result.passed} passed, ${result.failed} failed`)
   }, 5 * 60 * 1000) // 5 minutes
+
+  // Avoid blocking process exit in scripts/tests.
+  intervalId.unref?.()
   
   // Store interval ID globally so duplicate starts are prevented
   intervalStore.__cts_connection_testing_interval = intervalId

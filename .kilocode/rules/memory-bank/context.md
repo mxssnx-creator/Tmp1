@@ -72,6 +72,7 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Optimized Redis-heavy workflow reads: parallelized connection/trade/position fetches and added short TTL + in-flight dedupe cache for dashboard workflow snapshots
 - [x] Improved logistics queue payload to avoid hardcoded symbol placeholders; now derives focus symbol from real progression log details when available
 - [x] Cleaned migration set-initialization logic to stop inserting empty-string placeholder members into Redis sets
+- [x] Marked long-running background timers (`redis` TTL cleanup, progression-log flush, periodic connection testing) as non-blocking via `unref()` to prevent script/test hang loops
 
 ## Current Structure
 

@@ -39,6 +39,41 @@ export function SystemMonitoringPanel() {
   const [loading, setLoading] = useState(true)
   const [restarting, setRestarting] = useState<string | null>(null)
 
+  const toNumber = (value: unknown, fallback = 0): number => {
+    if (typeof value === "number" && Number.isFinite(value)) return value
+    if (typeof value === "string") {
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : fallback
+    }
+    return fallback
+  }
+
+  const normalizeMonitorPayload = (raw: any): SystemMonitor => ({
+    cpu: toNumber(raw?.cpu, 0),
+    memory: toNumber(raw?.memory, 0),
+    memoryUsed: toNumber(raw?.memoryUsed, 0),
+    memoryTotal: Math.max(toNumber(raw?.memoryTotal, 1), 1),
+    services: {
+      tradeEngine: !!raw?.services?.tradeEngine,
+      indicationsEngine: !!raw?.services?.indicationsEngine,
+      strategiesEngine: !!raw?.services?.strategiesEngine,
+      websocket: !!raw?.services?.websocket,
+    },
+    modules: {
+      redis: !!raw?.modules?.redis,
+      persistence: !!raw?.modules?.persistence,
+      coordinator: !!raw?.modules?.coordinator,
+      logger: !!raw?.modules?.logger,
+    },
+    database: {
+      size: toNumber(raw?.database?.size, 0),
+      keys: toNumber(raw?.database?.keys, 0),
+      sets: toNumber(raw?.database?.sets, 0),
+      positions1h: toNumber(raw?.database?.positions1h, 0),
+      entries1h: toNumber(raw?.database?.entries1h, 0),
+    },
+  })
+
   const loadMonitoring = async () => {
     try {
       const response = await fetch("/api/system/monitoring", {
@@ -47,8 +82,11 @@ export function SystemMonitoringPanel() {
       })
       if (response.ok) {
         const data = await response.json()
-        setMonitor(data)
+        const normalized = normalizeMonitorPayload(data)
+        setMonitor(normalized)
         console.log("[v0] [Monitor] System metrics updated:", data)
+      } else {
+        console.warn("[v0] [Monitor] Monitoring endpoint returned non-OK status", response.status)
       }
     } catch (error) {
       console.error("[v0] [Monitor] Failed to load system monitoring:", error)

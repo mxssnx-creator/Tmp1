@@ -24,6 +24,27 @@ export async function GET() {
     const positions1h = allKeys.filter((k: string) => k.includes("position")).length
     const entries1h = allKeys.filter((k: string) => k.includes("entry") || k.includes("indication")).length
 
+    // Estimate DB footprint (bytes) using a bounded sample to keep endpoint lightweight.
+    const sampleKeys = (allKeys as string[]).slice(0, 40)
+    let sampledBytes = 0
+    for (const key of sampleKeys) {
+      sampledBytes += key.length
+      const strValue = await client.get(key).catch(() => null)
+      if (typeof strValue === "string" && strValue.length > 0) {
+        sampledBytes += strValue.length
+        continue
+      }
+      const hashValue = await client.hgetall(key).catch(() => null)
+      if (hashValue && typeof hashValue === "object") {
+        for (const [field, value] of Object.entries(hashValue)) {
+          sampledBytes += String(field).length + String(value).length
+        }
+      }
+    }
+    const estimatedDbBytes = sampleKeys.length > 0
+      ? Math.max(0, Math.round((sampledBytes / sampleKeys.length) * Math.max(keys, 1)))
+      : 0
+
     // Get engine status - use Redis state as source of truth (coordinator may not track all engines)
     // Note: coordinatorRunning method may not exist, so we derive it from actual engine state
     const coordinatorEngineCount = coordinator?.getActiveEngineCount?.() ?? 0
@@ -122,6 +143,7 @@ export async function GET() {
       memoryUsed: Math.round(memUsage.heapUsed / 1024),
       memoryTotal: Math.round(memUsage.heapTotal / 1024),
       database: {
+        size: estimatedDbBytes,
         keys,
         sets,
         positions1h,

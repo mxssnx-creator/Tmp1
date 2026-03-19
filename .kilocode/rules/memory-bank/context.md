@@ -85,6 +85,7 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Normalized available-connections filtering to canonical base IDs and fixed credential checks to require both key+secret lengths
 - [x] Added dotenv fallback parsing in env credential resolver (`.env.local`/`.env`) to load provided credentials even when process env is not preloaded
 - [x] Switched canonical base-connection provisioning to predefined in-code credentials (no env-var dependency) across migrations, default seeding, init-status auto-injection, and system credential/fix endpoints
+- [x] Completed connection-system conformity hardening pass: normalized boolean input/flag handling across toggle APIs, removed SQL/Redis split in critical connection mutation routes, fixed batch-test limiter window semantics, ensured credential injection also maintains `connections` set membership, and corrected coordinator credential/state gating + health refresh behavior
 
 ## Current Structure
 
@@ -110,6 +111,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Ran comprehensive connection/engine conformity audit and applied targeted runtime fixes: switched `[id]/dashboard`, `init-predefined`, and `import-user` connection flows to Redis path, added shared boolean normalization utils, made dashboard toggle global active-count recomputation deterministic, corrected batch-test rate limiter keying, ensured system credential routes `SADD` base IDs, and fixed coordinator health/credential eligibility + reload semantics |
 | 2026-03-19 | Updated base connection credential strategy to use direct predefined variables instead of environment variables during creation/injection flows; added shared `lib/base-connection-credentials.ts` and wired migrations/seeders/system routes to it |
 | 2026-03-19 | Fixed persistent BingX credential-drop path by enforcing canonical base seeding, deleting legacy duplicate connection IDs, adding dotenv-fallback env loading, preserving credentials on form-driven PUT/PATCH updates, and normalizing connection API filtering/sanity reporting |
 | 2026-03-19 | Completed intensive production-readiness pass: restored lint compatibility, resolved workflow handler lint-safety issue, updated QA scripts for 3001/app-url defaults and market-data assertions, and revalidated lint+typecheck+build all passing |

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // RATE LIMIT: Prevent rapid successive batch tests
-    const batchKey = `batch-test-${Date.now().toString().slice(0, -3)}` // Group by second
+    const batchKey = "batch-test-global"
     const now = Date.now()
     const attempt = batchTestAttempts.get(batchKey) || { count: 0, lastTime: 0 }
     
@@ -66,6 +66,14 @@ export async function POST(request: NextRequest) {
     attempt.count++
     attempt.lastTime = now
     batchTestAttempts.set(batchKey, attempt)
+
+    // Keep in-memory limiter map bounded
+    for (const [key, value] of batchTestAttempts.entries()) {
+      if (key === batchKey) continue
+      if (now - value.lastTime > 3600000) {
+        batchTestAttempts.delete(key)
+      }
+    }
 
     console.log(`[v0] [Batch Test] Starting batch test for ${connectionIds.length} connections (attempt ${attempt.count}/${MAX_BATCH_TESTS_PER_HOUR})`)
 

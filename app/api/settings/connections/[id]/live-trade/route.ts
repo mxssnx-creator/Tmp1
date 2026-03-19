@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { SystemLogger } from "@/lib/system-logger"
-import { initRedis, getRedisClient, getConnection, updateConnection, getAllConnections } from "@/lib/redis-db"
+import { initRedis, getRedisClient, getConnection, updateConnection } from "@/lib/redis-db"
 import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
 import { loadSettingsAsync } from "@/lib/settings-storage"
+import { isTruthyFlag, parseBooleanInput, toRedisFlag } from "@/lib/boolean-utils"
 
 // POST toggle live trading for a connection
 // This enables REAL exchange trading via strategies
@@ -16,9 +17,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id } = await params
     const connectionId = id
     const body = await request.json()
-    const { is_live_trade } = body
+    const isLiveTrade = parseBooleanInput(body?.is_live_trade)
 
-    console.log(`[v0] [LiveTrade] POST handler called for: ${connectionId}, is_live_trade=${is_live_trade}`)
+    console.log(`[v0] [LiveTrade] POST handler called for: ${connectionId}, is_live_trade=${isLiveTrade}`)
 
     await initRedis()
     const connection = await getConnection(connectionId)
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     console.log(`[v0] [LiveTrade] Found connection: ${connName} (${connection.exchange})`)
 
     // If enabling, check prerequisites
-    if (is_live_trade) {
+    if (isLiveTrade) {
       console.log(`[v0] [LiveTrade] Checking prerequisites for enabling ${connName}...`)
       
       // Check 1: Global Trade Engine running
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       // Check 2: Connection enabled in Settings
-      const isEnabled = connection.is_enabled === "1" || connection.is_enabled === true
+      const isEnabled = isTruthyFlag(connection.is_enabled)
       console.log(`[v0] [LiveTrade]   - Connection enabled in Settings: ${isEnabled}`)
       
       if (!isEnabled) {
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       // Check 3: Connection active on Dashboard
-      const isActive = connection.is_enabled_dashboard === "1" || connection.is_enabled_dashboard === true
+      const isActive = isTruthyFlag(connection.is_enabled_dashboard)
       console.log(`[v0] [LiveTrade]   - Connection active on Dashboard: ${isActive}`)
       
       if (!isActive) {
@@ -78,10 +79,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Update connection with is_live_trade flag
-    console.log(`[v0] [LiveTrade] Updating connection state: is_live_trade=${is_live_trade}`)
+    console.log(`[v0] [LiveTrade] Updating connection state: is_live_trade=${isLiveTrade}`)
     const updatedConnection = {
       ...connection,
-      is_live_trade: is_live_trade ? "1" : "0",
+      is_live_trade: toRedisFlag(isLiveTrade),
       updated_at: new Date().toISOString(),
     }
 
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const coordinator = getGlobalTradeEngineCoordinator()
     let engineStatus = "stopped"
 
-    if (is_live_trade) {
+    if (isLiveTrade) {
       try {
         console.log(`[v0] [LiveTrade] Starting live trading engine for: ${connName}`)
         const settings = await loadSettingsAsync()
@@ -157,10 +158,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({
       success: true,
-      is_live_trade,
+      is_live_trade: isLiveTrade,
       engineStatus,
       connection: updatedConnection,
-      message: `Live Trading ${is_live_trade ? "enabled (starting real exchange trading...)" : "disabled"}`,
+      message: `Live Trading ${isLiveTrade ? "enabled (starting real exchange trading...)" : "disabled"}`,
       connectionName: connName,
       exchange: connection.exchange,
     })

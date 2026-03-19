@@ -9,6 +9,7 @@ import { ConnectionCoordinator } from "@/lib/connection-coordinator"
 export async function GET(request: NextRequest) {
   try {
     const coordinator = ConnectionCoordinator.getInstance()
+    await coordinator.reloadConnections()
     const { searchParams } = new URL(request.url)
 
     const connectionId = searchParams.get("id")

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { SystemLogger } from "@/lib/system-logger"
 import { initRedis, getRedisClient, getConnection, updateConnection } from "@/lib/redis-db"
 import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
+import { isTruthyFlag, parseBooleanInput, toRedisFlag } from "@/lib/boolean-utils"
 
 // POST toggle preset trading for a connection
 // This controls the PRESET Trade Engine
@@ -13,9 +14,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const { id } = await params
     const connectionId = id
-    const { is_preset_trade } = await request.json()
+    const body = await request.json()
+    const isPresetTrade = parseBooleanInput(body?.is_preset_trade)
 
-    console.log("[v0] [Preset Trade] Toggling Preset Engine for:", connectionId, "enabled:", is_preset_trade)
+    console.log("[v0] [Preset Trade] Toggling Preset Engine for:", connectionId, "enabled:", isPresetTrade)
 
     await initRedis()
     const connection = await getConnection(connectionId)
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Check if Global Trade Engine Coordinator is running
-    if (is_preset_trade) {
+    if (isPresetTrade) {
       const client = getRedisClient()
       const globalState = await client.hgetall("trade_engine:global")
       const globalRunning = globalState?.status === "running"
@@ -38,8 +40,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Check if connection is enabled AND active on dashboard
-    const isEnabled = connection.is_enabled === "1" || connection.is_enabled === true
-    const isActive = connection.is_enabled_dashboard === "1" || connection.is_enabled_dashboard === true
+    const isEnabled = isTruthyFlag(connection.is_enabled)
+    const isActive = isTruthyFlag(connection.is_enabled_dashboard)
 
     if (!isEnabled) {
       return NextResponse.json({ error: "Connection must be enabled first" }, { status: 400 })
@@ -52,18 +54,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Update connection with is_preset_trade flag
     const updatedConnection = {
       ...connection,
-      is_preset_trade: is_preset_trade ? "1" : "0",
+      is_preset_trade: toRedisFlag(isPresetTrade),
       updated_at: new Date().toISOString(),
     }
 
     await updateConnection(connectionId, updatedConnection)
-    console.log("[v0] [Preset Trade] Updated is_preset_trade:", connectionId, "=", is_preset_trade)
+    console.log("[v0] [Preset Trade] Updated is_preset_trade:", connectionId, "=", isPresetTrade)
 
     // Start or stop Preset Engine based on toggle
     const coordinator = getGlobalTradeEngineCoordinator()
     let engineStatus = "stopped"
 
-    if (is_preset_trade) {
+    if (isPresetTrade) {
       try {
         console.log("[v0] [Preset Trade] Starting Preset Engine for:", connection.name)
         
@@ -115,10 +117,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({
       success: true,
-      is_preset_trade,
+      is_preset_trade: isPresetTrade,
       engineStatus,
       connection: updatedConnection,
-      message: `Preset Engine ${is_preset_trade ? "enabled (starting...)" : "disabled"}`,
+      message: `Preset Engine ${isPresetTrade ? "enabled (starting...)" : "disabled"}`,
     })
   } catch (error) {
     console.error("[v0] [Preset Trade] Exception:", error)

@@ -49,24 +49,17 @@ export async function POST() {
         updateData.api_secret = credentials.apiSecret
       }
       
-      // Apply update
-      if (exists) {
-        await client.hset(`connection:${conn}`, updateData)
-        results[conn] = {
-          status: "updated",
-          active_inserted: true,
-          enabled: true,
-          dashboard_enabled: false,
-          has_credentials: hasCredentials,
-        }
-        console.log(`[v0] [FixConnections] ${conn}: Updated - active_inserted=1, credentials=${hasCredentials}`)
-      } else {
-        results[conn] = {
-          status: "not_found",
-          message: "Connection does not exist in database. Run migrations first.",
-        }
-        console.log(`[v0] [FixConnections] ${conn}: NOT FOUND - skipped`)
+      // Apply update and ensure set membership
+      await client.hset(`connection:${conn}`, updateData)
+      await client.sadd("connections", conn)
+      results[conn] = {
+        status: exists ? "updated" : "created",
+        active_inserted: true,
+        enabled: true,
+        dashboard_enabled: false,
+        has_credentials: hasCredentials,
       }
+      console.log(`[v0] [FixConnections] ${conn}: ${exists ? "UPDATED" : "CREATED"} - active_inserted=1, credentials=${hasCredentials}`)
     }
     
     // Count successful updates

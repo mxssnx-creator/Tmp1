@@ -30,6 +30,7 @@ export async function POST() {
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })
+      await client.sadd("connections", connectionId)
       results[connectionId] = "Credentials injected successfully"
     }
 

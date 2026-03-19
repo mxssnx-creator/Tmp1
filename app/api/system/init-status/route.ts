@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getBaseConnectionCredentials } from "@/lib/base-connection-credentials"
+import { isTruthyFlag } from "@/lib/boolean-utils"
 
 export const runtime = "nodejs"
 
@@ -52,8 +53,9 @@ export async function GET(request: NextRequest) {
            is_enabled_dashboard: (existingConn?.is_enabled_dashboard as string) || "0",
            is_active: dashboardEnabled ? "1" : "0",
            connection_method: "library",
-           updated_at: new Date().toISOString(),
-         })
+            updated_at: new Date().toISOString(),
+          })
+         await redisClient.sadd("connections", "bingx-x01")
          console.log("[v0] [Init] Auto-injected BingX predefined credentials")
       }
     }
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
     try {
       const connections = await getAllConnections()
       connectionsCount = connections.length
-      enabledConnectionsCount = connections.filter((c: any) => c.is_enabled !== false).length
+      enabledConnectionsCount = connections.filter((c: any) => isTruthyFlag(c.is_enabled)).length
 
       const bingxCandidates = connections.filter((c: any) => (c.exchange || "").toLowerCase() === "bingx")
       const canonicalBingx = connections.find((c: any) => c.id === "bingx-x01")

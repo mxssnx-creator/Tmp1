@@ -8,7 +8,7 @@
  * - Short-time trades (1-20 minutes optimal)
  */
 
-import { getSettings, setSettings } from "@/lib/redis-db"
+import { getSettings, setSettings, getMarketData } from "@/lib/redis-db"
 import { BasePseudoPositionManager } from "./base-pseudo-position-manager"
 
 export interface AutoIndicationMetrics {
@@ -91,12 +91,21 @@ export class AutoIndicationEngine {
 
   /**
    * Load 8-hour historical market data (Redis-based)
-   * NOTE: This returns empty data - market_data storage not yet implemented in Redis
    */
   private async load8HourData(symbol: string): Promise<Array<{ price: number; timestamp: Date; volume?: number }>> {
-    // TODO: Implement market data caching in Redis
-    // For now, return empty array to prevent SQL errors
-    return []
+    const cachedData = await getMarketData(symbol)
+    if (!cachedData || !Array.isArray(cachedData.data)) {
+      return []
+    }
+    const eightHoursAgo = Date.now() - 8 * 60 * 60 * 1000
+    return cachedData.data
+      .filter((item: any) => new Date(item.timestamp).getTime() > eightHoursAgo)
+      .map((item: any) => ({
+        price: item.price,
+        timestamp: new Date(item.timestamp),
+        volume: item.volume,
+      }))
+      .sort((a: any, b: any) => b.timestamp.getTime() - a.timestamp.getTime())
   }
 
   /**
@@ -304,16 +313,31 @@ export class AutoIndicationEngine {
 
   /**
    * Get previous position performance metrics (Redis-based)
-   * NOTE: Returns default metrics - position tracking not yet implemented in Redis
    */
   private async getPreviousPositionMetrics(symbol: string): Promise<{
     profitFactor: number
     drawdownTime: number
     successRate: number
   }> {
-    // TODO: Implement position history caching in Redis
-    // For now, return default metrics to prevent SQL errors
-    return { profitFactor: 0, drawdownTime: 0, successRate: 0 }
+    const positionHistory = await getSettings(`position_history:${this.connectionId}:${symbol}`)
+    if (!positionHistory || !Array.isArray(positionHistory.positions)) {
+      return { profitFactor: 0, drawdownTime: 0, successRate: 0 }
+    }
+    const positions = positionHistory.positions
+    const totalTrades = positions.length
+    if (totalTrades === 0) {
+      return { profitFactor: 0, drawdownTime: 0, successRate: 0 }
+    }
+    const winningTrades = positions.filter((p: any) => p.profit > 0).length
+    const totalProfit = positions.reduce((sum: number, p: any) => sum + Math.max(0, p.profit || 0), 0)
+    const totalLoss = Math.abs(positions.reduce((sum: number, p: any) => sum + Math.min(0, p.profit || 0), 0))
+    const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : 0
+    const successRate = winningTrades / totalTrades
+    const lastDrawdownPosition = positions.filter((p: any) => p.profit < 0).pop()
+    const drawdownTime = lastDrawdownPosition
+      ? (Date.now() - new Date(lastDrawdownPosition.timestamp).getTime()) / (1000 * 60 * 60)
+      : 0
+    return { profitFactor, drawdownTime, successRate }
   }
 
   /**

@@ -1,9 +1,12 @@
+"use client"
+
 import MarketDataMonitor from "@/components/realtime/market-data-monitor"
 import PositionMonitor from "@/components/realtime/position-monitor"
+import { useExchange } from "@/lib/exchange-context"
 
 export default function RealtimePage() {
-  // TODO: Get connection ID from user session or context
-  const connectionId = "default-connection"
+  const { selectedConnectionId } = useExchange()
+  const connectionId = selectedConnectionId || "default-connection"
 
   return (
     <div className="space-y-6">

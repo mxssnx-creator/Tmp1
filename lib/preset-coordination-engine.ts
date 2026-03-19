@@ -859,6 +859,8 @@ export class PresetCoordinationEngine {
       ? `Profit factor: ${profitFactor.toFixed(2)}, Trades: ${totalTrades}, Last 25 PF: ${profitFactorLast25.toFixed(2)}`
       : "Valid"
 
+    const drawdownMetrics = this.calculateDrawdownMetrics(trades)
+
     return {
       profitFactor,
       winRate,
@@ -867,14 +869,55 @@ export class PresetCoordinationEngine {
       losingTrades,
       avgProfit,
       avgLoss,
-      maxDrawdown: 0, // TODO: Calculate
-      drawdownTimeHours: 0, // TODO: Calculate
+      maxDrawdown: drawdownMetrics.maxDrawdown,
+      drawdownTimeHours: drawdownMetrics.maxDrawdownDuration,
       profitFactorLast25,
       profitFactorLast50,
       positionsPer24h,
       isValid,
       validationReason,
     }
+  }
+
+  private calculateDrawdownMetrics(trades: any[]): { maxDrawdown: number; maxDrawdownDuration: number } {
+    if (trades.length === 0) {
+      return { maxDrawdown: 0, maxDrawdownDuration: 0 }
+    }
+
+    const sortedTrades = [...trades].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+
+    let cumulativePnL = 0
+    let peak = 0
+    let maxDrawdown = 0
+    let currentDrawdownStart: Date | null = null
+    let maxDrawdownDuration = 0
+
+    for (const trade of sortedTrades) {
+      cumulativePnL += trade.profit
+
+      if (cumulativePnL > peak) {
+        peak = cumulativePnL
+        currentDrawdownStart = null
+      } else if (cumulativePnL < peak && peak > 0) {
+        if (!currentDrawdownStart) {
+          currentDrawdownStart = new Date(trade.timestamp)
+        }
+        const currentDrawdown = ((peak - cumulativePnL) / peak) * 100
+        if (currentDrawdown > maxDrawdown) {
+          maxDrawdown = currentDrawdown
+        }
+      }
+    }
+
+    if (currentDrawdownStart && sortedTrades.length > 0) {
+      const lastTradeTime = new Date(sortedTrades[sortedTrades.length - 1].timestamp).getTime()
+      const duration = (lastTradeTime - currentDrawdownStart.getTime()) / (1000 * 60 * 60)
+      if (duration > maxDrawdownDuration) {
+        maxDrawdownDuration = duration
+      }
+    }
+
+    return { maxDrawdown, maxDrawdownDuration }
   }
 
   private calculateProfitFactorForTrades(trades: any[]): number {

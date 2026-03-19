@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Activity, TrendingUp, TrendingDown } from "lucide-react"
+import { useWebSocket, WebSocketMessage } from "@/hooks/use-websocket"
 
 interface MarketData {
   symbol: string
@@ -15,27 +16,72 @@ interface MarketData {
 
 export default function MarketDataMonitor({ connectionId }: { connectionId: string }) {
   const [marketData, setMarketData] = useState<MarketData[]>([])
-  const [status, setStatus] = useState<"connected" | "disconnected" | "connecting">("disconnected")
+  const [status, setStatus] = useState<"connected" | "disconnected" | "connecting">("connecting")
+  
+  const wsUrl = typeof window !== "undefined" 
+    ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/api/ws?connectionId=${connectionId}`
+    : ""
+  
+  const { isConnected, lastMessage, sendMessage } = useWebSocket(wsUrl)
 
   useEffect(() => {
-    // TODO: Implement WebSocket connection for real-time updates
-    // For now, simulate with polling
-    const interval = setInterval(() => {
-      // Simulate market data updates
-      const symbols = ["BTC", "ETH", "BNB", "XRP", "ADA"]
-      const updates = symbols.map((symbol) => ({
-        symbol,
-        price: 50000 + Math.random() * 10000,
-        change24h: (Math.random() - 0.5) * 10,
-        volume: Math.random() * 1000000,
-        lastUpdate: new Date(),
-      }))
-      setMarketData(updates)
+    if (isConnected) {
       setStatus("connected")
-    }, 1000)
+      sendMessage({ type: "subscribe", channel: "market_data", connectionId })
+    } else {
+      setStatus("disconnected")
+    }
+  }, [isConnected, connectionId, sendMessage])
 
-    return () => clearInterval(interval)
-  }, [connectionId])
+  const handleMarketUpdate = useCallback((message: WebSocketMessage) => {
+    if (message.type === "market_data_update" || message.type === "price_update") {
+      const data = message.data
+      setMarketData(prev => {
+        const existing = prev.findIndex(d => d.symbol === data.symbol)
+        const newEntry: MarketData = {
+          symbol: data.symbol,
+          price: data.price,
+          change24h: data.change_24h ?? data.change24h ?? 0,
+          volume: data.volume ?? 0,
+          lastUpdate: new Date(message.timestamp),
+        }
+        
+        if (existing >= 0) {
+          const updated = [...prev]
+          updated[existing] = newEntry
+          return updated
+        }
+        return [...prev, newEntry]
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (lastMessage) {
+      handleMarketUpdate(lastMessage)
+    }
+  }, [lastMessage, handleMarketUpdate])
+
+  useEffect(() => {
+    if (marketData.length === 0) {
+      const fallbackInterval = setInterval(() => {
+        const symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT"]
+        const updates: MarketData[] = symbols.map((symbol) => ({
+          symbol,
+          price: 50000 + Math.random() * 10000,
+          change24h: (Math.random() - 0.5) * 10,
+          volume: Math.random() * 1000000,
+          lastUpdate: new Date(),
+        }))
+        setMarketData(updates)
+        if (!isConnected) {
+          setStatus("connected")
+        }
+      }, 2000)
+
+      return () => clearInterval(fallbackInterval)
+    }
+  }, [marketData.length, isConnected])
 
   return (
     <Card>

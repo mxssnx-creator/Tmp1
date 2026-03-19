@@ -6,30 +6,30 @@ export async function GET() {
     await initRedis()
     const client = getRedisClient()
 
-    const riskSettings = await client.hgetall("settings:risk-management")
-    const engineSettings = await client.hgetall("settings:engines")
-    const strategySettings = await client.hgetall("settings:strategy-main")
+    const riskSettings = await client.hgetall("settings:risk-management") as Record<string, string> | null
+    const engineSettings = await client.hgetall("settings:engines") as Record<string, string> | null
+    const strategySettings = await client.hgetall("settings:strategy-main") as Record<string, string> | null
 
     return NextResponse.json({
       success: true,
       riskManagement: {
-        enabled: riskSettings.enabled === "true",
-        maxOpenPositions: riskSettings.max_open_positions || "maximal",
-        dailyLossLimitPercent: parseFloat(riskSettings.daily_loss_limit_percent || "65"),
-        maxDrawdownPercent: parseFloat(riskSettings.max_drawdown_percent || "55"),
-        positionSizeLimit: parseFloat(riskSettings.position_size_limit || "100000"),
-        stopLossEnabled: riskSettings.stop_loss_enabled === "true",
-        takeProfitEnabled: riskSettings.take_profit_enabled === "true",
+        enabled: riskSettings?.enabled === "true",
+        maxOpenPositions: riskSettings?.max_open_positions || "maximal",
+        dailyLossLimitPercent: parseFloat(riskSettings?.daily_loss_limit_percent || "65"),
+        maxDrawdownPercent: parseFloat(riskSettings?.max_drawdown_percent || "55"),
+        positionSizeLimit: parseFloat(riskSettings?.position_size_limit || "100000"),
+        stopLossEnabled: riskSettings?.stop_loss_enabled === "true",
+        takeProfitEnabled: riskSettings?.take_profit_enabled === "true",
       },
       engines: {
-        presetTradeEngine: engineSettings.preset_trade_engine === "true",
-        mainTradeEngine: engineSettings.main_trade_engine === "true",
-        realtimePositionsEngine: engineSettings.realtime_positions_engine === "true",
-        riskManagementEngine: engineSettings.risk_management_engine === "true",
+        presetTradeEngine: engineSettings?.preset_trade_engine === "true",
+        mainTradeEngine: engineSettings?.main_trade_engine === "true",
+        realtimePositionsEngine: engineSettings?.realtime_positions_engine === "true",
+        riskManagementEngine: engineSettings?.risk_management_engine === "true",
       },
       strategy: {
-        mainMaxPseudoPositionsLong: parseInt(strategySettings.max_pseudo_positions_long || "1"),
-        mainMaxPseudoPositionsShort: parseInt(strategySettings.max_pseudo_positions_short || "1"),
+        mainMaxPseudoPositionsLong: parseInt(strategySettings?.max_pseudo_positions_long || "1"),
+        mainMaxPseudoPositionsShort: parseInt(strategySettings?.max_pseudo_positions_short || "1"),
       },
     })
   } catch (error) {

@@ -71,19 +71,22 @@ export async function GET() {
     }
 
     // SUMMARY
+    const indicationCycles = parseInt(indicationsState?.cycles_processed || "0")
+    const strategyCycles = parseInt(strategiesState?.cycles_processed || "0")
+    
     verification.summary = {
       connections_ready: connections.length >= 1 && bingxConn?.api_key?.length >= 16,
       historic_data_loaded: Object.keys(marketData || {}).length > 0,
-      indications_processing: indicationsState?.cycles_processed > 0,
-      strategies_processing: strategiesState?.cycles_processed > 0,
+      indications_processing: indicationCycles > 0,
+      strategies_processing: strategyCycles > 0,
       progression_tracking: progressionLogs.length > 0,
       
       overall_status:
         connections.length >= 1 &&
         bingxConn?.api_key?.length >= 16 &&
         Object.keys(marketData || {}).length > 0 &&
-        indicationsState?.cycles_processed > 0 &&
-        strategiesState?.cycles_processed > 0
+        indicationCycles > 0 &&
+        strategyCycles > 0
           ? "OPERATIONAL"
           : "INCOMPLETE",
     }

@@ -5,6 +5,7 @@ export interface ExchangeConnection {
   exchange: string
   exchange_id?: number | null
   api_type: string
+  api_subtype?: string
   connection_method: string
   connection_library?: string
   api_key: string
@@ -19,16 +20,20 @@ export interface ExchangeConnection {
   last_test_error?: string
   last_test_log?: string[]
   last_test_timestamp?: string
+  last_test_btc_price?: number
+  last_test_at?: string
   api_capabilities?: string[]
   rate_limits?: {
     requests_per_second: number
     requests_per_minute: number
   }
-  is_enabled: boolean // Settings: enabled for trade engine (defaults to true for base, false for new)
-  is_enabled_dashboard: boolean // Dashboard: visibility/enabled state (always defaults to false)
+  is_enabled: boolean
+  is_enabled_dashboard: boolean
   is_live_trade: boolean
   is_preset_trade?: boolean
   is_active?: boolean
+  is_inserted?: boolean
+  is_active_inserted?: boolean
   is_predefined?: boolean
   connection_priority?: string[]
   use_main_symbols?: boolean

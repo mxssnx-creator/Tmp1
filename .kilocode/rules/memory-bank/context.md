@@ -32,6 +32,8 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Verified Tracking route builds and returns correct empty-state data when no connections are configured
 - [x] Fixed project misconfigurations around dev/start ports, TS baseUrl, Redis compatibility helpers, and noisy instrumentation
 - [x] Verified clean build and core health/logistics/tracking endpoints after clearing stale `.next` artifacts
+- [x] **Completed all 6 remaining TODO items**: preset-coordination-engine drawdown metrics, error-handler alert monitoring, auto-indication-engine Redis caching, backtest-engine connection symbols, realtime page exchange context
+- [x] Fixed TypeScript error in auto-optimal/route.ts where `slPrice` was incorrectly declared as `const`
 
 ## Current Structure
 
@@ -59,6 +61,7 @@ Current focus is runtime correctness for the recovered CTS application and triag
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Completed all remaining TODO items: added calculateDrawdownMetrics to preset-coordination-engine, sendAlert to error-handler, Redis caching for auto-indication-engine, connection symbols for backtest-engine, exchange context for realtime page; fixed slPrice const error in auto-optimal route |
 | 2026-03-19 | Completed project-wide misconfiguration pass: aligned ports, TS config, Redis compatibility methods, and verified clean build/runtime endpoints |
 | 2026-03-19 | Implemented real Tracking overview page/API and aligned it with logistics and engine progression empty-state handling |
 | 2026-03-19 | Integrated logistics, quickstart-readiness workflow, detailed engine logs, and dashboard system stats into one normalized workflow snapshot |

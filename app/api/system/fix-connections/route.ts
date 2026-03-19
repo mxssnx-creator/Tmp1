@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
  * Fixes all 4 base connections (bybit, bingx, pionex, orangex) to be:
  * - is_active_inserted = 1 (in Active panel)
  * - is_enabled = 1 (enabled)
- * - is_enabled_dashboard = 1 (dashboard toggle on)
+ * - is_enabled_dashboard = 0 (dashboard toggle off by default)
  * - connection_method = library (use native SDK)
  * 
  * Also injects credentials from environment variables if available.
@@ -37,8 +37,8 @@ export async function POST() {
         is_inserted: "1",
         is_enabled: "1",
         is_active_inserted: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_enabled_dashboard: "0",
+        is_active: "0",
         is_predefined: "1",
         connection_method: "library",
         updated_at: new Date().toISOString(),
@@ -61,7 +61,7 @@ export async function POST() {
           status: "updated",
           active_inserted: true,
           enabled: true,
-          dashboard_enabled: true,
+          dashboard_enabled: false,
           has_credentials: hasCredentials,
         }
         console.log(`[v0] [FixConnections] ${conn.id}: Updated - active_inserted=1, credentials=${hasCredentials}`)

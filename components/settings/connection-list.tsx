@@ -53,7 +53,7 @@ export function ConnectionList({
     <div className="space-y-6">
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold">Exchange Connections</h3>
+          <h3 className="text-lg font-semibold">Base Connections</h3>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={onImportUserConnections}>
               <Upload className="h-3 w-3 mr-2" />
@@ -66,14 +66,14 @@ export function ConnectionList({
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Manage your exchange API connections. Enable/disable connections or delete them. Enabled connections are available for trading strategies.
+          Manage your base exchange API connections. Enable/disable connections or delete them. Enabled base connections are available for Main Connections workflows.
         </p>
       </div>
 
       {/* Enabled Connections Section */}
       {connections.filter((c) => c.is_enabled).length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-green-700">Active Connections ({connections.filter((c) => c.is_enabled).length})</h4>
+          <h4 className="text-sm font-semibold text-green-700">Enabled Base Connections ({connections.filter((c) => c.is_enabled).length})</h4>
           <div className="grid gap-3">
             {connections
               .filter((c) => c.is_enabled)

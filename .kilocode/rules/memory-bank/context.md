@@ -62,6 +62,10 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Enforced defaults: base connections are enabled in Settings by default, while Dashboard main enable state remains OFF by default
 - [x] Updated engine eligibility filters to follow dashboard enable state (not settings-default enabled), preventing unintended auto-processing
 - [x] Hardened migration startup path so base-connection credential injection runs even when migrations are already marked as run in-process
+- [x] Fixed startup auto-reenable regression by removing pre-startup logic that force-enabled dashboard toggles for bybit/bingx
+- [x] Updated migration defaults and system credential-injection helpers to preserve `is_enabled_dashboard` state instead of setting it ON implicitly
+- [x] Aligned auto-start engine eligibility to require BOTH `is_active_inserted` and `is_enabled_dashboard`, preventing processing when Main toggle is OFF
+- [x] Renamed UI terminology: Settings now consistently uses "Base Connections" and Dashboard uses "Main Connections (Active Connections)"
 
 ## Current Structure
 
@@ -87,6 +91,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Removed implicit dashboard auto-enable paths (pre-startup + system inject/fix endpoints), updated migration defaults to keep Main toggles OFF by default, and renamed UI labels to Base Connections / Main Connections (Active Connections) |
 | 2026-03-19 | Applied base/main connection default policy: removed binance/okx from dashboard main set, made dashboard main disabled-by-default, kept settings base enabled-by-default, and ensured base credential injection runs consistently on startup |
 | 2026-03-19 | Finalized no-mock selected-exchange flow for dashboard logs/metrics: detailed logs now filter by selected exchange/connection, progression logs merge structured fallback, and dashboard metric defaults removed |
 | 2026-03-19 | Comprehensive engine/progression/quickstart stabilization: restored upstream sidebar content, enabled immediate coordinator startup, fixed quickstart enable state, upgraded detailed log aggregation, and made progression counters update every cycle for non-zero real-time dashboard visibility |

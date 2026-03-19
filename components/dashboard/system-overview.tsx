@@ -255,11 +255,11 @@ export function SystemOverview() {
             </div>
           </div>
 
-          {/* Exchange Connections */}
+          {/* Base Connections */}
           <div className={`p-3 rounded-lg border-l-4 ${getBorderColor(stats.exchangeConnections.status)} bg-muted/30`}>
             <div className="flex items-center gap-2 mb-2">
               <Network className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground">Exchange Connections</span>
+              <span className="text-xs font-semibold text-muted-foreground">Base Connections</span>
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
@@ -286,11 +286,11 @@ export function SystemOverview() {
             </div>
           </div>
 
-          {/* Active Connections */}
+          {/* Main Connections */}
           <div className={`p-3 rounded-lg border-l-4 ${stats.activeConnections.active > 0 ? "border-l-green-500" : stats.activeConnections.total > 0 ? "border-l-blue-400" : "border-l-gray-400"} bg-muted/30`}>
             <div className="flex items-center gap-2 mb-2">
               <Activity className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground">Active Connections</span>
+              <span className="text-xs font-semibold text-muted-foreground">Main Connections (Active)</span>
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">

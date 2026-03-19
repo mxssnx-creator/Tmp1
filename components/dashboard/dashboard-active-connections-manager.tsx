@@ -225,7 +225,7 @@ export function DashboardActiveConnectionsManager() {
         })
       } else {
         // When enabling, just show that live trade must be enabled manually
-        toast.success("Connection added to Active Connections", {
+        toast.success("Connection added to Main Connections", {
           description: "Use the Live Trade slider to enable real exchange trading",
         })
       }
@@ -327,7 +327,7 @@ export function DashboardActiveConnectionsManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-sm">Active Connections</h3>
+          <h3 className="font-semibold text-sm">Main Connections (Active Connections)</h3>
           <p className="text-xs text-muted-foreground">
             All connections disabled by default. Enable to start engine progression.
           </p>

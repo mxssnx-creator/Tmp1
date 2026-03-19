@@ -86,7 +86,7 @@ export function ConnectionSettings({
     <div className="space-y-6">
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold">Exchange Connections</h3>
+          <h3 className="text-lg font-semibold">Base Connections</h3>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={onImportUserConnections}>
               <Upload className="h-3 w-3 mr-2" />
@@ -99,7 +99,7 @@ export function ConnectionSettings({
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Manage your exchange API connections. Enable/disable connections or delete them.
+          Manage your base exchange API connections. Enable/disable connections or delete them.
         </p>
       </div>
 

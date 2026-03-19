@@ -3,7 +3,7 @@
  * Runs once on first deploy or server start
  */
 
-import { initRedis, createConnection, getAllConnections, saveMarketData, setSettings, getSettings, updateConnection, getRedisClient } from "@/lib/redis-db"
+import { initRedis, getAllConnections, saveMarketData, setSettings, getSettings, updateConnection, getRedisClient } from "@/lib/redis-db"
 import { runMigrations } from "@/lib/redis-migrations"
 import { initializeTradeEngineAutoStart } from "@/lib/trade-engine-auto-start"
 import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
@@ -201,57 +201,6 @@ export function startPeriodicConnectionTesting() {
     (global as any).connectionTestingIntervalId = intervalId
   }
 }
-async function initializeDefaultActiveConnections() {
-  console.log("[v0] [Seed] Initializing default active connections (Bybit & BingX)...")
-  try {
-    const allConnections = await getAllConnections()
-    
-    // Find bybit-x03 and bingx-x01
-    const bybit = allConnections.find((c: any) => c.id === "bybit-x03")
-    const bingx = allConnections.find((c: any) => c.id === "bingx-x01")
-    
-    let activatedCount = 0
-    
-    // Set bybit-x03 as active connection (is_enabled_dashboard = true)
-    if (bybit) {
-      if (!bybit.is_enabled_dashboard || bybit.is_enabled_dashboard === "0") {
-        console.log("[v0] [Seed] Setting bybit-x03 as active connection...")
-        await updateConnection("bybit-x03", {
-          ...bybit,
-          is_enabled_dashboard: "1"
-        })
-        activatedCount++
-        console.log("[v0] [Seed] ✓ bybit-x03 added to active connections")
-      } else {
-        console.log("[v0] [Seed] bybit-x03 already on active list")
-      }
-    } else {
-      console.warn("[v0] [Seed] bybit-x03 not found in database")
-    }
-    
-    // Set bingx-x01 as active connection (is_enabled_dashboard = true)
-    if (bingx) {
-      if (!bingx.is_enabled_dashboard || bingx.is_enabled_dashboard === "0") {
-        console.log("[v0] [Seed] Setting bingx-x01 as active connection...")
-        await updateConnection("bingx-x01", {
-          ...bingx,
-          is_enabled_dashboard: "1"
-        })
-        activatedCount++
-        console.log("[v0] [Seed] ✓ bingx-x01 added to active connections")
-      } else {
-        console.log("[v0] [Seed] bingx-x01 already on active list")
-      }
-    } else {
-      console.warn("[v0] [Seed] bingx-x01 not found in database")
-    }
-    
-    console.log(`[v0] [Seed] Default active connections initialized: ${activatedCount} connections added to active list`)
-  } catch (error) {
-    console.error("[v0] [Seed] Failed to initialize default active connections:", error)
-  }
-}
-
 /**
  * Auto-start the Global Trade Engine Coordinator at startup.
  * Sets trade_engine:global status to "running" so individual connection
@@ -319,9 +268,8 @@ export async function runPreStartup() {
     await seedMarketData()
     console.log("[v0] [5/10] ✓ Market data seeded")
     
-    console.log("[v0] [6/10] Initializing default active connections...")
-    await initializeDefaultActiveConnections()
-    console.log("[v0] [6/10] ✓ Default active connections initialized")
+    console.log("[v0] [6/10] Preserving Main Connections dashboard toggles...")
+    console.log("[v0] [6/10] ✓ Main Connections toggle state left unchanged")
     
     console.log("[v0] [7/10] Testing exchange connections (direct connector test)...")
     const testResults = await testAllExchangeConnections()

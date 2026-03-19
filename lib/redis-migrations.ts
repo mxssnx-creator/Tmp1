@@ -483,20 +483,20 @@ const migrations: Migration[] = [
         if (!connData || Object.keys(connData).length === 0) continue
         
         if (baseExchangeIds.includes(connId)) {
-          // Mark as INSERTED, ENABLED, and ACTIVE_INSERTED by default (base connection)
-          // Base connections are automatically enabled and added to Active panel
+          // Mark as INSERTED and ENABLED in Settings by default (base connection)
+          // Dashboard/Main enable toggle stays OFF by default until user enables it.
           await client.hset(`connection:${connId}`, {
             is_inserted: "1",
             is_enabled: "1",              // ENABLED by default
             is_active_inserted: "1",      // Added to Active panel
-            is_enabled_dashboard: "1",    // Dashboard toggle enabled
-            is_active: "1",
+            is_enabled_dashboard: "0",    // Dashboard toggle OFF by default
+            is_active: "0",
             is_predefined: "1",
             connection_method: "library", // Use native SDK by default
             updated_at: new Date().toISOString(),
           })
           updatedBase++
-          console.log(`[v0] Migration 015: ${connId} -> inserted=1, enabled=1, active_inserted=1, dashboard_enabled=1 (base connection)`)
+          console.log(`[v0] Migration 015: ${connId} -> inserted=1, enabled=1, active_inserted=1, dashboard_enabled=0 (base connection)`)
         } else {
           // Non-base predefined connections: just informational templates
           // NOT inserted, NOT enabled - they are templates only
@@ -548,14 +548,15 @@ const migrations: Migration[] = [
         const isBaseTemplate = baseTemplateIds.includes(connId)
         
         if (isBaseTemplate) {
-          // Base connections: inserted and enabled by default
+          // Base connections: inserted and enabled in Settings by default
+          // Main (dashboard) enable toggle must remain OFF by default.
           // Update with env credentials if available (for BingX)
           const updateData: Record<string, string> = {
             is_inserted: "1",        // INSERTED
             is_enabled: "1",         // ENABLED
             is_active_inserted: "1", // In active panel
-            is_enabled_dashboard: "1",
-            is_active: "1",
+            is_enabled_dashboard: "0",
+            is_active: "0",
             connection_method: "library", // Use native SDK by default
             updated_at: new Date().toISOString(),
           }
@@ -569,7 +570,7 @@ const migrations: Migration[] = [
           
           await client.hset(`connection:${connId}`, updateData)
           updatedTemplates++
-          console.log(`[v0] Migration 016: ✓ ${connId} -> inserted=1, enabled=1, active=1 (base connection)`)
+          console.log(`[v0] Migration 016: ✓ ${connId} -> inserted=1, enabled=1, dashboard_enabled=0 (base connection)`)
         } else if (!isPredefined) {
           // User-created connections: reset dashboard state if not properly set
           if (!connData.is_active_inserted || !connData.is_enabled_dashboard) {

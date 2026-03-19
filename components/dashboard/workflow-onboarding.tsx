@@ -32,14 +32,14 @@ export function WorkflowOnboarding() {
     },
     {
       id: 2,
-      title: 'Add to Active Panel',
-      description: 'Return to Dashboard → Click "Add Connection" → Select your connection → It will appear in the Active Connections panel',
+      title: 'Add to Main Panel',
+      description: 'Return to Dashboard → Click "Add Connection" → Select your connection → It will appear in the Main Connections (Active Connections) panel',
       status: 'pending',
     },
     {
       id: 3,
       title: 'Enable Processing',
-      description: 'In the Active Connections panel, toggle the Enable switch → The engine will start processing market data and indicators',
+      description: 'In the Main Connections panel, toggle the Enable switch → The engine will start processing market data and indicators',
       status: 'pending',
     },
     {

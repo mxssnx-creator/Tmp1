@@ -100,7 +100,7 @@ export function SystemVerificationPanel() {
     return (
       <Card className="border-yellow-200 bg-yellow-50">
         <CardHeader>
-          <CardTitle className="text-yellow-900">No Active Connections</CardTitle>
+          <CardTitle className="text-yellow-900">No Main Connections</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-yellow-800">Enable a connection to start verification monitoring.</p>

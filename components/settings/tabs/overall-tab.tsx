@@ -474,8 +474,8 @@ export function OverallTab({
             {/* Connection Manager Card */}
             <Card className="settings-card border-2">
               <CardHeader className="settings-card-header">
-                <CardTitle>Exchange Connections</CardTitle>
-                <CardDescription>Configure and manage exchange API connections</CardDescription>
+                <CardTitle>Base Connections</CardTitle>
+                <CardDescription>Configure and manage base exchange API connections</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button 

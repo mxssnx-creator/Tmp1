@@ -26,13 +26,15 @@ export async function POST() {
     const bingxApiKey = process.env.BINGX_API_KEY || ""
     const bingxApiSecret = process.env.BINGX_API_SECRET || ""
     if (bingxApiKey.length > 10 && bingxApiSecret.length > 10) {
+      const existing = await client.hgetall("connection:bingx-x01")
+      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
       await client.hset("connection:bingx-x01", {
         api_key: bingxApiKey,
         api_secret: bingxApiSecret,
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_active_inserted: (existing?.is_active_inserted as string) || "1",
+        is_enabled: (existing?.is_enabled as string) || "1",
+        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+        is_active: dashboardEnabled ? "1" : "0",
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })
@@ -46,13 +48,15 @@ export async function POST() {
     const bybitApiKey = process.env.BYBIT_API_KEY || ""
     const bybitApiSecret = process.env.BYBIT_API_SECRET || ""
     if (bybitApiKey.length > 10 && bybitApiSecret.length > 10) {
+      const existing = await client.hgetall("connection:bybit-x03")
+      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
       await client.hset("connection:bybit-x03", {
         api_key: bybitApiKey,
         api_secret: bybitApiSecret,
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_active_inserted: (existing?.is_active_inserted as string) || "1",
+        is_enabled: (existing?.is_enabled as string) || "1",
+        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+        is_active: dashboardEnabled ? "1" : "0",
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })
@@ -66,13 +70,15 @@ export async function POST() {
     const pionexApiKey = process.env.PIONEX_API_KEY || ""
     const pionexApiSecret = process.env.PIONEX_API_SECRET || ""
     if (pionexApiKey.length > 10 && pionexApiSecret.length > 10) {
+      const existing = await client.hgetall("connection:pionex-x01")
+      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
       await client.hset("connection:pionex-x01", {
         api_key: pionexApiKey,
         api_secret: pionexApiSecret,
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_active_inserted: (existing?.is_active_inserted as string) || "1",
+        is_enabled: (existing?.is_enabled as string) || "1",
+        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+        is_active: dashboardEnabled ? "1" : "0",
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })
@@ -86,13 +92,15 @@ export async function POST() {
     const orangexApiKey = process.env.ORANGEX_API_KEY || ""
     const orangexApiSecret = process.env.ORANGEX_API_SECRET || ""
     if (orangexApiKey.length > 10 && orangexApiSecret.length > 10) {
+      const existing = await client.hgetall("connection:orangex-x01")
+      const dashboardEnabled = existing?.is_enabled_dashboard === "1" || existing?.is_enabled_dashboard === "true"
       await client.hset("connection:orangex-x01", {
         api_key: orangexApiKey,
         api_secret: orangexApiSecret,
-        is_active_inserted: "1",
-        is_enabled: "1",
-        is_enabled_dashboard: "1",
-        is_active: "1",
+        is_active_inserted: (existing?.is_active_inserted as string) || "1",
+        is_enabled: (existing?.is_enabled as string) || "1",
+        is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
+        is_active: dashboardEnabled ? "1" : "0",
         connection_method: "library",
         updated_at: new Date().toISOString(),
       })

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { readBingxCredentialsFromEnv } from "@/lib/env-credentials"
 
 export const runtime = "nodejs"
 
@@ -36,8 +37,7 @@ export async function GET(request: NextRequest) {
     
     // AUTO-INJECT: Check for credentials in environment and inject them into connections
     // This ensures credentials are available even if migrations ran before env vars were set
-    const bingxKey = process.env.BINGX_API_KEY || ""
-    const bingxSecret = process.env.BINGX_API_SECRET || ""
+    const { apiKey: bingxKey, apiSecret: bingxSecret } = readBingxCredentialsFromEnv()
     if (bingxKey.length > 10 && bingxSecret.length > 10) {
       const { getRedisClient } = await import("@/lib/redis-db")
       const redisClient = getRedisClient()

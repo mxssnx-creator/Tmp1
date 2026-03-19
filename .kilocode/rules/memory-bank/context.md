@@ -77,6 +77,9 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Fixed unsafe interface/class name collision in workflow event handler (`WorkflowEventSubscriber` split) to satisfy strict lint safety rules
 - [x] Hardened QA scripts for current environment defaults: API/system E2E scripts now respect `NEXT_PUBLIC_APP_URL`/`APP_URL` and use valid market-data assertions
 - [x] Verified full quality gate (`bun lint`, `bun typecheck`, `bun run build`) now passes after stabilization changes
+- [x] Fixed BingX credential persistence path: removed legacy duplicate base/default-disabled seed behavior and enforced canonical base IDs (`bingx-x01` etc.) with credential injection from env
+- [x] Added env credential resolver (`lib/env-credentials.ts`) with alias + quote/whitespace normalization so provided BingX secrets are reliably loaded
+- [x] Updated startup/system credential injection endpoints and migration hooks to use normalized env reads, preventing blank BingX creation when alternate env naming is used
 
 ## Current Structure
 

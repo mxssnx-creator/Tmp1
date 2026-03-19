@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getAllConnections, initRedis, createConnection, updateConnection } from "@/lib/redis-db"
 import { CONNECTION_PREDEFINITIONS } from "@/lib/connection-predefinitions"
+import { readBingxCredentialsFromEnv, readEnvByAliases } from "@/lib/env-credentials"
 
 export const runtime = "nodejs"
 
@@ -28,11 +29,27 @@ export async function POST() {
       testedCount: 0,
     }
     
+    const readPair = (key: string, secret: string) => ({
+      apiKey: readEnvByAliases([key, `NEXT_PUBLIC_${key}`]),
+      apiSecret: readEnvByAliases([secret, `NEXT_PUBLIC_${secret}`]),
+    })
+    const bingxEnv = readBingxCredentialsFromEnv()
+
     // STEP 1: Create missing predefined connections
     for (const predefined of CONNECTION_PREDEFINITIONS) {
       const exists = connections.some(c => c.id === predefined.id)
       if (!exists) {
         const shouldBeOnDashboard = DASHBOARD_AUTO_INSERTED.includes(predefined.exchange)
+        const envPair =
+          predefined.id === "bingx-x01"
+            ? { apiKey: bingxEnv.apiKey, apiSecret: bingxEnv.apiSecret }
+            : predefined.id === "bybit-x03"
+              ? readPair("BYBIT_API_KEY", "BYBIT_API_SECRET")
+              : predefined.id === "pionex-x01"
+                ? readPair("PIONEX_API_KEY", "PIONEX_API_SECRET")
+                : predefined.id === "orangex-x01"
+                  ? readPair("ORANGEX_API_KEY", "ORANGEX_API_SECRET")
+                  : { apiKey: predefined.apiKey || "", apiSecret: predefined.apiSecret || "" }
         await createConnection({
           id: predefined.id,
           name: predefined.name,
@@ -48,8 +65,8 @@ export async function POST() {
           is_active_inserted: shouldBeOnDashboard ? "1" : "0", // Same as dashboard_inserted
           is_enabled_dashboard: "0", // Dashboard-active disabled by default
           is_predefined: true,
-          api_key: predefined.apiKey || "",
-          api_secret: predefined.apiSecret || "",
+          api_key: envPair.apiKey || predefined.apiKey || "",
+          api_secret: envPair.apiSecret || predefined.apiSecret || "",
           api_passphrase: "",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),

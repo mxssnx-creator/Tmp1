@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { initRedis, getRedisClient } from "@/lib/redis-db"
+import { readBingxCredentialsFromEnv, readEnvByAliases } from "@/lib/env-credentials"
 
 export const dynamic = "force-dynamic"
 
@@ -28,6 +29,13 @@ export async function POST() {
     
     const results: Record<string, any> = {}
     
+    const readPair = (key: string, secret: string) => ({
+      apiKey: readEnvByAliases([key, `NEXT_PUBLIC_${key}`]),
+      apiSecret: readEnvByAliases([secret, `NEXT_PUBLIC_${secret}`]),
+    })
+
+    const bingxEnv = readBingxCredentialsFromEnv()
+
     for (const conn of baseConnections) {
       // Check if connection exists
       const exists = await client.sismember("connections", conn.id)
@@ -45,8 +53,12 @@ export async function POST() {
       }
       
       // Check for credentials in environment
-      const apiKey = process.env[conn.envKey] || ""
-      const apiSecret = process.env[conn.envSecret] || ""
+      const envPair =
+        conn.id === "bingx-x01"
+          ? { apiKey: bingxEnv.apiKey, apiSecret: bingxEnv.apiSecret }
+          : readPair(conn.envKey, conn.envSecret)
+      const apiKey = envPair.apiKey
+      const apiSecret = envPair.apiSecret
       const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
       
       if (hasCredentials) {

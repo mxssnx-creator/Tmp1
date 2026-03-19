@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { initRedis, createConnection, getAllConnections } from "@/lib/redis-db"
+import { initRedis, getAllConnections } from "@/lib/redis-db"
 import { SystemLogger } from "@/lib/system-logger"
+import { ensureDefaultExchangesExist } from "@/lib/default-exchanges-seeder"
 
 /**
  * POST /api/system/initialize-defaults
@@ -9,87 +10,21 @@ import { SystemLogger } from "@/lib/system-logger"
  */
 export async function POST(request: NextRequest) {
   try {
-    console.log("[v0] [Initialize Defaults] Starting default exchange initialization...")
-
-    await initRedis()
-    const existingConnections = await getAllConnections()
-
-    // Define default disabled exchanges
-    const defaultExchanges = [
-      {
-        id: "bybit-default-disabled",
-        name: "Bybit (Default)",
-        exchange: "bybit",
-        api_type: "perpetual_futures",
-        connection_method: "rest",
-        connection_library: "native",
-        api_key: "",
-        api_secret: "",
-        api_passphrase: "",
-        margin_type: "cross",
-        position_mode: "hedge",
-        is_testnet: false,
-        is_enabled: false,
-        is_active: false,
-        is_predefined: true,
-        is_live_trade: false,
-        is_preset_trade: false,
-        volume_factor: 1.0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: "bingx-default-disabled",
-        name: "BingX (Default)",
-        exchange: "bingx",
-        api_type: "perpetual_futures",
-        connection_method: "rest",
-        connection_library: "native",
-        api_key: "",
-        api_secret: "",
-        api_passphrase: "",
-        margin_type: "cross",
-        position_mode: "hedge",
-        is_testnet: false,
-        is_enabled: false,
-        is_active: false,
-        is_predefined: true,
-        is_live_trade: false,
-        is_preset_trade: false,
-        volume_factor: 1.0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ]
-
-    let created = 0
-    let skipped = 0
-
-    for (const exchange of defaultExchanges) {
-      const exists = existingConnections.some((c) => c.id === exchange.id)
-      if (!exists) {
-        await createConnection(exchange)
-        console.log(`[v0] [Initialize Defaults] Created default exchange: ${exchange.name}`)
-        created++
-      } else {
-        console.log(`[v0] [Initialize Defaults] Skipped existing default exchange: ${exchange.name}`)
-        skipped++
-      }
-    }
+    console.log("[v0] [Initialize Defaults] Ensuring canonical base connections...")
+    const ensured = await ensureDefaultExchangesExist()
 
     await SystemLogger.logAPI(
-      `Initialized default exchanges: ${created} created, ${skipped} already exist`,
+      `Canonical base initialization completed`,
       "info",
       "POST /api/system/initialize-defaults",
-      { created, skipped }
+      ensured
     )
 
     return NextResponse.json(
       {
         success: true,
-        message: "Default exchanges initialized",
-        created,
-        skipped,
+        message: "Canonical base connections initialized",
+        ensured,
       },
       { status: 200 }
     )
@@ -117,16 +52,22 @@ export async function GET(request: NextRequest) {
     await initRedis()
     const connections = await getAllConnections()
 
-    const defaults = connections.filter((c) => c.is_predefined)
-    const bybit = defaults.find((c) => c.exchange === "bybit")
-    const bingx = defaults.find((c) => c.exchange === "bingx")
+    const bybit = connections.find((c) => c.id === "bybit-x03")
+    const bingx = connections.find((c) => c.id === "bingx-x01")
 
     return NextResponse.json(
       {
         status: "ready",
         defaults: {
           bybit: bybit ? { id: bybit.id, enabled: bybit.is_enabled, active: bybit.is_active } : null,
-          bingx: bingx ? { id: bingx.id, enabled: bingx.is_enabled, active: bingx.is_active } : null,
+          bingx: bingx
+            ? {
+                id: bingx.id,
+                enabled: bingx.is_enabled,
+                active: bingx.is_active,
+                has_api_key: !!(bingx.api_key && String(bingx.api_key).length > 10),
+              }
+            : null,
         },
       },
       { status: 200 }

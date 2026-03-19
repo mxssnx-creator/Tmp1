@@ -4,6 +4,7 @@
  */
 
 import { getRedisClient, initRedis, setMigrationsRun, haveMigrationsRun } from "./redis-db"
+import { readBingxCredentialsFromEnv, readEnvByAliases } from "./env-credentials"
 
 interface Migration {
   name: string
@@ -13,6 +14,12 @@ interface Migration {
 }
 
 let migrationRunPromise: Promise<{ success: boolean; message: string; version: number }> | null = null
+
+function readCredentialEnvPair(envKey: string, envSecret: string): { apiKey: string; apiSecret: string } {
+  const apiKey = readEnvByAliases([envKey, `NEXT_PUBLIC_${envKey}`])
+  const apiSecret = readEnvByAliases([envSecret, `NEXT_PUBLIC_${envSecret}`])
+  return { apiKey, apiSecret }
+}
 
 const migrations: Migration[] = [
   {
@@ -523,8 +530,7 @@ const migrations: Migration[] = [
       const baseTemplateIds = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"]
       
       // Check for real BingX credentials from environment
-      const bingxApiKey = process.env.BINGX_API_KEY || ""
-      const bingxApiSecret = process.env.BINGX_API_SECRET || ""
+      const { apiKey: bingxApiKey, apiSecret: bingxApiSecret } = readBingxCredentialsFromEnv()
       const hasBingxCredentials = bingxApiKey.length > 10 && bingxApiSecret.length > 10
       console.log(`[v0] Migration 016: BingX credentials available: ${hasBingxCredentials}`)
       
@@ -611,8 +617,7 @@ async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: n
     const existing = await client.hgetall(`connection:${cfg.id}`)
     const hasExisting = existing && Object.keys(existing).length > 0
 
-    const apiKey = process.env[cfg.envKey] || ""
-    const apiSecret = process.env[cfg.envSecret] || ""
+    const { apiKey, apiSecret } = readCredentialEnvPair(cfg.envKey, cfg.envSecret)
     const hasRealCredentials = apiKey.length > 10 && apiSecret.length > 10
 
     const updateData: Record<string, string> = {

@@ -66,6 +66,12 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Updated migration defaults and system credential-injection helpers to preserve `is_enabled_dashboard` state instead of setting it ON implicitly
 - [x] Aligned auto-start engine eligibility to require BOTH `is_active_inserted` and `is_enabled_dashboard`, preventing processing when Main toggle is OFF
 - [x] Renamed UI terminology: Settings now consistently uses "Base Connections" and Dashboard uses "Main Connections (Active Connections)"
+- [x] Hardened migration execution to prevent concurrent duplicate runs via in-flight promise lock and fixed migration 012 schema-version write bug (`_schema_version=12`)
+- [x] Fixed process migration guard persistence by syncing `setMigrationsRun()`/`haveMigrationsRun()` with `globalThis.__migrations_run`
+- [x] Added duplicate-loop protection for periodic connection testing so repeated startup/health calls do not spawn multiple intervals
+- [x] Optimized Redis-heavy workflow reads: parallelized connection/trade/position fetches and added short TTL + in-flight dedupe cache for dashboard workflow snapshots
+- [x] Improved logistics queue payload to avoid hardcoded symbol placeholders; now derives focus symbol from real progression log details when available
+- [x] Cleaned migration set-initialization logic to stop inserting empty-string placeholder members into Redis sets
 
 ## Current Structure
 
@@ -91,6 +97,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Completed Redis/logistics audit pass: added migration in-flight lock, fixed migration v12 schema write, prevented duplicate periodic test intervals, optimized snapshot/connection/trade/position reads, and removed logistics queue symbol placeholder fallback logic |
 | 2026-03-19 | Removed implicit dashboard auto-enable paths (pre-startup + system inject/fix endpoints), updated migration defaults to keep Main toggles OFF by default, and renamed UI labels to Base Connections / Main Connections (Active Connections) |
 | 2026-03-19 | Applied base/main connection default policy: removed binance/okx from dashboard main set, made dashboard main disabled-by-default, kept settings base enabled-by-default, and ensured base credential injection runs consistently on startup |
 | 2026-03-19 | Finalized no-mock selected-exchange flow for dashboard logs/metrics: detailed logs now filter by selected exchange/connection, progression logs merge structured fallback, and dashboard metric defaults removed |

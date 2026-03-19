@@ -12,6 +12,8 @@ interface Migration {
   down: (client: any) => Promise<void>
 }
 
+let migrationRunPromise: Promise<{ success: boolean; message: string; version: number }> | null = null
+
 const migrations: Migration[] = [
   {
     name: "001-initial-schema",
@@ -107,9 +109,7 @@ const migrations: Migration[] = [
         total_strategies: "0", total_active_strategies: "0",
         total_backtests: "0", avg_win_rate: "0", avg_profit_factor: "0",
       })
-      await client.sadd("preset_types:standard", "")
-      await client.sadd("preset_types:advanced", "")
-      await client.sadd("preset_types:custom", "")
+      // Sets are created lazily on first real insert; avoid empty placeholder members.
       await client.set("strategies:counter:active", "0")
       await client.set("strategies:counter:paused", "0")
       await client.set("strategies:counter:stopped", "0")
@@ -189,10 +189,7 @@ const migrations: Migration[] = [
       await client.hset("cache:stats", {
         total_hits: "0", total_misses: "0", hit_rate: "0", total_evictions: "0",
       })
-      await client.sadd("cache:realtime:prices", "")
-      await client.sadd("cache:realtime:positions", "")
-      await client.sadd("cache:realtime:orders", "")
-      await client.sadd("cache:realtime:balances", "")
+      // Sets are created lazily on first real insert; avoid empty placeholder members.
       console.log("[v0] Migration 007: Cache optimization created")
     },
     down: async (client: any) => {
@@ -237,10 +234,7 @@ const migrations: Migration[] = [
       await client.hset("recovery:points", {
         total_recovery_points: "0", last_recovery_time: "", last_recovery_success: "false",
       })
-      await client.sadd("snapshots:trades", "")
-      await client.sadd("snapshots:positions", "")
-      await client.sadd("snapshots:connections", "")
-      await client.sadd("snapshots:strategies", "")
+      // Sets are created lazily on first real insert; avoid empty placeholder members.
       console.log("[v0] Migration 009: Backup and recovery system created")
     },
     down: async (client: any) => {
@@ -345,7 +339,7 @@ const migrations: Migration[] = [
     name: "012-finalize-dashboard-connections",
     version: 12,
     up: async (client: any) => {
-      await client.set("_schema_version", "15")
+      await client.set("_schema_version", "12")
       
       // Base connections: 4 primary exchange templates (bybit-x03, bingx-x01, pionex-x01, orangex-x01)
       // These are PREDEFINED TEMPLATES, not user-created connections
@@ -356,7 +350,7 @@ const migrations: Migration[] = [
       let updatedBase = 0
       let updatedOther = 0
       
-      console.log(`[v0] Migration 015: Initializing connections (base templates set to predefined=1, disabled)`)
+      console.log(`[v0] Migration 012: Initializing connections (base templates set to predefined=1, disabled)`)
       
       for (const connId of connections) {
         const connData = await client.hgetall(`connection:${connId}`)
@@ -373,7 +367,7 @@ const migrations: Migration[] = [
             updated_at: new Date().toISOString(),
           })
           updatedBase++
-          console.log(`[v0] Migration 015: ✓ ${connId} -> predefined=1, inserted=0, enabled=0 (template)`)
+          console.log(`[v0] Migration 012: ✓ ${connId} -> predefined=1, inserted=0, enabled=0 (template)`)
         } else {
           // Other predefined connections: all templates
           await client.hset(`connection:${connId}`, {
@@ -388,7 +382,7 @@ const migrations: Migration[] = [
         }
       }
       
-      console.log(`[v0] Migration 015: COMPLETE - ${updatedBase} base templates, ${updatedOther} other templates (all disabled)`)
+      console.log(`[v0] Migration 012: COMPLETE - ${updatedBase} base templates, ${updatedOther} other templates (all disabled)`)
     },
     down: async (client: any) => {
       await client.set("_schema_version", "11")
@@ -666,12 +660,33 @@ async function ensureBaseConnections(client: any): Promise<{ createdOrUpdated: n
  * Run all pending migrations
  */
 export async function runMigrations(): Promise<{ success: boolean; message: string; version: number }> {
+  if (migrationRunPromise) {
+    return migrationRunPromise
+  }
+
+  migrationRunPromise = runMigrationsInternal()
+
+  try {
+    return await migrationRunPromise
+  } finally {
+    migrationRunPromise = null
+  }
+}
+
+async function runMigrationsInternal(): Promise<{ success: boolean; message: string; version: number }> {
   try {
     // Check if migrations have already run in this process
     if (haveMigrationsRun()) {
       const finalVer = Math.max(...migrations.map((m) => m.version))
       await initRedis()
       const client = getRedisClient()
+
+      // Keep process guard synced with persisted migration state.
+      const persistedRunState = await client.get("_migrations_run")
+      if (persistedRunState !== "true") {
+        await client.set("_migrations_run", "true")
+      }
+
       const ensured = await ensureBaseConnections(client)
       console.log(`[v0] [Migrations] ✓ Already executed in this process; base ensured=${ensured.createdOrUpdated}, credentialsInjected=${ensured.credentialsInjected}`)
       return { success: true, message: "Already run in this process", version: finalVer }
@@ -679,6 +694,12 @@ export async function runMigrations(): Promise<{ success: boolean; message: stri
 
     await initRedis()
     const client = getRedisClient()
+
+    const persistedRunState = await client.get("_migrations_run")
+    if (persistedRunState === "true") {
+      await setMigrationsRun()
+    }
+
     const versionStr = await client.get("_schema_version")
     const currentVersion = versionStr ? parseInt(versionStr as string) : 0
     const finalVersion = Math.max(...migrations.map((m) => m.version))

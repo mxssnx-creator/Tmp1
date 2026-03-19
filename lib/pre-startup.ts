@@ -186,6 +186,12 @@ export async function testAllExchangeConnections() {
 }
 
 export function startPeriodicConnectionTesting() {
+  const intervalStore = globalThis as any
+  if (intervalStore.__cts_connection_testing_interval) {
+    console.log("[v0] [Periodic] Connection testing already active - skipping duplicate start")
+    return
+  }
+
   // Test all connections every 5 minutes
   console.log("[v0] [Periodic] Starting periodic connection testing (every 5 minutes)")
   
@@ -196,10 +202,8 @@ export function startPeriodicConnectionTesting() {
     console.log(`[v0] [Periodic] [${timestamp}] Completed: ${result.tested} tested, ${result.passed} passed, ${result.failed} failed`)
   }, 5 * 60 * 1000) // 5 minutes
   
-  // Store interval ID globally so it can be cleared if needed
-  if (typeof global !== "undefined") {
-    (global as any).connectionTestingIntervalId = intervalId
-  }
+  // Store interval ID globally so duplicate starts are prevented
+  intervalStore.__cts_connection_testing_interval = intervalId
 }
 /**
  * Auto-start the Global Trade Engine Coordinator at startup.

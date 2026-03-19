@@ -539,15 +539,8 @@ export async function getAllConnections(): Promise<any[]> {
     return []
   }
 
-  const connections = []
-  for (const id of connIds) {
-    const data = await client.hgetall(`connection:${id}`)
-    if (data && Object.keys(data).length > 0) {
-      connections.push(data)
-    }
-  }
-
-  return connections
+  const connectionRecords = await Promise.all(connIds.map((id) => client.hgetall(`connection:${id}`)))
+  return connectionRecords.filter((data): data is Record<string, string> => !!data && Object.keys(data).length > 0)
 }
 
 export async function getConnection(id: string): Promise<any | null> {
@@ -629,11 +622,12 @@ export async function getMarketData(symbol: string): Promise<any | null> {
 export async function setMigrationsRun(): Promise<void> {
   const client = getClient()
   await client.set("_migrations_run", "true")
+  ;(globalThis as any).__migrations_run = true
 }
 
 export function haveMigrationsRun(): boolean {
-  // Check process memory
-  return (global as any).__migrations_run === true
+  // Process-local guard to avoid repeated migration scans in the same runtime.
+  return (globalThis as any).__migrations_run === true
 }
 
 // ========== Aliases for backward compatibility ==========
@@ -820,14 +814,8 @@ export async function deletePosition(id: string): Promise<void> {
 export async function getConnectionPositions(connectionId: string): Promise<any[]> {
   const client = getClient()
   const positionIds = await client.smembers("positions")
-  const positions = []
-  for (const id of positionIds) {
-    const pos = await getPosition(id)
-    if (pos && pos.connection_id === connectionId) {
-      positions.push(pos)
-    }
-  }
-  return positions
+  const positions = await Promise.all(positionIds.map((id) => getPosition(id)))
+  return positions.filter((pos) => pos && pos.connection_id === connectionId)
 }
 
 // ========== Trade Operations ==========
@@ -861,14 +849,8 @@ export async function updateTrade(id: string, updates: Record<string, any>): Pro
 export async function getConnectionTrades(connectionId: string): Promise<any[]> {
   const client = getClient()
   const tradeIds = await client.smembers("trades")
-  const trades = []
-  for (const id of tradeIds) {
-    const trade = await getTrade(id)
-    if (trade && trade.connection_id === connectionId) {
-      trades.push(trade)
-    }
-  }
-  return trades
+  const trades = await Promise.all(tradeIds.map((id) => getTrade(id)))
+  return trades.filter((trade) => trade && trade.connection_id === connectionId)
 }
 
 export interface Connection {

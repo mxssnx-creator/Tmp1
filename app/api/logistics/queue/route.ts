@@ -15,6 +15,8 @@ export async function GET() {
     const successRate = totalProcessed > 0 ? Math.round((completedOrders / totalProcessed) * 100) : cycleSuccessRate
     const processingRate = connectionMetrics.progression?.cyclesCompleted || 0
     const avgLatency = Math.round(connectionMetrics.progression?.cycleSuccessRate ? Math.max(150, 1000 - connectionMetrics.progression.cycleSuccessRate * 5) : 0)
+    const latestSymbolFromLogs = connectionMetrics.logs.find((log: any) => typeof log.details?.symbol === "string")?.details?.symbol
+    const focusSymbol = latestSymbolFromLogs || "N/A"
 
     return NextResponse.json({
       success: true,
@@ -31,7 +33,7 @@ export async function GET() {
             {
               id: focusConnection.id,
               orderId: `#${focusConnection.id.slice(0, 8)}`,
-              symbol: "BTCUSDT",
+              symbol: focusSymbol,
               status: globalStatus === "running" ? "processing" : "waiting",
               quantity: `${connectionMetrics.positions} tracked positions`,
               latency: avgLatency,

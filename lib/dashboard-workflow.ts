@@ -1,4 +1,4 @@
-import { getAllConnections, getActiveConnectionsForEngine, getConnectionPositions, getConnectionTrades, getRedisClient, initRedis } from "@/lib/redis-db"
+import { getAllConnections, getConnectionPositions, getConnectionTrades, getRedisClient, initRedis } from "@/lib/redis-db"
 import { ProgressionStateManager } from "@/lib/progression-state-manager"
 import { getProgressionLogs } from "@/lib/engine-progression-logs"
 
@@ -18,12 +18,52 @@ function isTruthyFlag(value: unknown): boolean {
   return value === true || value === "1" || value === "true"
 }
 
+function isConnectionEligibleForEngine(connection: any): boolean {
+  const isActiveInserted = isTruthyFlag(connection.is_active_inserted) || isTruthyFlag(connection.is_dashboard_inserted)
+  const isDashboardEnabled = isTruthyFlag(connection.is_enabled_dashboard)
+
+  const apiKey = connection.api_key || connection.apiKey || ""
+  const apiSecret = connection.api_secret || connection.apiSecret || ""
+  const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
+
+  const isTestnet = isTruthyFlag(connection.is_testnet)
+  const isDemoMode = isTruthyFlag(connection.demo_mode)
+
+  return isActiveInserted && isDashboardEnabled && (hasCredentials || isTestnet || isDemoMode)
+}
+
+const SNAPSHOT_TTL_MS = 1000
+let cachedSnapshot: any | null = null
+let cachedSnapshotAt = 0
+let snapshotInFlight: Promise<any> | null = null
+
 export async function getDashboardWorkflowSnapshot() {
+  const now = Date.now()
+  if (cachedSnapshot && now - cachedSnapshotAt < SNAPSHOT_TTL_MS) {
+    return cachedSnapshot
+  }
+
+  if (snapshotInFlight) {
+    return snapshotInFlight
+  }
+
+  snapshotInFlight = buildDashboardWorkflowSnapshot()
+
+  try {
+    const snapshot = await snapshotInFlight
+    cachedSnapshot = snapshot
+    cachedSnapshotAt = Date.now()
+    return snapshot
+  } finally {
+    snapshotInFlight = null
+  }
+}
+
+async function buildDashboardWorkflowSnapshot() {
   await initRedis()
 
   const client = getRedisClient()
   const allConnections = await getAllConnections()
-  const eligibleConnections = await getActiveConnectionsForEngine()
   const globalState = await client.hgetall("trade_engine:global")
   const globalStatus = globalState?.status || "stopped"
 
@@ -43,6 +83,8 @@ export async function getDashboardWorkflowSnapshot() {
       testStatus: connection.last_test_status || connection.test_status || "untested",
     }
   })
+
+  const eligibleConnections = allConnections.filter((connection: any) => isConnectionEligibleForEngine(connection))
 
   const focusConnection = normalizedConnections.find((conn) => conn.isDashboardEnabled) || normalizedConnections[0] || null
 

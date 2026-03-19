@@ -30,6 +30,8 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Connected logistics UI to workflow phases and focus-connection progression details
 - [x] Added dedicated tracking overview API and rebuilt `app/tracking/page.tsx` into an actual tracking/error-handling overview
 - [x] Verified Tracking route builds and returns correct empty-state data when no connections are configured
+- [x] Fixed project misconfigurations around dev/start ports, TS baseUrl, Redis compatibility helpers, and noisy instrumentation
+- [x] Verified clean build and core health/logistics/tracking endpoints after clearing stale `.next` artifacts
 
 ## Current Structure
 
@@ -51,11 +53,13 @@ Current focus is runtime correctness for the recovered CTS application and triag
 - `bun run lint` reports many upstream code-quality violations that were already present in the restored branch
 - Quickstart still requires real configured exchange credentials and at least one inserted connection to execute live engine work
 - Preview routing to the sandbox website panel is still external to the repo even though `/tracking` and `/logistics` now build and run correctly
+- A stale `.next` directory can still cause misleading module-resolution build failures; clearing `.next` remains the correct workaround before rebuilds
 
 ## Session History
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Completed project-wide misconfiguration pass: aligned ports, TS config, Redis compatibility methods, and verified clean build/runtime endpoints |
 | 2026-03-19 | Implemented real Tracking overview page/API and aligned it with logistics and engine progression empty-state handling |
 | 2026-03-19 | Integrated logistics, quickstart-readiness workflow, detailed engine logs, and dashboard system stats into one normalized workflow snapshot |
 | 2026-03-19 | Stabilized trade engine progression/status/logging flow and verified engine APIs return correct empty-state workflow responses |

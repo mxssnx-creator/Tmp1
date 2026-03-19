@@ -7,7 +7,7 @@
     "dev": "next dev -p 3001",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "start": "next start",
+    "start": "next start -p 3001",
     "vercel-build": "next build"
   },
   "dependencies": {
@@ -47,7 +47,7 @@
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
-    "eslint-config-next": "^16.2.0",
+    "eslint-config-next": "15.5.7",
     "input-otp": "1.4.1",
     "jose": "6.1.3",
     "lucide-react": "^0.454.0",

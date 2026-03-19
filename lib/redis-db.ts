@@ -159,6 +159,12 @@ export class InlineLocalRedis {
     return "PONG"
   }
 
+  async info(): Promise<string> {
+    this.trackOperation()
+    const totalKeys = await this.dbSize()
+    return [`redis_version:local-inline`, `db0:keys=${totalKeys}`, `uptime_in_seconds:${Math.floor(process.uptime())}`].join("\n")
+  }
+
   async get(key: string): Promise<string | null> {
     this.trackOperation()
     if (this.isExpired(key)) return null
@@ -190,6 +196,16 @@ export class InlineLocalRedis {
       else if (this.data.sorted_sets.delete(key)) count++
     }
     return count
+  }
+
+  async flushDb(): Promise<void> {
+    this.trackOperation()
+    this.data.strings.clear()
+    this.data.hashes.clear()
+    this.data.sets.clear()
+    this.data.lists.clear()
+    this.data.sorted_sets.clear()
+    this.data.ttl?.clear()
   }
 
   async hset(key: string, data: Record<string, string>): Promise<number> {
@@ -287,6 +303,13 @@ export class InlineLocalRedis {
     this.trackOperation()
     if (this.isExpired(key)) return []
     return Array.from(this.data.sets.get(key) || new Set())
+  }
+
+  async sismember(key: string, member: string): Promise<number> {
+    this.trackOperation()
+    if (this.isExpired(key)) return 0
+    const set = this.data.sets.get(key)
+    return set?.has(member) ? 1 : 0
   }
 
   async srem(key: string, ...members: string[]): Promise<number> {
@@ -401,6 +424,41 @@ export class InlineLocalRedis {
       if (regex.test(key)) allKeys.push(key)
     }
     return allKeys
+  }
+
+  async zadd(key: string, score: number, member: string): Promise<number> {
+    this.trackOperation()
+    const set = this.data.sorted_sets.get(key) || []
+    const existingIndex = set.findIndex((entry) => entry.member === member)
+    if (existingIndex >= 0) {
+      set[existingIndex] = { score, member }
+      this.data.sorted_sets.set(key, set.sort((a, b) => a.score - b.score))
+      return 0
+    }
+    set.push({ score, member })
+    this.data.sorted_sets.set(key, set.sort((a, b) => a.score - b.score))
+    return 1
+  }
+
+  async zrangebyscore(key: string, min: number | string, max: number | string): Promise<string[]> {
+    this.trackOperation()
+    if (this.isExpired(key)) return []
+    const set = this.data.sorted_sets.get(key) || []
+    const minValue = min === "-inf" ? Number.NEGATIVE_INFINITY : Number(min)
+    const maxValue = max === "+inf" ? Number.POSITIVE_INFINITY : Number(max)
+    return set.filter((entry) => entry.score >= minValue && entry.score <= maxValue).map((entry) => entry.member)
+  }
+
+  async zremrangebyscore(key: string, min: number | string, max: number | string): Promise<number> {
+    this.trackOperation()
+    const set = this.data.sorted_sets.get(key) || []
+    const minValue = min === "-inf" ? Number.NEGATIVE_INFINITY : Number(min)
+    const maxValue = max === "+inf" ? Number.POSITIVE_INFINITY : Number(max)
+    const before = set.length
+    const remaining = set.filter((entry) => entry.score < minValue || entry.score > maxValue)
+    if (remaining.length === 0) this.data.sorted_sets.delete(key)
+    else this.data.sorted_sets.set(key, remaining)
+    return before - remaining.length
   }
 
   async load(): Promise<void> {

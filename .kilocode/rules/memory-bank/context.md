@@ -55,6 +55,9 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Fixed progression visibility gaps: progression counters now persist every cycle (not every 10 cycles), progression logs API now falls back to structured logs when normal logs are empty
 - [x] Rebuilt detailed logs aggregation to combine all active/base connection logs and metrics (instead of single focus-only view)
 - [x] Improved functional overview metrics by reading `trade_engine_state` from settings namespace and falling back to progression-state counters
+- [x] Removed remaining dashboard UI placeholder defaults (system load/database size now initialize at 0 until real metrics load)
+- [x] Bound detailed logging dialog to selected exchange/connection context and added API filtering (`connectionId` / `exchange`) so UI always reflects real selected scope
+- [x] Improved progression logs endpoint to merge/fallback structured engine logs and engine-state counters when primary progression logs are sparse
 
 ## Current Structure
 
@@ -80,6 +83,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-19 | Finalized no-mock selected-exchange flow for dashboard logs/metrics: detailed logs now filter by selected exchange/connection, progression logs merge structured fallback, and dashboard metric defaults removed |
 | 2026-03-19 | Comprehensive engine/progression/quickstart stabilization: restored upstream sidebar content, enabled immediate coordinator startup, fixed quickstart enable state, upgraded detailed log aggregation, and made progression counters update every cycle for non-zero real-time dashboard visibility |
 | 2026-03-19 | Resolved connection count/display switching: aligned dashboard/settings filters, removed destructive toggle resets, normalized bool parsing, and made base connection + env credential provisioning deterministic |
 | 2026-03-19 | Fixed sidebar top/footer rendering regression and re-enabled startup instrumentation to execute pre-startup migrations automatically |

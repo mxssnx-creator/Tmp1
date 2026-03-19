@@ -17,16 +17,25 @@ function isTruthy(value: unknown): boolean {
 
 export const dynamic = "force-dynamic"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await initRedis()
+    const { searchParams } = new URL(request.url)
+    const selectedConnectionId = searchParams.get("connectionId")
+    const selectedExchange = (searchParams.get("exchange") || "").toLowerCase()
 
     const allConnections = await getAllConnections()
-    const activeConnections = allConnections.filter((c: any) => {
+    let activeConnections = allConnections.filter((c: any) => {
       const exch = (c.exchange || "").toLowerCase()
       const isBase = ["bingx", "bybit", "pionex", "orangex"].includes(exch)
       return isBase || isTruthy(c.is_dashboard_inserted) || isTruthy(c.is_active_inserted) || isTruthy(c.is_enabled_dashboard)
     })
+
+    if (selectedConnectionId) {
+      activeConnections = activeConnections.filter((c: any) => c.id === selectedConnectionId)
+    } else if (selectedExchange) {
+      activeConnections = activeConnections.filter((c: any) => (c.exchange || "").toLowerCase() === selectedExchange)
+    }
 
     const progressionStates = await Promise.all(
       activeConnections.map((c: any) => ProgressionStateManager.getProgressionState(c.id))

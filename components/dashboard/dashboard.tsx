@@ -71,8 +71,8 @@ export function Dashboard() {
     totalBalance: 0,
     indicationsActive: 0,
     strategiesActive: 0,
-    systemLoad: 45,
-    databaseSize: 128,
+    systemLoad: 0,
+    databaseSize: 0,
   })
 
   // Filter ExchangeConnectionsActive by selected exchange

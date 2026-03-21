@@ -223,6 +223,7 @@ export class TradeEngineManager {
   /**
    * Load prehistoric data (historical data before real-time processing)
    * Runs in background - does not block engine startup
+   * Error handling: failures don't stop subsequent processing steps
    */
   private async loadPrehistoricData(): Promise<void> {
     console.log("[v0] [Prehistoric] Starting background prehistoric data loading...")
@@ -263,10 +264,21 @@ export class TradeEngineManager {
         console.warn("[v0] [Prehistoric] Failed to store in Redis:", e)
       }
 
-      console.log("[v0] [Prehistoric] Background loading initiated - engine can now process real-time data")
+      console.log("[v0] [Prehistoric] Background loading complete - engine can now process real-time data")
     } catch (error) {
-      // Non-blocking - just log, don't throw
-      console.warn("[v0] [Prehistoric] Background loading failed (non-fatal):", error instanceof Error ? error.message : String(error))
+      // Non-blocking - log but DON'T throw - allow engine to continue
+      console.warn("[v0] [Prehistoric] Background loading failed (continuing anyway):", error instanceof Error ? error.message : String(error))
+      
+      // Mark as failed but continue - this won't block other phases
+      try {
+        await setSettings(`trade_engine_state:${this.connectionId}`, {
+          prehistoric_data_loaded: false,
+          prehistoric_data_error: error instanceof Error ? error.message : String(error),
+          updated_at: new Date().toISOString(),
+        })
+      } catch { /* ignore */ }
+      
+      console.log("[v0] [Prehistoric] Proceeding with realtime processing despite prehistoric failure")
     }
   }
 
@@ -355,6 +367,7 @@ export class TradeEngineManager {
     let totalDuration = 0
     let errorCount = 0
     let isProcessing = false
+    let lastSymbols: string[] = []
 
     this.indicationTimer = setInterval(async () => {
       if (isProcessing) return
@@ -364,7 +377,15 @@ export class TradeEngineManager {
 
       try {
         const symbols = await this.getSymbols()
-        await Promise.all(symbols.map((symbol) => this.indicationProcessor.processIndication(symbol)))
+        
+        // Log on first cycle or when symbols change
+        if (cycleCount === 0 || JSON.stringify(symbols) !== JSON.stringify(lastSymbols)) {
+          console.log(`[v0] [IndicationProcessor] Processing ${symbols.length} symbols: ${symbols.join(", ")}`)
+          lastSymbols = symbols
+        }
+        
+        const results = await Promise.all(symbols.map((symbol) => this.indicationProcessor.processIndication(symbol)))
+        const totalIndications = results.reduce((sum, r) => sum + (r?.length || 0), 0)
 
         const duration = Date.now() - startTime
         cycleCount++
@@ -372,6 +393,11 @@ export class TradeEngineManager {
 
         this.componentHealth.indications.lastCycleDuration = duration
         this.componentHealth.indications.successRate = ((cycleCount - errorCount) / cycleCount) * 100
+
+        // Log every cycle for debugging
+        if (cycleCount % 10 === 0) {
+          console.log(`[v0] [IndicationProcessor] Cycle ${cycleCount}: ${totalIndications} indications, ${duration}ms`)
+        }
 
         // Persist cycle count every cycle (not just every 10)
         // Update Redis state with latest metrics on EVERY cycle for dashboard real-time visibility

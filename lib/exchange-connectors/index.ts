@@ -1,3 +1,5 @@
+"use server"
+
 /**
  * Exchange Connector Factory
  * Creates appropriate connector based on exchange name

@@ -27,6 +27,9 @@ const LEGACY_CONNECTION_IDS = [
   "bingx-default-disabled",
 ]
 
+// Module-level flag to prevent re-seeding
+let seedingCompleted = false
+
 /**
  * Backward-compatible entrypoint. Ensures canonical base connections only.
  */
@@ -37,8 +40,15 @@ export async function seedDefaultExchanges() {
 /**
  * Ensures canonical base connections exist and injects predefined real credentials.
  * Also removes legacy `*-base` / `*-default-disabled` duplicates that caused blank/duplicated entries.
+ * Only runs once - subsequent calls return immediately.
  */
 export async function ensureDefaultExchangesExist() {
+  // Skip if already seeded
+  if (seedingCompleted) {
+    console.log("[v0] [BaseSeed] Skipping - already seeded")
+    return { success: true, skipped: true }
+  }
+  
   await initRedis()
 
   try {
@@ -113,6 +123,9 @@ export async function ensureDefaultExchangesExist() {
         `[v0] [BaseSeed] canonical ensured created=${created} updated=${updated} legacyRemoved=${removedLegacy} credentialsApplied=${credentialsApplied}`,
       )
 
+    // Mark seeding as completed to prevent re-seeding
+    seedingCompleted = true
+
     return {
       success: true,
       created,
@@ -124,6 +137,13 @@ export async function ensureDefaultExchangesExist() {
     console.error("[v0] [BaseSeed] ensure failed:", error)
     return { success: false, error: String(error) }
   }
+}
+
+/**
+ * Reset seeding flag (for testing/admin purposes)
+ */
+export function resetSeedingFlag() {
+  seedingCompleted = false
 }
 
 /**

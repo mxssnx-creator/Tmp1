@@ -58,6 +58,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     console.log(`[v0] [Toggle] Toggling ${connection.name} (${connectionId}):`)
     console.log(`[v0] [Toggle]   Before: is_active_inserted=${connection.is_active_inserted}, is_enabled_dashboard=${connection.is_enabled_dashboard}`)
 
+    // Check current state before making changes
+    const currentIsEnabled = isTruthyFlag(connection.is_enabled_dashboard)
+    const currentIsActiveInserted = isTruthyFlag(connection.is_active_inserted)
+    
     // Build update object with all necessary fields
     const updatedConnection = {
       ...connection,
@@ -65,34 +69,52 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     
     let engineAction: "start" | "stop" | null = null
+    let stateChanged = false
     
     if (hasActiveInserted) {
-      updatedConnection.is_active_inserted = toRedisFlag(isActiveInserted)
-      console.log(`[v0] [Toggle]   Setting is_active_inserted=${isActiveInserted}`)
+      const newValue = toRedisFlag(isActiveInserted)
+      if (updatedConnection.is_active_inserted !== newValue) {
+        updatedConnection.is_active_inserted = newValue
+        stateChanged = true
+        console.log(`[v0] [Toggle]   Setting is_active_inserted=${isActiveInserted}`)
+      }
     }
     
     if (hasDashboardEnabled) {
-      updatedConnection.is_enabled_dashboard = toRedisFlag(isDashboardEnabled)
-      updatedConnection.is_dashboard_inserted = "1"
+      const newDashboardValue = toRedisFlag(isDashboardEnabled)
       
-      if (isDashboardEnabled) {
-        // Toggle ON: dashboard enabled, keep base settings independent
-        updatedConnection.is_active_inserted = "1"
-        updatedConnection.is_active = "1"
-        engineAction = "start"
-        console.log(`[v0] [Toggle] ENABLING: dashboard=1, active_inserted=1 (engine will process this connection)`)
+      // Check if there's actually a state change needed
+      if (currentIsEnabled !== isDashboardEnabled) {
+        updatedConnection.is_enabled_dashboard = newDashboardValue
+        updatedConnection.is_dashboard_inserted = "1"
+        stateChanged = true
+        
+        if (isDashboardEnabled) {
+          // Toggle ON: dashboard enabled, keep base settings independent
+          updatedConnection.is_active_inserted = "1"
+          updatedConnection.is_active = "1"
+          engineAction = "start"
+          console.log(`[v0] [Toggle] ENABLING: dashboard=1, active_inserted=1 (engine will process this connection)`)
+        } else {
+          // Toggle OFF: stop engine processing while preserving base settings state
+          updatedConnection.is_active_inserted = updatedConnection.is_active_inserted || "1"
+          updatedConnection.is_active = "0"
+          engineAction = "stop"
+          console.log(`[v0] [Toggle] DISABLING: dashboard=0, insertion preserved (engine will stop processing)`)
+        }
       } else {
-        // Toggle OFF: stop engine processing while preserving base settings state
-        updatedConnection.is_active_inserted = updatedConnection.is_active_inserted || "1"
-        updatedConnection.is_active = "0"
-        engineAction = "stop"
-        console.log(`[v0] [Toggle] DISABLING: dashboard=0, insertion preserved (engine will stop processing)`)
+        // No change - already in requested state
+        console.log(`[v0] [Toggle] NO CHANGE: already ${isDashboardEnabled ? 'enabled' : 'disabled'}`)
       }
     }
 
-    // Save connection state first
-    await updateConnection(resolvedId, updatedConnection)
-    console.log(`[v0] [Toggle] Updated ${connection.name} (resolved id: ${resolvedId})`)
+    // Save connection state only if something changed
+    if (stateChanged || engineAction) {
+      await updateConnection(resolvedId, updatedConnection)
+      console.log(`[v0] [Toggle] Updated ${connection.name} (resolved id: ${resolvedId})`)
+    } else {
+      console.log(`[v0] [Toggle] No update needed - connection already in requested state`)
+    }
 
     // Trigger engine action based on toggle state
     let engineStatus = "unchanged"

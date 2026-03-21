@@ -3,11 +3,11 @@ import { getAllConnections, initRedis, createConnection } from "@/lib/redis-db"
 import { generateConnectionIdFromApiKey, isApiKeyInUse } from "@/lib/connection-id-manager"
 import { CONNECTION_PREDEFINITIONS } from "@/lib/connection-predefinitions"
 import { API_VERSIONS } from "@/lib/system-version"
-import { ensureDefaultExchangesExist } from "@/lib/default-exchanges-seeder"
 
 export const runtime = "nodejs"
 
 const API_VERSION = API_VERSIONS.connections
+
 export async function GET(request: NextRequest) {
   try {
     // Set explicit cache-control headers to prevent caching
@@ -27,7 +27,15 @@ export async function GET(request: NextRequest) {
     console.log(`[v0] [API] [Connections] ${API_VERSION} - Client version: ${clientVersion}`)
 
     await initRedis()
-    await ensureDefaultExchangesExist()
+    
+    // Seed connections only once (module has internal flag to prevent re-seeding)
+    const { ensureDefaultExchangesExist } = await import("@/lib/default-exchanges-seeder")
+    try {
+      await ensureDefaultExchangesExist()
+    } catch (e) {
+      console.warn("[v0] [API] Connection seeding skipped:", e)
+    }
+    
     let connections = await getAllConnections()
 
     // Auto-initialize ONLY user-created connections (not predefined templates)

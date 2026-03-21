@@ -169,7 +169,17 @@ function normalizeContractType(exchange: string, contractType: string): string {
   if (normalized === "spot" || normalized === "spotapi" || normalized === "cash") {
     return "spot"
   }
-  if (normalized === "perpetual" || normalized === "perpetual_swap" || normalized === "linear_swap" || normalized === "swap" || normalized === "contracts") {
+  // "perpetual_futures" is the internal api_type value used across all connections.
+  // The EXCHANGE_SUBTYPES map uses "perpetual" as the canonical subtype name.
+  // Map perpetual_futures -> perpetual so validation passes correctly.
+  if (
+    normalized === "perpetual" ||
+    normalized === "perpetual_futures" ||
+    normalized === "perpetual_swap" ||
+    normalized === "linear_swap" ||
+    normalized === "swap" ||
+    normalized === "contracts"
+  ) {
     return "perpetual"
   }
   if (normalized === "futures" || normalized === "delivery" || normalized === "delivery_futures" || normalized === "coin_m") {

@@ -129,12 +129,13 @@ function startConnectionMonitoring(): void {
         return
       }
 
-      // Filter for Main-inserted + dashboard-enabled connections with valid API keys only
+      // Filter for Main-inserted + system-enabled connections with valid API keys only
+      // Uses is_enabled (internal system state), NOT is_enabled_dashboard (user UI toggle)
       const enabledConnections = connections.filter((c) => {
         const isActiveInserted = c.is_active_inserted === true || c.is_active_inserted === "true" || c.is_active_inserted === "1"
-        const isDashboardEnabled = c.is_enabled_dashboard === true || c.is_enabled_dashboard === "true" || c.is_enabled_dashboard === "1"
+        const isSystemEnabled = c.is_enabled === true || c.is_enabled === "true" || c.is_enabled === "1"
         const hasValidKey = c.api_key && c.api_key.length >= 20 && !c.api_key.includes("PLACEHOLDER")
-        return isActiveInserted && isDashboardEnabled && hasValidKey
+        return isActiveInserted && isSystemEnabled && hasValidKey
       })
 
       // If enabled connection count changed, log it

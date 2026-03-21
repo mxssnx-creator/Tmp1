@@ -302,7 +302,7 @@ export class BingXConnector extends BaseExchangeConnector {
       }
 
       const orderId = data.data?.orderId || data.data?.id
-      this.log(`✓ Order placed successfully: ${orderId}`)
+      this.log(`�� Order placed successfully: ${orderId}`)
 
       return { success: true, orderId }
     } catch (error) {

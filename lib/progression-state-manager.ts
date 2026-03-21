@@ -99,27 +99,36 @@ export class ProgressionStateManager {
 
   static async incrementCycle(connectionId: string, successful: boolean, profit: number = 0): Promise<void> {
     try {
-      // Update local counter
-      let counter = this.cycleCounters.get(connectionId) || { completed: 0, successful: 0, failed: 0 }
-      counter.completed++
-      if (successful) {
-        counter.successful++
-      } else {
-        counter.failed++
-      }
-      this.cycleCounters.set(connectionId, counter)
-
       const client = getRedisClient()
       if (!client) return
 
       const redisKey = `progression:${connectionId}`
-      const successRate = counter.completed > 0 ? (counter.successful / counter.completed) * 100 : 0
 
-      // Write batched update to Redis
+      // Read current values from Redis first (to handle server restarts)
+      const existing = await client.hgetall(redisKey)
+      const currentCompleted = parseInt(existing?.cycles_completed || "0", 10)
+      const currentSuccessful = parseInt(existing?.successful_cycles || "0", 10)
+      const currentFailed = parseInt(existing?.failed_cycles || "0", 10)
+
+      // Increment based on Redis values
+      const newCompleted = currentCompleted + 1
+      const newSuccessful = successful ? currentSuccessful + 1 : currentSuccessful
+      const newFailed = successful ? currentFailed : currentFailed + 1
+
+      // Update local counter for tracking
+      this.cycleCounters.set(connectionId, {
+        completed: newCompleted,
+        successful: newSuccessful,
+        failed: newFailed,
+      })
+
+      const successRate = newCompleted > 0 ? (newSuccessful / newCompleted) * 100 : 0
+
+      // Write update to Redis
       await client.hset(redisKey, {
-        cycles_completed: String(counter.completed),
-        successful_cycles: String(counter.successful),
-        failed_cycles: String(counter.failed),
+        cycles_completed: String(newCompleted),
+        successful_cycles: String(newSuccessful),
+        failed_cycles: String(newFailed),
         cycle_success_rate: String(successRate.toFixed(2)),
         last_update: new Date().toISOString(),
         connection_id: connectionId,
@@ -129,8 +138,8 @@ export class ProgressionStateManager {
       await client.expire(redisKey, 7 * 24 * 60 * 60)
 
       // Log every 25 cycles
-      if (counter.completed % 25 === 0 && counter.completed > 0) {
-        console.log(`[v0] [Progression] Cycle ${counter.completed}: ${successRate.toFixed(1)}% success rate`)
+      if (newCompleted % 25 === 0 && newCompleted > 0) {
+        console.log(`[v0] [Progression] Cycle ${newCompleted}: ${successRate.toFixed(1)}% success rate`)
       }
     } catch (error) {
       // Silent fail to not block processing

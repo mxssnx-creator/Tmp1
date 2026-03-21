@@ -80,6 +80,25 @@ export class TradeEngineManager {
     console.log(`[v0] [EngineManager] Config: indication=${config.indicationInterval}s, strategy=${config.strategyInterval}s, realtime=${config.realtimeInterval}s`)
 
     try {
+      // Initialize progression state in Redis if not exists
+      try {
+        const client = getRedisClient()
+        const existingProgression = await client.hgetall(`progression:${this.connectionId}`)
+        if (!existingProgression || Object.keys(existingProgression).length === 0) {
+          await client.hset(`progression:${this.connectionId}`, {
+            cycles_completed: "0",
+            successful_cycles: "0",
+            failed_cycles: "0",
+            connection_id: this.connectionId,
+            last_update: new Date().toISOString(),
+            engine_started: "true",
+          })
+          console.log(`[v0] [EngineManager] Initialized progression state for ${this.connectionId}`)
+        }
+      } catch (e) {
+        console.warn("[v0] [EngineManager] Failed to init progression state:", e)
+      }
+
       // Phase 1: Initializing
       await this.updateProgressionPhase("initializing", 5, "Setting up engine components...")
       await logProgressionEvent(this.connectionId, "initializing", "info", "Engine initialization started")
@@ -366,22 +385,24 @@ export class TradeEngineManager {
           // Silently fail - non-critical for engine operation
         }
 
-        // Batch progression updates and detailed logs every 10 cycles only
+        // Track intervals processed in Redis for dashboard display (every cycle)
+        try {
+          const client = getRedisClient()
+          const intervalId = `${this.connectionId}:${Date.now()}`
+          await client.sadd(`intervals:${this.connectionId}:processed`, intervalId)
+        } catch { /* ignore Redis errors */ }
+
+        // Always update cycle count in Redis for dashboard (every cycle)
+        await ProgressionStateManager.incrementCycle(this.connectionId, true, 0)
+
+        // Log to progression events every 10 cycles only (to avoid flooding)
         if (cycleCount % 10 === 0) {
-          await ProgressionStateManager.incrementCycle(this.connectionId, true, 0)
           await logProgressionEvent(this.connectionId, "indications", "info", `Processed ${symbols.length} symbols`, {
             cycleDuration_ms: duration,
             cycleCount,
             symbolsCount: symbols.length,
           })
         }
-        
-        // Track intervals processed in Redis for dashboard display
-        try {
-          const client = getRedisClient()
-          const intervalId = `${this.connectionId}:${Date.now()}`
-          await client.sadd(`intervals:${this.connectionId}:processed`, intervalId)
-        } catch { /* ignore Redis errors */ }
       } catch (error) {
         errorCount++
         this.componentHealth.indications.errorCount++

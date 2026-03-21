@@ -7,7 +7,8 @@
 
 import { getSettings, setSettings } from "@/lib/redis-db"
 import { BasePseudoPositionManager } from "./base-pseudo-position-manager"
-import { DataCleanupManager } from "./data-cleanup-manager" // Import DataCleanupManager for time window limits
+import { DataCleanupManager } from "./data-cleanup-manager"
+import { logProgressionEvent } from "./engine-progression-logs"
 
 export interface IndicationState {
   symbol: string
@@ -105,9 +106,20 @@ export class IndicationStateManager {
    * Execute indication processing with proper async handling
    */
   private async executeIndicationProcessing(symbol: string): Promise<void> {
+    const startTime = Date.now()
+    
+    // Log start of indication processing
+    await logProgressionEvent(this.connectionId, "indications_processing", "info", `Processing all indication types for ${symbol}`, {
+      symbol,
+      timestamp: new Date().toISOString(),
+    })
+    
     // Get current price with caching
     const currentPrice = await this.getCachedPrice(symbol)
-    if (!currentPrice) return
+    if (!currentPrice) {
+      await logProgressionEvent(this.connectionId, "indications_processing", "warning", `No price data for ${symbol}`, { symbol })
+      return
+    }
 
     // Get indication ranges from settings (cached)
     const { minRange, maxRange } = await this.getIndicationRanges()
@@ -117,16 +129,41 @@ export class IndicationStateManager {
       this.processDirectionIndications(symbol, currentPrice, minRange, maxRange),
       this.processMoveIndications(symbol, currentPrice, minRange, maxRange),
       this.processActiveIndications(symbol, currentPrice),
-      this.processOptimalIndications(symbol, currentPrice, minRange, maxRange), // Added Optimal processing
-      this.processActiveAdvancedIndications(symbol, currentPrice), // NEW: Active indication type
+      this.processOptimalIndications(symbol, currentPrice, minRange, maxRange),
+      this.processActiveAdvancedIndications(symbol, currentPrice),
     ])
 
-    // Log any failures
+    // Log results for each type
+    const types = ["direction", "move", "active", "optimal", "active_advanced"]
+    let totalIndications = 0
+    let totalPositions = 0
+    
+    const typeResults: Record<string, { indications: number; positions: number }> = {}
+    
     results.forEach((result, index) => {
-      if (result.status === "rejected") {
-        const types = ["direction", "move", "active", "optimal", "active_advanced"]
-        console.error(`[v0] Failed to process ${types[index]} indication for ${symbol}:`, result.reason)
+      const type = types[index]
+      if (result.status === "fulfilled" && result.value) {
+        const value = result.value as { indications?: number; positions?: number }
+        const indications = value.indications || 0
+        const positions = value.positions || 0
+        totalIndications += indications
+        totalPositions += positions
+        typeResults[type] = { indications, positions }
+      } else if (result.status === "rejected") {
+        console.error(`[v0] Failed to process ${type} indication for ${symbol}:`, result.reason)
       }
+    })
+    
+    const duration = Date.now() - startTime
+    
+    // Log completion of indication processing
+    await logProgressionEvent(this.connectionId, "indications_processed", "info", `Completed indication processing for ${symbol}`, {
+      symbol,
+      price: currentPrice,
+      totalIndications,
+      totalPositions,
+      byType: typeResults,
+      duration,
     })
   }
 
@@ -766,6 +803,18 @@ export class IndicationStateManager {
       console.log(
         `[v0] Created ${createdCount} BASE pseudo position entries across multiple config sets for ${symbol} ${indicationType} ${direction}`,
       )
+      
+      // Log base pseudo position creation
+      if (createdCount > 0) {
+        await logProgressionEvent(this.connectionId, "base_pseudo_created", "info", `Created ${createdCount} base pseudo positions for ${symbol}`, {
+          symbol,
+          indicationType,
+          direction,
+          range: range || null,
+          entryPrice,
+          createdCount,
+        })
+      }
     } catch (error) {
       console.error(`[v0] Error creating base pseudo positions:`, error)
     }

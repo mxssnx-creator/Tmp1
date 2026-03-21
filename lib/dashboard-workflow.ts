@@ -93,6 +93,12 @@ async function buildDashboardWorkflowSnapshot() {
     positions: 0,
     trades: 0,
     logs: [] as Awaited<ReturnType<typeof getProgressionLogs>>,
+    comprehensiveStats: null as null | {
+      symbols: { prehistoricLoaded: number; prehistoricDataSize: number; intervalsProcessed: number }
+      indicationsByType: { direction: number; move: number; active: number; optimal: number; auto: number; total: number }
+      pseudoPositions: { base: number; main: number; real: number; total: number }
+      livePositions: number
+    }
   }
 
   if (focusConnection) {
@@ -103,11 +109,63 @@ async function buildDashboardWorkflowSnapshot() {
       getProgressionLogs(focusConnection.id),
     ])
 
+    // Gather comprehensive stats for the focus connection
+    const connId = focusConnection.id
+    
+    // Get indications by type
+    const directionIndications = await client.scard(`indications:${connId}:direction`).catch(() => 0)
+    const moveIndications = await client.scard(`indications:${connId}:move`).catch(() => 0)
+    const activeIndications = await client.scard(`indications:${connId}:active`).catch(() => 0)
+    const optimalIndications = await client.scard(`indications:${connId}:optimal`).catch(() => 0)
+    const autoIndications = await client.scard(`indications:${connId}:auto`).catch(() => 0)
+    
+    // Get pseudo positions by type
+    const basePseudoPositions = await client.scard(`base_pseudo:${connId}`).catch(() => 0)
+    const mainPseudoPositions = await client.scard(`main_pseudo:${connId}`).catch(() => 0)
+    const realPseudoPositions = await client.scard(`real_pseudo:${connId}`).catch(() => 0)
+    
+    // Get live positions
+    const livePositionsCount = await client.scard(`positions:${connId}:live`).catch(() => 0)
+    
+    // Get prehistoric data info
+    const prehistoricSymbols = await client.scard(`prehistoric:${connId}:symbols`).catch(() => 0)
+    let prehistoricDataSize = 0
+    try {
+      const keys = await client.keys(`prehistoric:${connId}:*`)
+      prehistoricDataSize = keys.length
+    } catch { /* ignore */ }
+    
+    // Get intervals processed
+    const intervalsProcessed = await client.scard(`intervals:${connId}:processed`).catch(() => 0)
+    
     connectionMetrics = {
       progression,
       positions: positions.length,
       trades: trades.length,
       logs: logs.slice(0, 50),
+      // Comprehensive stats
+      comprehensiveStats: {
+        symbols: {
+          prehistoricLoaded: prehistoricSymbols,
+          prehistoricDataSize,
+          intervalsProcessed,
+        },
+        indicationsByType: {
+          direction: directionIndications,
+          move: moveIndications,
+          active: activeIndications,
+          optimal: optimalIndications,
+          auto: autoIndications,
+          total: directionIndications + moveIndications + activeIndications + optimalIndications + autoIndications,
+        },
+        pseudoPositions: {
+          base: basePseudoPositions,
+          main: mainPseudoPositions,
+          real: realPseudoPositions,
+          total: basePseudoPositions + mainPseudoPositions + realPseudoPositions,
+        },
+        livePositions: livePositionsCount,
+      },
     }
   }
 

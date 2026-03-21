@@ -57,6 +57,28 @@ interface ProgressSummary {
     real: number
     total: number
   }
+  // Extended stats
+  prehistoricSymbols: number
+  prehistoricDataSize: number
+  intervalsProcessed: number
+  indicationsByType: {
+    direction: number
+    move: number
+    active: number
+    optimal: number
+    auto: number
+    total: number
+  }
+  pseudoPositionsByType: {
+    baseByIndication: {
+      direction: number
+      move: number
+      active: number
+      optimal: number
+    }
+  }
+  livePositions: number
+  cycleDurationMs: number
   configsProcessed: number
   evalsCompleted: number
   avgCycleDuration: number

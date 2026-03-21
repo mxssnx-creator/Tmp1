@@ -296,13 +296,95 @@ export async function POST(request: Request) {
     // Get all logs for response
     const allLogs = await getProgressionLogs(connectionId)
     
-    // Calculate engine counts from Redis
+    // Calculate comprehensive engine counts from Redis
+    const startStatsTime = Date.now()
+    
+    // Basic counts
     const indicationsCount = await client.scard(`indications:${connectionId}`).catch(() => 0)
     const strategiesCount = await client.scard(`strategies:${connectionId}`).catch(() => 0)
     const positionsCount = await client.scard(`positions:${connectionId}`).catch(() => 0)
     const tradesCount = await client.scard(`trades:${connectionId}`).catch(() => 0)
     
-    console.log(`${LOG_PREFIX}: Engine Counts - Indications: ${indicationsCount}, Strategies: ${strategiesCount}, Positions: ${positionsCount}, Trades: ${tradesCount}`)
+    // Detailed indication counts by type
+    const directionIndications = await client.scard(`indications:${connectionId}:direction`).catch(() => 0)
+    const moveIndications = await client.scard(`indications:${connectionId}:move`).catch(() => 0)
+    const activeIndications = await client.scard(`indications:${connectionId}:active`).catch(() => 0)
+    const optimalIndications = await client.scard(`indications:${connectionId}:optimal`).catch(() => 0)
+    const autoIndications = await client.scard(`indications:${connectionId}:auto`).catch(() => 0)
+    
+    // Pseudo positions by type
+    const basePseudoPositions = await client.scard(`base_pseudo:${connectionId}`).catch(() => 0)
+    const mainPseudoPositions = await client.scard(`main_pseudo:${connectionId}`).catch(() => 0)
+    const realPseudoPositions = await client.scard(`real_pseudo:${connectionId}`).catch(() => 0)
+    
+    // Live positions (real exchange positions)
+    const livePositionsCount = await client.scard(`positions:${connectionId}:live`).catch(() => 0)
+    
+    // Get prehistoric data info
+    const prehistoricSymbols = await client.scard(`prehistoric:${connectionId}:symbols`).catch(() => 0)
+    let prehistoricDataSize = 0
+    try {
+      const keys = await client.keys(`prehistoric:${connectionId}:*`)
+      prehistoricDataSize = keys.length
+    } catch { /* ignore */ }
+    
+    // Get intervals processed
+    const intervalsProcessed = await client.scard(`intervals:${connectionId}:processed`).catch(() => 0)
+    
+    // Get cycle duration from settings
+    const progressionState = await client.hgetall(`progression:${connectionId}`).catch(() => ({} as Record<string, string>)) || {}
+    const cycleDuration = Number(progressionState?.last_cycle_duration || progressionState?.cycle_duration || 0)
+    const totalCycleDuration = Date.now() - startStatsTime
+    
+    // Build comprehensive stats object
+    const overallStats = {
+      // Symbols
+      symbolsCount: symbols.length,
+      symbolsProcessing: symbols,
+      prehistoricSymbolsLoaded: prehistoricSymbols,
+      prehistoricDataSize,
+      
+      // Intervals
+      intervalsProcessed,
+      
+      // Indications by type
+      indicationsByType: {
+        direction: directionIndications,
+        move: moveIndications,
+        active: activeIndications,
+        optimal: optimalIndications,
+        auto: autoIndications,
+        total: indicationsCount,
+      },
+      
+      // Pseudo positions by type
+      pseudoPositions: {
+        base: basePseudoPositions,
+        baseByIndicationType: {
+          direction: await client.scard(`base_pseudo:${connectionId}:direction`).catch(() => 0),
+          move: await client.scard(`base_pseudo:${connectionId}:move`).catch(() => 0),
+          active: await client.scard(`base_pseudo:${connectionId}:active`).catch(() => 0),
+          optimal: await client.scard(`base_pseudo:${connectionId}:optimal`).catch(() => 0),
+        },
+        main: mainPseudoPositions,
+        real: realPseudoPositions,
+        total: basePseudoPositions + mainPseudoPositions + realPseudoPositions,
+      },
+      
+      // Live positions
+      livePositions: livePositionsCount,
+      
+      // Timing
+      cycleDurationMs: cycleDuration,
+      statsCollectionDurationMs: totalCycleDuration,
+      totalDuration,
+    }
+    
+    console.log(`${LOG_PREFIX}: === COMPREHENSIVE STATS ===`)
+    console.log(`${LOG_PREFIX}: Symbols: ${symbols.length}, Prehistoric: ${prehistoricSymbols}`)
+    console.log(`${LOG_PREFIX}: Indications - Direction: ${directionIndications}, Move: ${moveIndications}, Active: ${activeIndications}, Optimal: ${optimalIndications}`)
+    console.log(`${LOG_PREFIX}: Pseudo Positions - Base: ${basePseudoPositions}, Main: ${mainPseudoPositions}, Real: ${realPseudoPositions}`)
+    console.log(`${LOG_PREFIX}: Live Positions: ${livePositionsCount}, Cycle Duration: ${cycleDuration}ms`)
     
     return NextResponse.json({
       success: true,
@@ -321,6 +403,21 @@ export async function POST(request: Request) {
         strategies: strategiesCount,
         positions: positionsCount,
         trades: tradesCount,
+      },
+      // Comprehensive overall statistics
+      overallStats: {
+        symbols: {
+          count: overallStats.symbolsCount,
+          processing: overallStats.symbolsProcessing,
+          prehistoricLoaded: overallStats.prehistoricSymbolsLoaded,
+          prehistoricDataSize: overallStats.prehistoricDataSize,
+        },
+        intervalsProcessed: overallStats.intervalsProcessed,
+        indicationsByType: overallStats.indicationsByType,
+        pseudoPositions: overallStats.pseudoPositions,
+        livePositions: overallStats.livePositions,
+        cycleTimeMs: overallStats.cycleDurationMs,
+        totalDurationMs: overallStats.totalDuration,
       },
       status: hasCredentials ? "ready_with_credentials" : "ready_without_credentials",
       nextSteps: hasCredentials 

@@ -271,34 +271,34 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     })
     
-    // START THE ENGINE DIRECTLY - similar to toggle-dashboard
-    if (testPassed) {
-      try {
-        const coordinator = getGlobalTradeEngineCoordinator()
-        const settings = await loadSettingsAsync()
-        
-        await coordinator.startEngine(connectionId, {
-          connectionId,
-          connection_name: connection.name,
-          exchange: exchangeName,
-          engine_type: "main",
-          indicationInterval: settings.mainEngineIntervalMs ? settings.mainEngineIntervalMs / 1000 : 5,
-          strategyInterval: settings.strategyUpdateIntervalMs ? settings.strategyUpdateIntervalMs / 1000 : 10,
-          realtimeInterval: settings.realtimeIntervalMs ? settings.realtimeIntervalMs / 1000 : 3,
-        })
-        
-        console.log(`[v0] [QuickStart] ✓ Engine started for ${connection.name}`)
-        await logProgressionEvent(connectionId, "engine_started", "info", "Main Trade Engine started via QuickStart", {
-          connectionId,
-          connectionName: connection.name,
-          exchange: exchangeName,
-        })
-      } catch (engineError) {
-        console.error(`[v0] [QuickStart] Failed to start engine:`, engineError)
-        await logProgressionEvent(connectionId, "engine_start_error", "error", "Failed to start engine", {
-          error: engineError instanceof Error ? engineError.message : String(engineError),
-        })
-      }
+    // START THE ENGINE DIRECTLY - regardless of testPass for demo/testing purposes
+    // This ensures Main Trade Engine starts when quick-start is run
+    try {
+      const coordinator = getGlobalTradeEngineCoordinator()
+      const settings = await loadSettingsAsync()
+      
+      await coordinator.startEngine(connectionId, {
+        connectionId,
+        connection_name: connection.name,
+        exchange: exchangeName,
+        engine_type: "main",
+        indicationInterval: settings.mainEngineIntervalMs ? settings.mainEngineIntervalMs / 1000 : 5,
+        strategyInterval: settings.strategyUpdateIntervalMs ? settings.strategyUpdateIntervalMs / 1000 : 10,
+        realtimeInterval: settings.realtimeIntervalMs ? settings.realtimeIntervalMs / 1000 : 3,
+      })
+      
+      console.log(`[v0] [QuickStart] ✓ Engine started for ${connection.name}`)
+      await logProgressionEvent(connectionId, "engine_started", "info", "Main Trade Engine started via QuickStart", {
+        connectionId,
+        connectionName: connection.name,
+        exchange: exchangeName,
+        testPassed,
+      })
+    } catch (engineError) {
+      console.error(`[v0] [QuickStart] Failed to start engine:`, engineError)
+      await logProgressionEvent(connectionId, "engine_start_error", "error", "Failed to start engine", {
+        error: engineError instanceof Error ? engineError.message : String(engineError),
+      })
     }
     
     // Store in global quickstart state

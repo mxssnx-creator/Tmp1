@@ -87,17 +87,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         console.log(`[v0] [Toggle] DISABLING: main_enabled=false (engine will stop)`)
       }
     } else {
-      // No change needed
+      // No state change but still need to ensure engine is running if already enabled
       updatedConnection = connection
-      console.log(`[v0] [Toggle] NO CHANGE: already ${enableMain ? 'enabled' : 'disabled'}`)
+      if (enableMain) {
+        engineAction = "start" // Ensure engine is started if already enabled
+        console.log(`[v0] [Toggle] Already enabled - ensuring engine is running`)
+      } else {
+        console.log(`[v0] [Toggle] Already disabled`)
+      }
     }
 
-    // Save connection state only if something changed
+    // Save connection state only if state changed
     if (needsUpdate && updatedConnection) {
       await updateConnection(resolvedId, updatedConnection)
       console.log(`[v0] [Toggle] Updated ${connection.name} (resolved id: ${resolvedId})`)
-    } else {
-      console.log(`[v0] [Toggle] No update needed - connection already in requested state`)
     }
 
     // Trigger engine action based on toggle state
@@ -112,55 +115,48 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         })
         
         // Check if connection has valid credentials
-         const apiKey = (updatedConnection.api_key || updatedConnection.apiKey || "") as string
-         const apiSecret = (updatedConnection.api_secret || updatedConnection.apiSecret || "") as string
-         const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
+        const apiKey = (updatedConnection.api_key || updatedConnection.apiKey || "") as string
+        const apiSecret = (updatedConnection.api_secret || updatedConnection.apiSecret || "") as string
+        const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
+        
+        // ALWAYS try to start the engine - even without credentials (for testing/demo)
+        // If credentials are missing, engine will start but won't be able to trade
+        await setSettings(`engine_progression:${resolvedId}`, {
+          phase: "initializing",
+          progress: 10,
+          detail: hasCredentials 
+            ? "Connection enabled - engine starting..." 
+            : "Connection enabled - engine starting (credentials needed for live trading)",
+          updated_at: new Date().toISOString(),
+        })
         
         if (!hasCredentials) {
-          // No credentials - set progression to waiting for credentials
-          await setSettings(`engine_progression:${resolvedId}`, {
-            phase: "waiting_credentials",
-            progress: 5,
-            detail: "Connection enabled but missing API credentials. Add credentials in Settings.",
-            updated_at: new Date().toISOString(),
-          })
-          
-          await logProgressionEvent(resolvedId, "waiting_credentials", "warning", 
-            "Connection enabled but API credentials are missing", {
+          await logProgressionEvent(resolvedId, "engine_starting_no_credentials", "warning", 
+            "Engine starting without API credentials - live trading disabled", {
               connectionId: resolvedId,
-              hint: "Add API key and secret in Settings to start trading",
+              hint: "Add API key and secret in Settings for live trading",
             })
-          
-          engineStatus = "waiting_credentials"
-          console.log(`[v0] [Toggle] Connection enabled but missing credentials: ${connection.name}`)
-        } else {
-          // Has credentials - update engine progression phase to show initializing
-          await setSettings(`engine_progression:${resolvedId}`, {
-            phase: "initializing",
-            progress: 10,
-            detail: "Connection enabled - engine starting...",
-            updated_at: new Date().toISOString(),
-          })
-          
-          // Update global engine state to show running
-          const globalState = await getSettings("trade_engine:global") || {}
-          const allConnections = await getAllConnections()
-          // Use clean helper function for counting main-enabled connections
-          const activeDashboardCount = allConnections.filter((c: any) => 
-            c.id === resolvedId || isConnectionReadyForEngine(c)
-          ).length
-          await setSettings("trade_engine:global", {
-            ...globalState,
-            status: "running",
-            started_at: globalState.started_at || new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            active_connections: activeDashboardCount,
-          })
-          
-          // DIRECTLY START THE ENGINE - don't rely on coordinator polling
-          try {
-            const coordinator = getGlobalTradeEngineCoordinator()
-            const settings = await loadSettingsAsync()
+        }
+        
+        // Update global engine state to show running
+        const globalState = await getSettings("trade_engine:global") || {}
+        const allConnections = await getAllConnections()
+        // Use clean helper function for counting main-enabled connections
+        const activeDashboardCount = allConnections.filter((c: any) => 
+          c.id === resolvedId || isConnectionReadyForEngine(c)
+        ).length
+        await setSettings("trade_engine:global", {
+          ...globalState,
+          status: "running",
+          started_at: globalState.started_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          active_connections: activeDashboardCount,
+        })
+        
+        // DIRECTLY START THE ENGINE - don't rely on coordinator polling
+        try {
+          const coordinator = getGlobalTradeEngineCoordinator()
+          const settings = await loadSettingsAsync()
             
             // Start the engine directly
             await coordinator.startEngine(resolvedId, {
@@ -191,7 +187,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           
           engineStatus = "started"
           console.log(`[v0] [Toggle] Engine progression initialized for ${connection.name}`)
-        }
       } catch (engineError) {
         console.error(`[v0] [Toggle] Failed to initialize engine:`, engineError)
         engineStatus = "error"

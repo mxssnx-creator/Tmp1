@@ -112,7 +112,15 @@ export class TradeEngineManager {
       // Phase 1.5: Load market data for all symbols
       await this.updateProgressionPhase("market_data", 8, "Loading market data for all symbols...")
       const symbols = await this.getSymbols()
-      console.log(`[v0] [EngineManager] Loaded ${symbols.length} symbols for connection`)
+      
+      // Store symbols in trade_engine_state for easy access
+      await setSettings(`trade_engine_state:${this.connectionId}`, {
+        symbols: symbols,
+        active_symbols: symbols,
+        updated_at: new Date().toISOString(),
+      })
+      
+      console.log(`[v0] [EngineManager] Loaded ${symbols.length} symbols for connection: ${symbols.join(", ")}`)
       const loaded = await loadMarketDataForEngine(symbols)
       console.log(`[v0] [EngineManager] Phase 1.5/6: Market data loaded for ${loaded} symbols`)
 

@@ -248,6 +248,16 @@ export async function POST(request: Request) {
     await updateConnection(connectionId, enabled)
     console.log(`${LOG_PREFIX}: [3/4] Connection configured and ENABLED in main connections (engine will start)`)
     
+    // ALSO store in trade_engine_state for engine to find
+    await setSettings(`trade_engine_state:${connectionId}`, {
+      connection_id: connectionId,
+      symbols: symbols,
+      active_symbols: symbols,
+      status: "ready",
+      updated_at: new Date().toISOString(),
+    })
+    console.log(`${LOG_PREFIX}: [3/4] Stored symbols in trade_engine_state: ${symbols.join(", ")}`)
+    
     await logProgressionEvent(connectionId, "quickstart_updated", "info", "Connection state updated", {
       is_enabled: "1",
       is_enabled_dashboard: "1",

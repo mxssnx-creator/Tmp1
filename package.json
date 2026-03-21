@@ -12,6 +12,14 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
+    "@next/swc-darwin-arm64": "15.5.7",
+    "@next/swc-darwin-x64": "15.5.7",
+    "@next/swc-linux-arm64-gnu": "15.5.7",
+    "@next/swc-linux-arm64-musl": "15.5.7",
+    "@next/swc-linux-x64-gnu": "15.5.7",
+    "@next/swc-linux-x64-musl": "15.5.7",
+    "@next/swc-win32-arm64-msvc": "15.5.7",
+    "@next/swc-win32-x64-msvc": "15.5.7",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -69,6 +77,7 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "15.5.7",
+    "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

@@ -637,6 +637,7 @@ export class TradeEngineManager {
       if (connState && typeof connState === "object") {
         const connSymbols = (connState as any).symbols || (connState as any).active_symbols
         if (Array.isArray(connSymbols) && connSymbols.length > 0) {
+          console.log(`[v0] [EngineManager] getSymbols from trade_engine_state: ${connSymbols.join(", ")}`)
           return connSymbols
         }
       }
@@ -644,8 +645,16 @@ export class TradeEngineManager {
       // Check connection settings directly
       const connSettings = await getSettings(`connection:${this.connectionId}`)
       if (connSettings && typeof connSettings === "object") {
-        const symbols = (connSettings as any).active_symbols || (connSettings as any).symbols
+        const symbolsField = (connSettings as any).active_symbols || (connSettings as any).symbols
+        let symbols = symbolsField
+        // Handle JSON string
+        if (typeof symbols === "string") {
+          try {
+            symbols = JSON.parse(symbols)
+          } catch { /* ignore */ }
+        }
         if (Array.isArray(symbols) && symbols.length > 0) {
+          console.log(`[v0] [EngineManager] getSymbols from connection: ${symbols.join(", ")}`)
           return symbols
         }
       }
@@ -655,11 +664,13 @@ export class TradeEngineManager {
       if (useMainSymbols === true || useMainSymbols === "true") {
         const mainSymbols = await getSettings("mainSymbols")
         if (Array.isArray(mainSymbols) && mainSymbols.length > 0) {
+          console.log(`[v0] [EngineManager] getSymbols from mainSymbols: ${mainSymbols.join(", ")}`)
           return mainSymbols
         }
       }
 
       // Default to single symbol to reduce load
+      console.log(`[v0] [EngineManager] getSymbols: using default BTCUSDT`)
       return ["BTCUSDT"]
     } catch (error) {
       console.error("[v0] Failed to get symbols:", error)

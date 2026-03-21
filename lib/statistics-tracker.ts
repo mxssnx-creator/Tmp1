@@ -20,7 +20,7 @@ export async function trackIndicationStats(
       [connectionId, symbol, indicationType, value, confidence]
     )
   } catch (e) {
-    console.warn(`[v0] [Stats] Failed to track indication:`, e instanceof Error ? e.message : String(e))
+    console.warn(`[v0] [Stats] Failed to track indication in DB:`, e instanceof Error ? e.message : String(e))
   }
 
   // Also track in Redis for dashboard counts
@@ -32,10 +32,12 @@ export async function trackIndicationStats(
     
     // Add to type-specific set
     await client.sadd(`indications:${connectionId}:${indicationType}`, indicationId)
-    // Add to main indications set
+    // Add to main indications set  
     await client.sadd(`indications:${connectionId}`, indicationId)
+    
+    console.log(`[v0] [Stats] Tracked indication: ${connectionId} ${symbol} ${indicationType}`)
   } catch (e) {
-    // Silently fail - Redis is optional
+    console.error(`[v0] [Stats] Failed to track indication in Redis:`, e instanceof Error ? e.message : String(e))
   }
 }
 

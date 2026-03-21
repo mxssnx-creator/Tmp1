@@ -304,6 +304,7 @@ export class IndicationProcessor {
         // Batch save all indications at once instead of one-by-one
         if (indications.length > 0) {
           await saveIndication(connKey, indications[0]) // Single write with latest
+          console.log(`[v0] [IndicationProcessor] Saved ${indications.length} indications for ${symbol}`)
           
           // Track each indication to database for statistics and historical analysis
           for (const indication of indications) {
@@ -316,12 +317,12 @@ export class IndicationProcessor {
                 indication.confidence
               )
             } catch (e) {
-              // Silently fail - non-critical
+              console.warn(`[v0] [IndicationProcessor] Failed to track indication:`, e)
             }
           }
         }
       } catch (redisErr) {
-        // Silently fail - non-critical for realtime processing
+        console.error(`[v0] [IndicationProcessor] Redis error saving indications:`, redisErr)
       }
 
       return indications

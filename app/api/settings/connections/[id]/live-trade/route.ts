@@ -32,50 +32,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const connName = connection.name
     console.log(`[v0] [LiveTrade] Found connection: ${connName} (${connection.exchange})`)
 
-    // If enabling, check prerequisites
+    // If enabling, check prerequisites - LIVE TRADE IS INDEPENDENT
+    // It mirrors exchange positions without requiring main engine
     if (isLiveTrade) {
       console.log(`[v0] [LiveTrade] Checking prerequisites for enabling ${connName}...`)
       
-      // Check 1: Global Trade Engine running
+      // Check: Connection must have credentials for exchange API calls
       const client = getRedisClient()
-      const globalState = await client.hgetall("trade_engine:global")
-      const globalRunning = globalState?.status === "running"
-      console.log(`[v0] [LiveTrade]   - Global engine running: ${globalRunning}`)
+      const apiKey = (connection.api_key || connection.apiKey || "") as string
+      const apiSecret = (connection.api_secret || connection.apiSecret || "") as string
+      const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
+      console.log(`[v0] [LiveTrade]   - Has API credentials: ${hasCredentials}`)
       
-      if (!globalRunning) {
-        console.log(`[v0] [LiveTrade] ✗ Prerequisite failed: Global Trade Engine not running`)
+      if (!hasCredentials) {
+        console.log(`[v0] [LiveTrade] ✗ Prerequisite failed: No API credentials`)
         return NextResponse.json({ 
           success: false,
-          error: "Global Trade Engine must be running first",
-          hint: "Start the Global Trade Engine Coordinator before enabling individual connections"
+          error: "API credentials required for live trading",
+          hint: "Add API key and secret in Settings to enable live trading"
         }, { status: 400 })
       }
 
-      // Check 2: Connection enabled in Settings
-      const isEnabled = isTruthyFlag(connection.is_enabled)
-      console.log(`[v0] [LiveTrade]   - Connection enabled in Settings: ${isEnabled}`)
-      
-      if (!isEnabled) {
-        console.log(`[v0] [LiveTrade] ✗ Prerequisite failed: Connection not enabled in Settings`)
-        return NextResponse.json({ 
-          success: false,
-          error: "Connection must be enabled in Settings first" 
-        }, { status: 400 })
-      }
-
-      // Check 3: Connection active on Dashboard
-      const isActive = isTruthyFlag(connection.is_enabled_dashboard)
-      console.log(`[v0] [LiveTrade]   - Connection active on Dashboard: ${isActive}`)
-      
-      if (!isActive) {
-        console.log(`[v0] [LiveTrade] ✗ Prerequisite failed: Connection not added to Active Connections`)
-        return NextResponse.json({ 
-          success: false,
-          error: "Connection must be added to Active Connections first" 
-        }, { status: 400 })
-      }
-
-      console.log(`[v0] [LiveTrade] ✓ All prerequisites met for ${connName}`)
+      console.log(`[v0] [LiveTrade] ✓ Prerequisites met for ${connName} - starting independent live trade engine`)
     }
 
     // Update connection with is_live_trade flag
@@ -105,13 +83,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           connectionId,
           connection_name: latestConnection?.name || connName,
           exchange: latestConnection?.exchange || connection.exchange,
+          engine_type: "live", // Independent live trade engine for exchange position mirroring
           indicationInterval: settings?.mainEngineIntervalMs ? settings.mainEngineIntervalMs / 1000 : 1,
           strategyInterval: settings?.strategyUpdateIntervalMs ? settings.strategyUpdateIntervalMs / 1000 : 1,
           realtimeInterval: settings?.realtimeIntervalMs ? settings.realtimeIntervalMs / 1000 : 0.2,
         })
         
         engineStatus = "running"
-        console.log(`[v0] [LiveTrade] ✓ Live trading engine started successfully for ${connName}`)
+        console.log(`[v0] [LiveTrade] ✓ INDEPENDENT Live trading engine started for ${connName} (exchange position mirroring)`)
         
         await SystemLogger.logConnection(
           `Live Trading enabled via UI toggle`,

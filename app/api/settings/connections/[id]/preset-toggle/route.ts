@@ -26,29 +26,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Connection not found" }, { status: 404 })
     }
 
-    // Check if Global Trade Engine Coordinator is running
+    // Check if connection has credentials - PRESET MODE IS INDEPENDENT
+    // It runs preset strategies without requiring main engine
     if (isPresetTrade) {
       const client = getRedisClient()
-      const globalState = await client.hgetall("trade_engine:global")
-      const globalRunning = globalState?.status === "running"
-      if (!globalRunning) {
+      const apiKey = (connection.api_key || connection.apiKey || "") as string
+      const apiSecret = (connection.api_secret || connection.apiSecret || "") as string
+      const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
+      
+      if (!hasCredentials) {
         return NextResponse.json({ 
-          error: "Global Trade Engine must be running first",
-          hint: "Start the Global Trade Engine Coordinator before enabling preset engines."
+          error: "API credentials required for preset trading",
+          hint: "Add API key and secret in Settings to enable preset trading"
         }, { status: 400 })
       }
-    }
-
-    // Check if connection is enabled AND active on dashboard
-    const isEnabled = isTruthyFlag(connection.is_enabled)
-    const isActive = isTruthyFlag(connection.is_enabled_dashboard)
-
-    if (!isEnabled) {
-      return NextResponse.json({ error: "Connection must be enabled first" }, { status: 400 })
-    }
-
-    if (!isActive) {
-      return NextResponse.json({ error: "Connection must be added to Active Connections first" }, { status: 400 })
+      
+      console.log(`[v0] [Preset] Prerequisites met - starting independent preset engine`)
     }
 
     // Update connection with is_preset_trade flag

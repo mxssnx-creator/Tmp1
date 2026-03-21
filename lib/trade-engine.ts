@@ -242,6 +242,7 @@ export class GlobalTradeEngineCoordinator {
             
             const config: EngineConfig = {
               connectionId: connection.id,
+              engine_type: "main", // Main Trade Engine for indications, strategies, pseudo positions
               indicationInterval: settings.mainEngineIntervalMs ? settings.mainEngineIntervalMs / 1000 : 5,
               strategyInterval: settings.strategyUpdateIntervalMs ? settings.strategyUpdateIntervalMs / 1000 : 10,
               realtimeInterval: settings.realtimeIntervalMs ? settings.realtimeIntervalMs / 1000 : 3,
@@ -250,8 +251,9 @@ export class GlobalTradeEngineCoordinator {
             await this.startEngine(connection.id, config)
             started++
             
-            await logProgressionEvent(connection.id, "engine_started", "info", "Engine started by coordinator", {
+            await logProgressionEvent(connection.id, "engine_started", "info", "Main Trade Engine started for progression", {
               connectionId: connection.id,
+              engineType: "main",
               config,
             })
           } catch (error) {

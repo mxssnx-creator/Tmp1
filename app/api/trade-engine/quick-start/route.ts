@@ -225,16 +225,17 @@ export async function POST(request: Request) {
       count: symbols.length,
     })
     
-    // Step 3: Update connection state
+    // Step 3: Update connection state - DON'T auto-enable dashboard/main connections
+    // User must manually add to main connections and enable them
     console.log(`${LOG_PREFIX}: [3/4] Updating connection state...`)
     const enabled = {
       ...connection,
-      is_enabled: "1",
-      is_enabled_dashboard: "1",
-      is_dashboard_inserted: "1",
-      is_active_inserted: "1",
-      is_active: "1",
-      is_inserted: "1",
+      is_enabled: "1",  // Enable in Settings (base connection)
+      is_enabled_dashboard: "0",  // NOT enabled in main connections by default
+      is_dashboard_inserted: "0",  // NOT inserted in main connections by default
+      is_active_inserted: "0",  // NOT in active panel by default
+      is_active: "0",
+      is_inserted: "1",  // But it IS inserted as a base connection
       is_testnet: false,
       active_symbols: JSON.stringify(symbols),
       last_test_status: testPassed ? "success" : "failed",
@@ -243,7 +244,7 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }
     await updateConnection(connectionId, enabled)
-    console.log(`${LOG_PREFIX}: [3/4] Connection added to Active panel`)
+    console.log(`${LOG_PREFIX}: [3/4] Connection configured (user must manually add to Main Connections to start trading)`)
     
     await logProgressionEvent(connectionId, "quickstart_updated", "info", "Connection state updated", {
       is_enabled: "1",
@@ -323,8 +324,8 @@ export async function POST(request: Request) {
       },
       status: hasCredentials ? "ready_with_credentials" : "ready_without_credentials",
       nextSteps: hasCredentials 
-        ? "Toggle 'Enable' on dashboard to start live trading"
-        : "Add API credentials in Settings > Connections > Edit, then toggle Enable",
+        ? "Connection is ready. Go to Dashboard > Main Connections > Add this connection and enable it to start trading."
+        : "Add API credentials in Settings > Connections > Edit, then go to Dashboard > Main Connections to add and enable.",
       duration: totalDuration,
       logs: allLogs.slice(0, 50),
       logsCount: allLogs.length,

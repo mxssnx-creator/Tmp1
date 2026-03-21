@@ -186,9 +186,9 @@ export async function toggleActiveConnection(connectionId: string, isActive: boo
 function getDefaultActiveConnections(): ActiveConnection[] {
   const now = new Date().toISOString()
   return [
-    { id: "active-bybit-x03", connectionId: "bybit-x03", exchangeName: "Bybit", isActive: true, isBaseEnabled: true, addedAt: now },
-    { id: "active-bingx-x01", connectionId: "bingx-x01", exchangeName: "BingX", isActive: true, isBaseEnabled: true, addedAt: now },
-    { id: "active-binance-x01", connectionId: "binance-x01", exchangeName: "Binance", isActive: false, isBaseEnabled: true, addedAt: now },
-    { id: "active-okx-x01", connectionId: "okx-x01", exchangeName: "OKX", isActive: false, isBaseEnabled: true, addedAt: now },
+    { id: "active-bybit-x03", connectionId: "bybit-x03", exchangeName: "Bybit", isActive: false, isBaseEnabled: true, addedAt: now },
+    { id: "active-bingx-x01", connectionId: "bingx-x01", exchangeName: "BingX", isActive: false, isBaseEnabled: true, addedAt: now },
+    { id: "active-pionex-x01", connectionId: "pionex-x01", exchangeName: "Pionex", isActive: false, isBaseEnabled: true, addedAt: now },
+    { id: "active-orangex-x01", connectionId: "orangex-x01", exchangeName: "OrangeX", isActive: false, isBaseEnabled: true, addedAt: now },
   ]
 }

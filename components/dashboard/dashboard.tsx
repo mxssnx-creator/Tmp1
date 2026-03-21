@@ -11,10 +11,89 @@ import { IntervalsStrategiesOverview } from "./intervals-strategies-overview"
 import { StatisticsOverviewV2 } from "./statistics-overview-v2"
 import { SystemMonitoringPanel } from "./system-monitoring-panel"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { RefreshCw } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { RefreshCw, Activity, Pause, Square, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import type { ExchangeConnection } from "@/lib/types"
+
+// Global Coordinator Status Component
+function GlobalCoordinatorStatus() {
+  const [status, setStatus] = useState<{ running: boolean; paused: boolean; status: string } | null>(null)
+
+  useEffect(() => {
+    const loadStatus = async () => {
+      try {
+        const res = await fetch("/api/trade-engine/status", { cache: "no-store" })
+        if (res.ok) {
+          const data = await res.json()
+          setStatus({
+            running: data.running === true || data.running === "true" || data.status === "running",
+            paused: data.paused === true || data.paused === "true",
+            status: data.status || "unknown",
+          })
+        }
+      } catch (e) {
+        console.warn("[v0] Failed to load coordinator status:", e)
+      }
+    }
+    loadStatus()
+    const interval = setInterval(loadStatus, 2000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (!status) return null
+
+  const getStatusDisplay = () => {
+    if (!status.running) {
+      return { 
+        label: "Stopped", 
+        color: "bg-red-500/10 text-red-600 border-red-200", 
+        icon: Square,
+        desc: "Global coordinator is stopped. Start to begin trading."
+      }
+    }
+    if (status.paused) {
+      return { 
+        label: "Paused", 
+        color: "bg-yellow-500/10 text-yellow-600 border-yellow-200", 
+        icon: Pause,
+        desc: "All engines are paused. Resume to continue trading."
+      }
+    }
+    return { 
+      label: "Running", 
+      color: "bg-green-500/10 text-green-600 border-green-200", 
+      icon: Activity,
+      desc: "Global coordinator is running. Engines will process based on main connection settings."
+    }
+  }
+
+  const display = getStatusDisplay()
+  const Icon = display.icon
+
+  return (
+    <Card className={`border ${display.color} mb-4`}>
+      <CardContent className="py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Icon className="h-5 w-5" />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">Global Trade Coordinator:</span>
+              <Badge variant="outline" className={display.color}>{display.label}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">{display.desc}</p>
+          </div>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {!status.running && <span className="text-orange-500">Click Start to enable trading</span>}
+          {status.running && !status.paused && <span className="text-green-600">Processing based on main connections</span>}
+          {status.paused && <span className="text-yellow-600">Engines paused - click Resume to continue</span>}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 // Error Boundary Component
 interface ErrorBoundaryProps {
@@ -155,6 +234,11 @@ export function Dashboard() {
           Refresh
         </Button>
       </div>
+
+      {/* Global Coordinator Status - Shows at top of page */}
+      <ErrorBoundary name="Global Coordinator Status">
+        <GlobalCoordinatorStatus />
+      </ErrorBoundary>
 
       {/* Smart Overview - Comprehensive system status */}
       <ErrorBoundary name="System Overview">

@@ -465,9 +465,9 @@ const migrations: Migration[] = [
     up: async (client: any) => {
       await client.set("_schema_version", "15")
       
-      // The 4 base exchanges that should be marked as INSERTED and ENABLED
-      // Using bybit, bingx, pionex, orangex as specified
-      const baseExchangeIds = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"]
+      // The 2 base exchanges that should be marked as INSERTED and ENABLED
+      // Main connections are ONLY bybit and bingx
+      const baseExchangeIds = ["bybit-x03", "bingx-x01"]
       
       const connections = await client.smembers("connections")
       let updatedBase = 0
@@ -519,9 +519,9 @@ const migrations: Migration[] = [
     up: async (client: any) => {
       await client.set("_schema_version", "16")
       
-      // Migration 016: Ensure all 4 base connections are properly set up with predefined real credentials
-      // Base connections: bybit, bingx, pionex, orangex - should be INSERTED and ENABLED
-      const baseTemplateIds = ["bybit-x03", "bingx-x01", "pionex-x01", "orangex-x01"]
+      // Migration 016: Ensure the 2 base connections are properly set up with predefined real credentials
+      // Base connections: bybit, bingx only - should be INSERTED and ENABLED
+      const baseTemplateIds = ["bybit-x03", "bingx-x01"]
       
       const connections = await client.smembers("connections") || []
       let updatedTemplates = 0
@@ -577,6 +577,62 @@ const migrations: Migration[] = [
     },
     down: async (client: any) => {
       await client.set("_schema_version", "15")
+    },
+  },
+  {
+    name: "017-cleanup-base-connections-to-bybit-bingx-only",
+    version: 17,
+    up: async (client: any) => {
+      await client.set("_schema_version", "17")
+      
+      // Cleanup migration: Reset all connections to proper state
+      // Only bybit-x03 and bingx-x01 should be base connections (inserted=1, enabled=1)
+      // All others (pionex, orangex, binance, etc) should be templates only (inserted=0, enabled=0)
+      const baseExchangeIds = ["bybit-x03", "bingx-x01"]
+      
+      const connections = await client.smembers("connections")
+      let cleanedBase = 0
+      let cleanedTemplates = 0
+      
+      for (const connId of connections) {
+        const connData = await client.hgetall(`connection:${connId}`)
+        if (!connData || Object.keys(connData).length === 0) continue
+        
+        if (baseExchangeIds.includes(connId)) {
+          // Base connection: ensure proper state
+          await client.hset(`connection:${connId}`, {
+            is_inserted: "1",
+            is_enabled: "1",
+            is_active_inserted: "1",
+            is_enabled_dashboard: "0",    // UI toggle OFF by default
+            is_active: "0",
+            is_predefined: "1",
+            connection_method: "library",
+            updated_at: new Date().toISOString(),
+          })
+          cleanedBase++
+          console.log(`[v0] Migration 017: ✓ ${connId} -> corrected to base connection state`)
+        } else {
+          // Non-base connection: ensure template state
+          // Reset to template-only state to prevent auto-assignment
+          await client.hset(`connection:${connId}`, {
+            is_inserted: "0",
+            is_enabled: "0",
+            is_active_inserted: "0",
+            is_enabled_dashboard: "0",
+            is_active: "0",
+            is_predefined: "1",
+            updated_at: new Date().toISOString(),
+          })
+          cleanedTemplates++
+          console.log(`[v0] Migration 017: ✓ ${connId} -> corrected to template-only state`)
+        }
+      }
+      
+      console.log(`[v0] Migration 017: COMPLETE - ${cleanedBase} base connections, ${cleanedTemplates} templates cleaned up`)
+    },
+    down: async (client: any) => {
+      await client.set("_schema_version", "16")
     },
   },
 ]

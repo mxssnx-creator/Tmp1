@@ -20,7 +20,8 @@ export const RedisConnections = {
       args.push(k, v)
     }
     await client.hmset(key, ...args)
-    await client.sadd("connections:all", conn.id)
+    // Use "connections" (consistent with redis-db.ts and migrations)
+    await client.sadd("connections", conn.id)
     return conn
   },
 
@@ -32,7 +33,8 @@ export const RedisConnections = {
 
   async getAllConnections() {
     const client = getRedisClient()
-    const ids = (await client.smembers("connections:all")) || []
+    // Use "connections" (consistent with redis-db.ts and migrations)
+    const ids = (await client.smembers("connections")) || []
     const connections = []
     for (const id of ids) {
       const conn = await this.getConnection(id)
@@ -63,7 +65,8 @@ export const RedisConnections = {
   async deleteConnection(id: string) {
     const client = getRedisClient()
     await client.del(`connection:${id}`)
-    await client.srem("connections:all", id)
+    // Use "connections" (consistent with redis-db.ts and migrations)
+    await client.srem("connections", id)
     await client.srem("connections:active", id)
   },
 }
@@ -148,16 +151,18 @@ export const RedisCache = {
 
   async get(key: string) {
     const client = getRedisClient()
-    const data = await client.get(`settings:${key}`)
+    // Fixed: use cache: prefix to match set() method
+    const data = await client.get(`cache:${key}`)
     return data ? JSON.parse(data) : null
   },
 
   async getAll() {
     const client = getRedisClient()
-    const keys = await client.keys("settings:*")
+    // Fixed: use cache: prefix
+    const keys = await client.keys("cache:*")
     const settings: Record<string, any> = {}
     for (const key of keys) {
-      const settingKey = key.replace("settings:", "")
+      const settingKey = key.replace("cache:", "")
       const data = await client.get(key)
       if (data) {
         try {

@@ -601,7 +601,9 @@ export async function getSettings(key: string): Promise<any | null> {
   try {
     return JSON.parse(value)
   } catch {
-    return value
+    // Return null on parse failure to maintain consistent return type
+    console.warn(`[v0] [Redis] getSettings: Failed to parse ${key}, returning null`)
+    return null
   }
 }
 
@@ -663,12 +665,44 @@ export async function deleteSettings(key: string): Promise<void> {
 export async function flushAll(): Promise<void> {
   // Clear all data - dangerous operation
   const client = getClient()
-  const keys = await client.smembers("connections")
-  for (const k of keys) {
+  
+  // Clear all connection data
+  const connKeys = await client.smembers("connections")
+  for (const k of connKeys) {
     await client.del(`connection:${k}`)
   }
-  // Note: This is a simplified flush - in production would iterate all keys
-  console.log("[v0] [Redis] flushAll called - cleared connections")
+  await client.del("connections")
+  
+  // Clear all other data sets
+  const dataSets = [
+    "connections:bybit", "connections:bingx", "connections:pionex", "connections:orangex",
+    "connections:active", "connections:inactive",
+    "trades:all", "trades:open", "trades:closed", "trades:pending",
+    "positions:all", "positions:open", "positions:closed",
+    "indications", "strategies", "presets",
+  ]
+  
+  for (const setKey of dataSets) {
+    const keys = await client.smembers(setKey).catch(() => [])
+    for (const key of keys) {
+      await client.del(`${setKey}:${key}`)
+    }
+    await client.del(setKey)
+  }
+  
+  // Clear all settings
+  const allKeys = await client.keys("settings:*").catch(() => [])
+  for (const key of allKeys) {
+    await client.del(key)
+  }
+  
+  // Clear all cache
+  const cacheKeys = await client.keys("cache:*").catch(() => [])
+  for (const key of cacheKeys) {
+    await client.del(key)
+  }
+  
+  console.log("[v0] [Redis] flushAll called - cleared all data")
 }
 
 export async function getIndications(connectionId: string): Promise<any[]> {

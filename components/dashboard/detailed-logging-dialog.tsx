@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { FileText, ChevronDown, ChevronRight, Activity, TrendingUp, Database, Clock, RefreshCw } from "lucide-react"
+import { FileText, ChevronDown, ChevronRight, Activity, TrendingUp, Database, Clock, RefreshCw, Layers, BarChart3, History, GitBranch } from "lucide-react"
 import { useExchange } from "@/lib/exchange-context"
 
 interface LogEntry {
@@ -95,6 +95,7 @@ export function DetailedLoggingDialog() {
   const [loading, setLoading] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<string>("all")
+  const [activeTab, setActiveTab] = useState<"logs" | "data">("logs")
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -173,24 +174,194 @@ export function DetailedLoggingDialog() {
           </DialogTitle>
         </DialogHeader>
 
-        {/* Filters */}
-        <div className="flex gap-1 flex-wrap">
-          {["all", "indication", "strategy", "position", "engine", "error"].map(f => (
-            <Button
-              key={f}
-              variant={filter === f ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilter(f)}
-              className="text-xs h-7"
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </Button>
-          ))}
+        {/* Tabs */}
+        <div className="flex gap-1 border-b">
+          <Button
+            variant={activeTab === "logs" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("logs")}
+            className={`rounded-b-none gap-1 ${activeTab === "logs" ? "" : "text-muted-foreground"}`}
+          >
+            <FileText className="h-3 w-3" />
+            Logs
+          </Button>
+          <Button
+            variant={activeTab === "data" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("data")}
+            className={`rounded-b-none gap-1 ${activeTab === "data" ? "" : "text-muted-foreground"}`}
+          >
+            <Database className="h-3 w-3" />
+            Data
+          </Button>
         </div>
 
-        {/* Logs ScrollArea */}
+        {/* Filters - only show for logs tab */}
+        {activeTab === "logs" && (
+          <div className="flex gap-1 flex-wrap">
+            {["all", "indication", "strategy", "position", "engine", "error"].map(f => (
+              <Button
+                key={f}
+                variant={filter === f ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilter(f)}
+                className="text-xs h-7"
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </Button>
+            ))}
+          </div>
+        )}
+
+        {/* Main Content - Logs or Data */}
         <ScrollArea className="flex-1 min-h-[300px] border rounded-md p-2">
-          {filteredLogs.length === 0 ? (
+          {activeTab === "data" ? (
+            <div className="space-y-4 p-2">
+              {summary ? (
+                <>
+                  {/* Prehistoric Data Section */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-700">
+                      <History className="h-4 w-4" />
+                      Prehistoric Data
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-amber-50 rounded p-2 text-center">
+                        <div className="text-amber-700 font-bold text-lg">{summary.prehistoricSymbols}</div>
+                        <div className="text-muted-foreground text-[10px]">Symbols Loaded</div>
+                      </div>
+                      <div className="bg-amber-50 rounded p-2 text-center">
+                        <div className="text-amber-700 font-bold text-lg">{summary.prehistoricDataSize}</div>
+                        <div className="text-muted-foreground text-[10px]">Data Keys</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Intervals Processed */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-blue-700">
+                      <Layers className="h-4 w-4" />
+                      Intervals Processed
+                    </div>
+                    <div className="bg-blue-50 rounded p-2 text-center">
+                      <div className="text-blue-700 font-bold text-lg">{summary.intervalsProcessed}</div>
+                      <div className="text-muted-foreground text-[10px]">Total Intervals</div>
+                    </div>
+                  </div>
+
+                  {/* Indications by Type */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+                      <BarChart3 className="h-4 w-4" />
+                      Indications by Type
+                    </div>
+                    <div className="grid grid-cols-5 gap-1">
+                      <div className="bg-purple-50 rounded p-2 text-center">
+                        <div className="text-purple-700 font-bold">{summary.indicationsByType.direction}</div>
+                        <div className="text-muted-foreground text-[8px]">Direction</div>
+                      </div>
+                      <div className="bg-purple-50 rounded p-2 text-center">
+                        <div className="text-purple-700 font-bold">{summary.indicationsByType.move}</div>
+                        <div className="text-muted-foreground text-[8px]">Move</div>
+                      </div>
+                      <div className="bg-purple-50 rounded p-2 text-center">
+                        <div className="text-purple-700 font-bold">{summary.indicationsByType.active}</div>
+                        <div className="text-muted-foreground text-[8px]">Active</div>
+                      </div>
+                      <div className="bg-purple-50 rounded p-2 text-center">
+                        <div className="text-purple-700 font-bold">{summary.indicationsByType.optimal}</div>
+                        <div className="text-muted-foreground text-[8px]">Optimal</div>
+                      </div>
+                      <div className="bg-purple-50 rounded p-2 text-center">
+                        <div className="text-purple-700 font-bold">{summary.indicationsByType.auto}</div>
+                        <div className="text-muted-foreground text-[8px]">Auto</div>
+                      </div>
+                    </div>
+                    <div className="bg-purple-100 rounded p-1 text-center text-xs">
+                      <span className="font-bold text-purple-800">{summary.indicationsByType.total}</span>
+                      <span className="text-purple-600"> total indications</span>
+                    </div>
+                  </div>
+
+                  {/* Pseudo Positions */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-green-700">
+                      <GitBranch className="h-4 w-4" />
+                      Pseudo Positions
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      <div className="bg-green-50 rounded p-2 text-center">
+                        <div className="text-green-700 font-bold">{summary.pseudoPositions.base}</div>
+                        <div className="text-muted-foreground text-[8px]">Base</div>
+                      </div>
+                      <div className="bg-green-50 rounded p-2 text-center">
+                        <div className="text-green-700 font-bold">{summary.pseudoPositions.main}</div>
+                        <div className="text-muted-foreground text-[8px]">Main</div>
+                      </div>
+                      <div className="bg-green-50 rounded p-2 text-center">
+                        <div className="text-green-700 font-bold">{summary.pseudoPositions.real}</div>
+                        <div className="text-muted-foreground text-[8px]">Real</div>
+                      </div>
+                      <div className="bg-green-50 rounded p-2 text-center">
+                        <div className="text-green-700 font-bold">{summary.livePositions}</div>
+                        <div className="text-muted-foreground text-[8px]">Live</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Base Positions by Indication Type */}
+                  {summary.pseudoPositionsByType?.baseByIndication && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-cyan-700">
+                        <GitBranch className="h-4 w-4" />
+                        Base Pseudo by Indication Type
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        <div className="bg-cyan-50 rounded p-2 text-center">
+                          <div className="text-cyan-700 font-bold">{summary.pseudoPositionsByType.baseByIndication.direction}</div>
+                          <div className="text-muted-foreground text-[8px]">Direction</div>
+                        </div>
+                        <div className="bg-cyan-50 rounded p-2 text-center">
+                          <div className="text-cyan-700 font-bold">{summary.pseudoPositionsByType.baseByIndication.move}</div>
+                          <div className="text-muted-foreground text-[8px]">Move</div>
+                        </div>
+                        <div className="bg-cyan-50 rounded p-2 text-center">
+                          <div className="text-cyan-700 font-bold">{summary.pseudoPositionsByType.baseByIndication.active}</div>
+                          <div className="text-muted-foreground text-[8px]">Active</div>
+                        </div>
+                        <div className="bg-cyan-50 rounded p-2 text-center">
+                          <div className="text-cyan-700 font-bold">{summary.pseudoPositionsByType.baseByIndication.optimal}</div>
+                          <div className="text-muted-foreground text-[8px]">Optimal</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cycle Duration */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-orange-700">
+                      <Clock className="h-4 w-4" />
+                      Cycle Performance
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-orange-50 rounded p-2 text-center">
+                        <div className="text-orange-700 font-bold text-lg">{summary.cycleDurationMs}</div>
+                        <div className="text-muted-foreground text-[10px]">Last Cycle (ms)</div>
+                      </div>
+                      <div className="bg-orange-50 rounded p-2 text-center">
+                        <div className="text-orange-700 font-bold text-lg">{summary.avgCycleDuration}</div>
+                        <div className="text-muted-foreground text-[10px]">Avg Cycle (ms)</div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  No data available. Start the engine to see prehistoric data metrics.
+                </div>
+              )}
+            </div>
+          ) : filteredLogs.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               No logs available. Start the engine to see processing logs.
             </div>

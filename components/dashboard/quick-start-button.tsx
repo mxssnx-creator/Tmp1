@@ -39,10 +39,44 @@ interface FunctionalOverview {
   }
 }
 
+interface OverallStats {
+  symbols: {
+    count: number
+    processing: string[]
+    prehistoricLoaded: number
+    prehistoricDataSize: number
+  }
+  intervalsProcessed: number
+  indicationsByType: {
+    direction: number
+    move: number
+    active: number
+    optimal: number
+    auto: number
+    total: number
+  }
+  pseudoPositions: {
+    base: number
+    baseByIndicationType: {
+      direction: number
+      move: number
+      active: number
+      optimal: number
+    }
+    main: number
+    real: number
+    total: number
+  }
+  livePositions: number
+  cycleTimeMs: number
+  totalDurationMs: number
+}
+
 export function QuickStartButton({ onQuickStartComplete }: QuickStartButtonProps) {
   const { setSelectedConnectionId } = useExchange()
   const [isRunning, setIsRunning] = useState(false)
   const [functionalOverview, setFunctionalOverview] = useState<FunctionalOverview | null>(null)
+  const [overallStats, setOverallStats] = useState<OverallStats | null>(null)
   const [steps, setSteps] = useState<QuickStartStep[]>([
     { id: "init",    name: "Initialize System",              status: "pending" },
     { id: "migrate", name: "Run Migrations",                 status: "pending" },
@@ -140,6 +174,7 @@ export function QuickStartButton({ onQuickStartComplete }: QuickStartButtonProps
       }, true)
 
       // STEP 5: Enable BingX with 1 symbol (REQUIRED)
+      let quickStartResponse: any = null
       await runStep("enable", "STEP 5: Enable BingX (1 Symbol)", async () => {
         const res = await timedFetch("/api/trade-engine/quick-start", {
           method: "POST",
@@ -147,12 +182,16 @@ export function QuickStartButton({ onQuickStartComplete }: QuickStartButtonProps
           body: JSON.stringify({ action: "enable", symbols: ["BTCUSDT"] }),
         }, 25000)
         const d = await res.json().catch(() => ({}))
+        quickStartResponse = d
         console.log("[v0] [QuickStart] Enable response:", JSON.stringify(d))
         if (!res.ok && !d.success) throw new Error(d.error ?? `HTTP ${res.status}`)
         if (!d.success) throw new Error(d.error ?? "Enable returned failure")
         enabledConnectionId = d.connection?.id ?? null
         if (enabledConnectionId) {
           setSelectedConnectionId(enabledConnectionId)
+        }
+        if (d.overallStats) {
+          setOverallStats(d.overallStats)
         }
         const syms = Array.isArray(d.connection?.symbols)
           ? d.connection.symbols.join(", ")
@@ -298,36 +337,130 @@ export function QuickStartButton({ onQuickStartComplete }: QuickStartButtonProps
         </div>
 
         {/* Functional Overview - Displayed after successful completion */}
-        {functionalOverview && (
+        {(functionalOverview || overallStats) && (
           <div className="bg-green-50 rounded border border-green-200 p-3 text-xs">
             <p className="mb-2 font-semibold text-green-700">Functional Overview (System Ready):</p>
             <div className="grid grid-cols-2 gap-2 text-gray-700">
-              <div>
-                <span className="font-medium">Symbols Active:</span> {functionalOverview.symbolsActive}
+              {functionalOverview && (
+                <>
+                  <div>
+                    <span className="font-medium">Symbols Active:</span> {functionalOverview.symbolsActive}
+                  </div>
+                  <div>
+                    <span className="font-medium">Indication Cycles:</span> {functionalOverview.counts?.indicationCycles || functionalOverview.indicationsCalculated}
+                  </div>
+                  <div>
+                    <span className="font-medium">Strategy Cycles:</span> {functionalOverview.counts?.strategyCycles || 0}
+                  </div>
+                  <div>
+                    <span className="font-medium">Strategies Evaluated:</span> {functionalOverview.strategiesEvaluated}
+                  </div>
+                  <div>
+                    <span className="font-medium">Base Strategies:</span> {functionalOverview.counts?.baseStrategies || (functionalOverview.baseSetsCreated ? "Active" : "0")}
+                  </div>
+                  <div>
+                    <span className="font-medium">Main Strategies:</span> {functionalOverview.counts?.mainStrategies || (functionalOverview.mainSetsCreated ? "Active" : "0")}
+                  </div>
+                  <div>
+                    <span className="font-medium">Real Strategies:</span> {functionalOverview.counts?.realStrategies || (functionalOverview.realSetsCreated ? "Active" : "0")}
+                  </div>
+                  <div>
+                    <span className="font-medium">Live Strategies:</span> {functionalOverview.counts?.liveStrategies || (functionalOverview.liveSetsCreated ? "Active" : "0")}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="font-medium">DB Position Entries:</span> {functionalOverview.positionsEntriesCreated}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Data Overview - Comprehensive prehistoric and processing stats */}
+        {overallStats && (
+          <div className="bg-amber-50 rounded border border-amber-200 p-3 text-xs space-y-2">
+            <p className="mb-2 font-semibold text-amber-700">Data Overview (Prehistoric & Processing):</p>
+            
+            {/* Prehistoric Data */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-white rounded p-2 text-center">
+                <div className="text-amber-700 font-bold">{overallStats.symbols.prehistoricLoaded}</div>
+                <div className="text-muted-foreground text-[10px]">Prehistoric Symbols</div>
               </div>
-              <div>
-                <span className="font-medium">Indication Cycles:</span> {functionalOverview.counts?.indicationCycles || functionalOverview.indicationsCalculated}
+              <div className="bg-white rounded p-2 text-center">
+                <div className="text-amber-700 font-bold">{overallStats.symbols.prehistoricDataSize}</div>
+                <div className="text-muted-foreground text-[10px]">Data Keys</div>
               </div>
-              <div>
-                <span className="font-medium">Strategy Cycles:</span> {functionalOverview.counts?.strategyCycles || 0}
+            </div>
+
+            {/* Intervals */}
+            <div className="bg-white rounded p-2 text-center">
+              <div className="text-blue-700 font-bold">{overallStats.intervalsProcessed}</div>
+              <div className="text-muted-foreground text-[10px]">Intervals Processed</div>
+            </div>
+
+            {/* Indications by Type */}
+            <div className="space-y-1">
+              <div className="text-muted-foreground text-[10px] font-medium">Indications by Type:</div>
+              <div className="grid grid-cols-5 gap-1">
+                <div className="bg-purple-50 rounded p-1 text-center">
+                  <div className="text-purple-700 font-bold text-sm">{overallStats.indicationsByType.direction}</div>
+                  <div className="text-muted-foreground text-[8px]">Dir</div>
+                </div>
+                <div className="bg-purple-50 rounded p-1 text-center">
+                  <div className="text-purple-700 font-bold text-sm">{overallStats.indicationsByType.move}</div>
+                  <div className="text-muted-foreground text-[8px]">Move</div>
+                </div>
+                <div className="bg-purple-50 rounded p-1 text-center">
+                  <div className="text-purple-700 font-bold text-sm">{overallStats.indicationsByType.active}</div>
+                  <div className="text-muted-foreground text-[8px]">Act</div>
+                </div>
+                <div className="bg-purple-50 rounded p-1 text-center">
+                  <div className="text-purple-700 font-bold text-sm">{overallStats.indicationsByType.optimal}</div>
+                  <div className="text-muted-foreground text-[8px]">Opt</div>
+                </div>
+                <div className="bg-purple-50 rounded p-1 text-center">
+                  <div className="text-purple-700 font-bold text-sm">{overallStats.indicationsByType.auto}</div>
+                  <div className="text-muted-foreground text-[8px]">Auto</div>
+                </div>
               </div>
-              <div>
-                <span className="font-medium">Strategies Evaluated:</span> {functionalOverview.strategiesEvaluated}
+              <div className="text-center text-purple-600 text-[10px]">
+                Total: <span className="font-bold">{overallStats.indicationsByType.total}</span>
               </div>
-              <div>
-                <span className="font-medium">Base Strategies:</span> {functionalOverview.counts?.baseStrategies || (functionalOverview.baseSetsCreated ? "Active" : "0")}
+            </div>
+
+            {/* Pseudo Positions */}
+            <div className="space-y-1">
+              <div className="text-muted-foreground text-[10px] font-medium">Pseudo Positions:</div>
+              <div className="grid grid-cols-4 gap-1">
+                <div className="bg-green-50 rounded p-1 text-center">
+                  <div className="text-green-700 font-bold text-sm">{overallStats.pseudoPositions.base}</div>
+                  <div className="text-muted-foreground text-[8px]">Base</div>
+                </div>
+                <div className="bg-green-50 rounded p-1 text-center">
+                  <div className="text-green-700 font-bold text-sm">{overallStats.pseudoPositions.main}</div>
+                  <div className="text-muted-foreground text-[8px]">Main</div>
+                </div>
+                <div className="bg-green-50 rounded p-1 text-center">
+                  <div className="text-green-700 font-bold text-sm">{overallStats.pseudoPositions.real}</div>
+                  <div className="text-muted-foreground text-[8px]">Real</div>
+                </div>
+                <div className="bg-green-50 rounded p-1 text-center">
+                  <div className="text-green-700 font-bold text-sm">{overallStats.livePositions}</div>
+                  <div className="text-muted-foreground text-[8px]">Live</div>
+                </div>
               </div>
-              <div>
-                <span className="font-medium">Main Strategies:</span> {functionalOverview.counts?.mainStrategies || (functionalOverview.mainSetsCreated ? "Active" : "0")}
+            </div>
+
+            {/* Timing */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-orange-50 rounded p-2 text-center">
+                <div className="text-orange-700 font-bold">{overallStats.cycleTimeMs}</div>
+                <div className="text-muted-foreground text-[10px]">Cycle Time (ms)</div>
               </div>
-              <div>
-                <span className="font-medium">Real Strategies:</span> {functionalOverview.counts?.realStrategies || (functionalOverview.realSetsCreated ? "Active" : "0")}
-              </div>
-              <div>
-                <span className="font-medium">Live Strategies:</span> {functionalOverview.counts?.liveStrategies || (functionalOverview.liveSetsCreated ? "Active" : "0")}
-              </div>
-              <div className="col-span-2">
-                <span className="font-medium">DB Position Entries:</span> {functionalOverview.positionsEntriesCreated}
+              <div className="bg-orange-50 rounded p-2 text-center">
+                <div className="text-orange-700 font-bold">{overallStats.totalDurationMs}</div>
+                <div className="text-muted-foreground text-[10px]">Total Duration (ms)</div>
               </div>
             </div>
           </div>

@@ -32,6 +32,9 @@ export interface ActiveConnection {
  * - ANY connection with is_enabled_dashboard=1 -- user-activated connections
  * isActive = is_enabled_dashboard (the active toggle, independent from Settings)
  */
+// Only bybit and bingx shown in main connections by default
+const MAIN_DEFAULT_EXCHANGES = ["bybit", "bingx"]
+
 export async function loadActiveConnections(): Promise<ActiveConnection[]> {
   try {
     await initRedis()
@@ -46,9 +49,10 @@ export async function loadActiveConnections(): Promise<ActiveConnection[]> {
       const isDashboardActive = conn.is_enabled_dashboard === true || conn.is_enabled_dashboard === "1" || conn.is_enabled_dashboard === "true"
       const isSettingsEnabled = conn.is_enabled === true || conn.is_enabled === "1" || conn.is_enabled === "true"
       const isBase = BASE_EXCHANGES.includes(exchange)
+      const isMainDefault = MAIN_DEFAULT_EXCHANGES.includes(exchange)
 
-      // Show if: it's a base exchange, OR it's inserted, OR it's dashboard-active
-      if (isBase || isInserted || isDashboardActive) {
+      // Show if: it's a main default exchange (bybit/bingx), OR it's dashboard-active (user added)
+      if ((isBase && isMainDefault) || isDashboardActive) {
         if (seenIds.has(conn.id)) continue
         seenIds.add(conn.id)
 
@@ -188,7 +192,5 @@ function getDefaultActiveConnections(): ActiveConnection[] {
   return [
     { id: "active-bybit-x03", connectionId: "bybit-x03", exchangeName: "Bybit", isActive: false, isBaseEnabled: true, addedAt: now },
     { id: "active-bingx-x01", connectionId: "bingx-x01", exchangeName: "BingX", isActive: false, isBaseEnabled: true, addedAt: now },
-    { id: "active-pionex-x01", connectionId: "pionex-x01", exchangeName: "Pionex", isActive: false, isBaseEnabled: true, addedAt: now },
-    { id: "active-orangex-x01", connectionId: "orangex-x01", exchangeName: "OrangeX", isActive: false, isBaseEnabled: true, addedAt: now },
   ]
 }

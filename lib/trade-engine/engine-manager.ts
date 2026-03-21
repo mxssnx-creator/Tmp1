@@ -3,7 +3,7 @@
  * Manages asynchronous processing for symbols, indications, pseudo positions, and strategies
  */
 
-import { getSettings, setSettings, getAllConnections, getRedisClient } from "@/lib/redis-db"
+import { getSettings, setSettings, getAllConnections, getRedisClient, initRedis } from "@/lib/redis-db"
 import { DataSyncManager } from "@/lib/data-sync-manager"
 import { IndicationProcessor } from "./indication-processor"
 import { StrategyProcessor } from "./strategy-processor"
@@ -80,6 +80,9 @@ export class TradeEngineManager {
     console.log(`[v0] [EngineManager] Config: indication=${config.indicationInterval}s, strategy=${config.strategyInterval}s, realtime=${config.realtimeInterval}s`)
 
     try {
+      // Ensure Redis is initialized before using it
+      await initRedis()
+      
       // Initialize progression state in Redis if not exists
       try {
         const client = getRedisClient()

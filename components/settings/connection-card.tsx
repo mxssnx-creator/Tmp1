@@ -535,6 +535,11 @@ export function ConnectionCard({
                       <SelectItem value="unified">Unified</SelectItem>
                     </SelectContent>
                   </Select>
+                  {(connection.exchange === "bingx" || connection.exchange === "pionex" || connection.exchange === "orangex") && editFormData.api_type === "spot" && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Warning: Spot API will show 0 balance if you have Perpetual Futures positions. Use "perpetual_futures" for futures trading.
+                    </p>
+                  )}
                 </div>
 
                 {editFormData.api_type === "unified" && (

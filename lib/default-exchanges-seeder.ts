@@ -68,7 +68,10 @@ export async function ensureDefaultExchangesExist() {
         id: cfg.id,
         name: existing?.name || cfg.name,
         exchange: cfg.exchange,
-        api_type: existing?.api_type || cfg.apiType,
+        // Enforce perpetual_futures for base BingX/Pionex/OrangeX connections - Spot API returns 0 balance for perpetual positions
+        api_type: (cfg.exchange === "bingx" || cfg.exchange === "pionex" || cfg.exchange === "orangex") 
+          ? "perpetual_futures" 
+          : (existing?.api_type || cfg.apiType),
         contract_type: existing?.contract_type || cfg.contractType,
         connection_method: existing?.connection_method || cfg.connectionMethod,
         connection_library: existing?.connection_library || cfg.connectionLibrary,

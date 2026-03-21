@@ -244,6 +244,11 @@ export function ConnectionEditDialog({ isOpen, connection, onClose, onSave }: Co
                       ))}
                     </SelectContent>
                   </Select>
+                  {(formData.exchange === "bingx" || formData.exchange === "pionex" || formData.exchange === "orangex") && formData.api_type === "spot" && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Warning: Spot API will show 0 balance if you have Perpetual Futures positions. Use "perpetual_futures" for futures trading.
+                    </p>
+                  )}
                 </div>
 
                 {formData.api_type === "unified" && EXCHANGE_SUBTYPES[formData.exchange] && EXCHANGE_SUBTYPES[formData.exchange].length > 0 && (

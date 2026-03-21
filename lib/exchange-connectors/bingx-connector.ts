@@ -112,7 +112,9 @@ export class BingXConnector extends BaseExchangeConnector {
       if (apiType === "spot") {
         endpoint = "/openApi/spot/v1/account/balance"
         this.log("Contract Type: SPOT → Using /openApi/spot/v1/account/balance")
+        this.log("⚠️ WARNING: Spot API will return 0 balance if you have Perpetual Futures positions!")
         console.log("[v0] [BingX] Contract Type: SPOT → Endpoint: /openApi/spot/v1/account/balance")
+        console.log("[v0] [BingX] ⚠️ WARNING: Spot API returns 0 balance for Perpetual Futures positions. Use 'perpetual_futures' API type if you trade perpetual futures.")
       } else if (apiType === "perpetual_futures" || apiType === "futures") {
         endpoint = "/openApi/swap/v3/user/balance"
         this.log("Contract Type: PERPETUAL FUTURES → Using /openApi/swap/v3/user/balance")

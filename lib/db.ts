@@ -118,6 +118,31 @@ async function routeQuery(queryText: string, params: any[] = []): Promise<{ rows
       return { rows: items, rowCount: items.length }
     }
 
+    // ---- SELECT FROM indications ----
+    if (upper.includes("FROM INDICATIONS")) {
+      const client = getRedisClient()
+      
+      if (upper.includes("WHERE") && params.length > 0) {
+        // Get indications for a specific connection
+        const connId = params[0]
+        const keys = await client.keys(`indications:${connId}:*`)
+        const items: any[] = []
+        for (const key of keys.slice(0, 100)) {
+          const data = await client.get(key)
+          if (data) {
+            try {
+              items.push(JSON.parse(data))
+            } catch {
+              items.push({ key, data })
+            }
+          }
+        }
+        return { rows: items, rowCount: items.length }
+      }
+      
+      return { rows: [], rowCount: 0 }
+    }
+
     // ---- SELECT FROM preset_types / presets / strategies ----
     if (upper.includes("FROM PRESET_TYPES") || upper.includes("FROM PRESETS") || upper.includes("FROM STRATEGIES")) {
       const client = getRedisClient()

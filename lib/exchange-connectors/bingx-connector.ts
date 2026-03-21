@@ -102,23 +102,41 @@ export class BingXConnector extends BaseExchangeConnector {
 
       this.log("Fetching account balance...")
 
-      // Determine endpoint based on api_type from credentials OR passed configuration
-      // api_type can be: 'spot', 'perpetual_futures', 'standard', or not specified (default perpetual)
+      // Determine endpoint based on contract_type OR api_type from credentials
+      // contract_type: "usdt-perpetual", "coin-perpetual", "spot"
+      // api_type: "perpetual_futures", "spot", "standard"
+      const contractType = this.credentials.contractType
       const apiType = this.credentials.apiType || "perpetual_futures"
-      let endpoint = "/openApi/swap/v3/user/balance" // Default: perpetual futures
       
-      this.log(`[BingX] API Type from credentials: ${apiType}`)
+      // Use contract_type for endpoint determination (more specific)
+      // Fall back to api_type if contract_type is not set
+      let endpoint = "/openApi/swap/v3/user/balance" // Default: USDT perpetual futures
+      let effectiveContractType = contractType || "usdt-perpetual"
       
-      if (apiType === "spot") {
+      // If contract_type is set, use it; otherwise derive from api_type
+      if (contractType) {
+        effectiveContractType = contractType
+      } else if (apiType === "spot") {
+        effectiveContractType = "spot"
+      }
+      
+      this.log(`[BingX] Contract Type: ${effectiveContractType}, API Type: ${apiType}`)
+      
+      if (effectiveContractType === "spot" || apiType === "spot") {
         endpoint = "/openApi/spot/v1/account/balance"
         this.log("Contract Type: SPOT → Using /openApi/spot/v1/account/balance")
         this.log("⚠️ WARNING: Spot API will return 0 balance if you have Perpetual Futures positions!")
         console.log("[v0] [BingX] Contract Type: SPOT → Endpoint: /openApi/spot/v1/account/balance")
-        console.log("[v0] [BingX] ⚠️ WARNING: Spot API returns 0 balance for Perpetual Futures positions. Use 'perpetual_futures' API type if you trade perpetual futures.")
-      } else if (apiType === "perpetual_futures" || apiType === "futures") {
+      } else if (effectiveContractType === "coin-perpetual") {
+        // Coin-M Perpetual Futures - different API path!
+        endpoint = "/openApi/cswap/v1/user/balance"
+        this.log("Contract Type: COIN-M PERPETUAL → Using /openApi/cswap/v1/user/balance")
+        console.log("[v0] [BingX] Contract Type: COIN-M PERPETUAL → Endpoint: /openApi/cswap/v1/user/balance")
+      } else {
+        // USDT Perpetual Futures (default)
         endpoint = "/openApi/swap/v3/user/balance"
-        this.log("Contract Type: PERPETUAL FUTURES → Using /openApi/swap/v3/user/balance")
-        console.log("[v0] [BingX] Contract Type: PERPETUAL → Endpoint: /openApi/swap/v3/user/balance")
+        this.log("Contract Type: USDT PERPETUAL → Using /openApi/swap/v3/user/balance")
+        console.log("[v0] [BingX] Contract Type: USDT PERPETUAL → Endpoint: /openApi/swap/v3/user/balance")
       }
 
       const url = `${baseUrl}${endpoint}?${queryString}&signature=${signature}`
@@ -446,13 +464,22 @@ export class BingXConnector extends BaseExchangeConnector {
   }
 
   async getPositions(symbol?: string): Promise<any[]> {
-    if (this.credentials.apiType === "spot") {
+    const contractType = this.credentials.contractType
+    const apiType = this.credentials.apiType || "perpetual_futures"
+    
+    // Determine effective contract type
+    let effectiveContractType = contractType || "usdt-perpetual"
+    if (!contractType && apiType === "spot") {
+      effectiveContractType = "spot"
+    }
+    
+    if (effectiveContractType === "spot" || apiType === "spot") {
       this.log("Positions not available for spot trading")
       return []
     }
 
     try {
-      this.log(`Fetching positions${symbol ? ` for ${symbol}` : ""}`)
+      this.log(`Fetching positions${symbol ? ` for ${symbol}` : ""} (${effectiveContractType})`)
 
       const params: Record<string, any> = {
         timestamp: Date.now(),
@@ -464,7 +491,15 @@ export class BingXConnector extends BaseExchangeConnector {
 
       const signature = this.getSignature(params)
       const queryString = `${new URLSearchParams(this.toStringParams(params)).toString()}&signature=${signature}`
-      const url = `${this.getBaseUrl()}/openApi/swap/v3/user/positions?${queryString}`
+      
+      // Use different endpoint based on contract type
+      let endpoint = "/openApi/swap/v3/user/positions" // USDT Perpetual
+      if (effectiveContractType === "coin-perpetual") {
+        endpoint = "/openApi/cswap/v1/user/positions" // Coin-M Perpetual
+      }
+      
+      const url = `${this.getBaseUrl()}${endpoint}?${queryString}`
+      this.log(`Using endpoint: ${endpoint}`)
 
       const response = await this.rateLimitedFetch(url, {
         headers: { "X-BX-APIKEY": this.credentials.apiKey },

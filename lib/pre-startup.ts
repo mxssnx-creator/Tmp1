@@ -142,6 +142,7 @@ export async function testAllExchangeConnections() {
           apiKey: connection.api_key,
           apiSecret: connection.api_secret,
           apiType: connection.api_type || "live",
+          contractType: connection.contract_type,
           subType: connection.api_subtype,
           isTestnet: connection.is_testnet === true || connection.is_testnet === "true",
         })

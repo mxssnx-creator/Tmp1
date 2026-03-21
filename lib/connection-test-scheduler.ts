@@ -67,6 +67,7 @@ export async function testConnectionImmediate(
       apiPassphrase: connection.api_passphrase || "",
       isTestnet: false, // Always mainnet
       apiType: connection.api_type,
+      contractType: connection.contract_type,
     })
 
     // Test connection with 30-second timeout

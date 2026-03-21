@@ -32,6 +32,7 @@ export class ExchangeConnectorFactory {
         apiPassphrase: connection.api_passphrase,
         isTestnet: Boolean(connection.is_testnet),
         apiType: connection.api_type,
+        contractType: connection.contract_type,
         marginType: connection.margin_type,
         positionMode: connection.position_mode,
         connectionMethod: connection.connection_method,

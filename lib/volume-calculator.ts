@@ -147,6 +147,8 @@ export class VolumeCalculator {
             const connector = await createExchangeConnector(connection.exchange, {
               apiKey: connection.api_key,
               apiSecret: connection.api_secret,
+              apiType: connection.api_type,
+              contractType: connection.contract_type,
               isTestnet: connection.is_testnet === true || connection.is_testnet === "true",
             })
 

@@ -28,7 +28,8 @@ export interface ExchangeCredentials {
   apiSecret: string
   apiPassphrase?: string
   isTestnet: boolean
-  apiType?: string // Contract type: spot, perpetual_futures, futures, unified, etc.
+  apiType?: string // API type: spot, perpetual_futures, futures, unified, etc.
+  contractType?: string // Contract type: usdt-perpetual, coin-perpetual, spot
   subType?: string // Exchange-specific subtype (e.g., BingX subType)
   marginType?: string
   positionMode?: string

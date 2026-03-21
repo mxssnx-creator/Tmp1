@@ -5,6 +5,7 @@ export interface ExchangeConnection {
   exchange: string
   exchange_id?: number | null
   api_type: string
+  contract_type?: string // usdt-perpetual, coin-perpetual, spot
   api_subtype?: string
   connection_method: string
   connection_library?: string

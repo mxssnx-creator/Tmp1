@@ -21,6 +21,7 @@ export interface Connection {
   api_secret: string
   api_passphrase?: string
   api_type: string
+  contract_type?: string
   connection_method: string
   connection_library: string
   margin_type: string
@@ -240,6 +241,8 @@ export class ConnectionCoordinator {
         apiKey: connection.api_key,
         apiSecret: connection.api_secret,
         apiPassphrase: connection.api_passphrase,
+        apiType: connection.api_type,
+        contractType: connection.contract_type,
         isTestnet: connection.is_testnet,
       })
 

@@ -9,6 +9,7 @@
 import { initRedis, getSettings, setSettings, getRedisClient } from "@/lib/redis-db"
 import { BasePseudoPositionManager } from "./base-pseudo-position-manager"
 import { ExchangePositionManager } from "./exchange-position-manager"
+import { logProgressionEvent } from "./engine-progression-logs"
 
 export class PositionFlowCoordinator {
   private connectionId: string
@@ -240,8 +241,18 @@ export class PositionFlowCoordinator {
       await setSettings(`pseudo_position:${mainId}`, mainPseudo)
       await setSettings(`main_pseudo:${this.connectionId}:base:${basePositionId}`, { id: mainId })
       await client.sadd(`pseudo_positions:${this.connectionId}:main`, mainId)
+      await client.sadd(`main_pseudo:${this.connectionId}`, mainId)
 
       console.log(`[v0] Created MAIN PSEUDO ${mainId} for base ${basePositionId} (PF: ${profitFactor.toFixed(2)})`)
+      
+      // Log main pseudo graduation
+      await logProgressionEvent(this.connectionId, "main_pseudo_graduated", "info", `Graduated to main pseudo position`, {
+        basePositionId,
+        mainPositionId: mainId,
+        symbol: basePos.symbol || symbol,
+        indicationType: basePos.indication_type,
+        profitFactor: profitFactor.toFixed(2),
+      })
     } catch (error) {
       console.error(`[v0] Error evaluating for main pseudo graduation:`, error)
     }
@@ -306,8 +317,18 @@ export class PositionFlowCoordinator {
       await setSettings(`real_pseudo:${realId}`, realPseudo)
       await setSettings(`real_pseudo:${this.connectionId}:main:${mainPosition.id}`, { id: realId })
       await client.sadd(`real_pseudo_positions:${this.connectionId}`, realId)
+      await client.sadd(`real_pseudo:${this.connectionId}`, realId)
 
       console.log(`[v0] Created REAL PSEUDO ${realId} representing MAIN ${mainPosition.id} (PF: ${recentProfitFactor.toFixed(2)}, DD: ${avgDrawdownTime.toFixed(1)}h)`)
+      
+      // Log real pseudo graduation
+      await logProgressionEvent(this.connectionId, "real_pseudo_graduated", "info", `Graduated to real pseudo position`, {
+        mainPositionId: mainPosition.id,
+        realPositionId: realId,
+        symbol: mainPosition.symbol,
+        profitFactor: recentProfitFactor.toFixed(2),
+        avgDrawdownTime: avgDrawdownTime.toFixed(1),
+      })
     } catch (error) {
       console.error(`[v0] Error evaluating for real pseudo graduation:`, error)
     }

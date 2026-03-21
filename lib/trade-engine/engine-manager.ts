@@ -3,7 +3,7 @@
  * Manages asynchronous processing for symbols, indications, pseudo positions, and strategies
  */
 
-import { getSettings, setSettings, getAllConnections } from "@/lib/redis-db"
+import { getSettings, setSettings, getAllConnections, getRedisClient } from "@/lib/redis-db"
 import { DataSyncManager } from "@/lib/data-sync-manager"
 import { IndicationProcessor } from "./indication-processor"
 import { StrategyProcessor } from "./strategy-processor"
@@ -229,6 +229,18 @@ export class TradeEngineManager {
         updated_at: new Date().toISOString(),
       })
 
+      // Also store in Redis sets for dashboard queries
+      try {
+        const client = getRedisClient()
+        for (const symbol of symbols) {
+          await client.sadd(`prehistoric:${this.connectionId}:symbols`, symbol)
+          await client.set(`prehistoric:${this.connectionId}:${symbol}:loaded`, "true")
+        }
+        console.log(`[v0] [Prehistoric] Stored ${symbols.length} symbols in Redis for dashboard`)
+      } catch (e) {
+        console.warn("[v0] [Prehistoric] Failed to store in Redis:", e)
+      }
+
       console.log("[v0] [Prehistoric] Background loading initiated - engine can now process real-time data")
     } catch (error) {
       // Non-blocking - just log, don't throw
@@ -363,6 +375,13 @@ export class TradeEngineManager {
             symbolsCount: symbols.length,
           })
         }
+        
+        // Track intervals processed in Redis for dashboard display
+        try {
+          const client = getRedisClient()
+          const intervalId = `${this.connectionId}:${Date.now()}`
+          await client.sadd(`intervals:${this.connectionId}:processed`, intervalId)
+        } catch { /* ignore Redis errors */ }
       } catch (error) {
         errorCount++
         this.componentHealth.indications.errorCount++

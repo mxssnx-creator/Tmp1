@@ -7,8 +7,9 @@
  * NOW: Redis-based, no SQL
  */
 
-import { getSettings, setSettings } from "@/lib/redis-db"
+import { getSettings, setSettings, getRedisClient } from "@/lib/redis-db"
 import type { PerformanceThresholds } from "./types"
+import { logProgressionEvent } from "./engine-progression-logs"
 
 export class BasePseudoPositionManager {
   private connectionId: string
@@ -186,6 +187,25 @@ export class BasePseudoPositionManager {
       console.log(
         `[v0] Created base position ${positionId} for ${symbol} ${indicationType} ${direction} TP=${tpFactor} SL=${slRatio} Trailing=${trailingEnabled}`,
       )
+      
+      // Log base pseudo position creation
+      await logProgressionEvent(this.connectionId, "base_pseudo_created", "info", `Created base pseudo position for ${symbol}`, {
+        symbol,
+        indicationType,
+        direction,
+        tpFactor,
+        slRatio,
+        trailingEnabled,
+        basePositionId: positionId,
+      })
+      
+      // Update Redis counter for base pseudo positions
+      try {
+        const client = getRedisClient()
+        await client.sadd(`base_pseudo:${this.connectionId}`, positionId)
+        await client.sadd(`base_pseudo:${this.connectionId}:${indicationType}`, positionId)
+      } catch { /* ignore Redis errors */ }
+      
       return positionId
     } catch (error) {
       console.error("[v0] Error creating base position:", error)

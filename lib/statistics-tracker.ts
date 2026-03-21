@@ -1,8 +1,10 @@
 import { query } from "@/lib/db"
+import { getRedisClient, initRedis } from "@/lib/redis-db"
 
 /**
  * Track indication statistics - called after each indication processing cycle
  * Records indication type, value, and confidence to database for statistics
+ * ALSO updates Redis counters for dashboard display
  */
 export async function trackIndicationStats(
   connectionId: string,
@@ -19,6 +21,21 @@ export async function trackIndicationStats(
     )
   } catch (e) {
     console.warn(`[v0] [Stats] Failed to track indication:`, e instanceof Error ? e.message : String(e))
+  }
+
+  // Also track in Redis for dashboard counts
+  try {
+    await initRedis()
+    const client = getRedisClient()
+    const timestamp = Date.now()
+    const indicationId = `${connectionId}:${symbol}:${indicationType}:${timestamp}`
+    
+    // Add to type-specific set
+    await client.sadd(`indications:${connectionId}:${indicationType}`, indicationId)
+    // Add to main indications set
+    await client.sadd(`indications:${connectionId}`, indicationId)
+  } catch (e) {
+    // Silently fail - Redis is optional
   }
 }
 

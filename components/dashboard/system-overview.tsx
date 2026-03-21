@@ -11,9 +11,14 @@ interface SystemStats {
     mainStatus: string
     mainCount?: number
     mainTotal?: number
+    mainEnabled?: boolean  // Whether Main Engine is enabled (from main connections)
+    liveTradeStatus?: string  // Independent Live Trade status
+    liveTradeCount?: number
+    liveTradeEnabled?: boolean
     presetStatus: string
     presetCount?: number
     presetTotal?: number
+    presetEnabled?: boolean
     totalEnabled: number
   }
   database: {
@@ -84,9 +89,14 @@ export function SystemOverview() {
       mainStatus: String(raw?.tradeEngines?.mainStatus || "idle"),
       mainCount: toNumber(raw?.tradeEngines?.mainCount, 0),
       mainTotal: toNumber(raw?.tradeEngines?.mainTotal, 0),
+      mainEnabled: raw?.tradeEngines?.mainEnabled === true || raw?.tradeEngines?.mainEnabled === "true",
+      liveTradeStatus: String(raw?.tradeEngines?.liveTradeStatus || "idle"),
+      liveTradeCount: toNumber(raw?.tradeEngines?.liveTradeCount, 0),
+      liveTradeEnabled: raw?.tradeEngines?.liveTradeEnabled === true || raw?.tradeEngines?.liveTradeEnabled === "true",
       presetStatus: String(raw?.tradeEngines?.presetStatus || "idle"),
       presetCount: toNumber(raw?.tradeEngines?.presetCount, 0),
       presetTotal: toNumber(raw?.tradeEngines?.presetTotal, 0),
+      presetEnabled: raw?.tradeEngines?.presetEnabled === true || raw?.tradeEngines?.presetEnabled === "true",
       totalEnabled: toNumber(raw?.tradeEngines?.totalEnabled, 0),
     },
     database: {
@@ -238,7 +248,7 @@ export function SystemOverview() {
                 </Badge>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground" title="Enabled when: Active connection with Live Trade slider ON">Main</span>
+                <span className="text-muted-foreground" title="Main Engine: enabled when Main Connections toggle is ON">Main Engine</span>
                 <div className="flex items-center gap-2">
                   {(stats.tradeEngines.mainCount !== undefined && stats.tradeEngines.mainTotal !== undefined) && (
                     <span className="text-[10px] text-muted-foreground">
@@ -247,14 +257,30 @@ export function SystemOverview() {
                   )}
                   <Badge 
                     className={`text-[10px] h-5 ${getStatusColor(stats.tradeEngines.mainStatus)}`}
-                    title={`Config: ${stats.tradeEngines.mainStatus} | Running: ${stats.tradeEngines.mainCount || 0}/${stats.tradeEngines.mainTotal || 0}`}
+                    title={`Main Trade Engine: processes indications, strategies, pseudo positions | ${stats.tradeEngines.mainEnabled ? 'Enabled' : 'Disabled'}`}
                   >
                     {stats.tradeEngines.mainStatus}
                   </Badge>
                 </div>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground" title="Enabled when: Active connection with Preset slider ON">Preset</span>
+                <span className="text-muted-foreground" title="Live Trade: independent - mirrors real exchange positions">Live Trade</span>
+                <div className="flex items-center gap-2">
+                  {stats.tradeEngines.liveTradeCount !== undefined && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {stats.tradeEngines.liveTradeCount}
+                    </span>
+                  )}
+                  <Badge 
+                    className={`text-[10px] h-5 ${getStatusColor(stats.tradeEngines.liveTradeStatus || 'stopped')}`}
+                    title={`Live Trade: independent - mirrors real exchange positions | ${stats.tradeEngines.liveTradeEnabled ? 'Enabled' : 'Disabled'}`}
+                  >
+                    {stats.tradeEngines.liveTradeStatus}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground" title="Preset: independent - runs preset strategies">Preset</span>
                 <div className="flex items-center gap-2">
                   {(stats.tradeEngines.presetCount !== undefined && stats.tradeEngines.presetTotal !== undefined) && (
                     <span className="text-[10px] text-muted-foreground">
@@ -263,7 +289,7 @@ export function SystemOverview() {
                   )}
                   <Badge 
                     className={`text-[10px] h-5 ${getStatusColor(stats.tradeEngines.presetStatus)}`}
-                    title={`Config: ${stats.tradeEngines.presetStatus} | Running: ${stats.tradeEngines.presetCount || 0}/${stats.tradeEngines.presetTotal || 0}`}
+                    title={`Preset: independent - runs preset strategies | ${stats.tradeEngines.presetEnabled ? 'Enabled' : 'Disabled'}`}
                   >
                     {stats.tradeEngines.presetStatus}
                   </Badge>

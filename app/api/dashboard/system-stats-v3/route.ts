@@ -98,20 +98,43 @@ export async function GET() {
     }
     const globalStatus = globalEngineState.status || "stopped"
 
-    // Main/Preset only show "running" when:
-    // 1. Global engine is running AND
-    // 2. At least one connection has the dashboard Enable slider ON (is_enabled_dashboard=1)
-    //    AND that connection has live/preset trade enabled
-    const anyDashboardEnabled = enabledDashboard.length > 0
-    const mainStatus = globalStatus === "running" && anyDashboardEnabled && liveTradeCount > 0
-      ? "running"
-      : liveTradeCount > 0
-      ? "ready"
+    // Main Engine: runs when any connection has main_enabled (is_enabled_dashboard=true)
+    // This is the Main Trade Engine for processing indications, strategies, pseudo positions
+    // Main Engine is INDEPENDENT from Live Trade and Preset
+    const mainConnections = allConnections.filter((c: any) => {
+      const mainEnabled = c.is_enabled_dashboard === true || c.is_enabled_dashboard === "1" || c.is_enabled_dashboard === "true"
+      return mainEnabled
+    })
+    const mainEnabled = mainConnections.length > 0
+    
+    // Live Trade: runs independently when is_live_trade=true (for real exchange position mirroring)
+    // Does NOT require Main Engine to be running
+    const liveTradeConnections = allConnections.filter((c: any) => {
+      const liveTrade = c.is_live_trade === true || c.is_live_trade === "1" || c.is_live_trade === "true"
+      return liveTrade
+    })
+    const liveTradeEnabled = liveTradeConnections.length > 0
+    
+    // Preset: runs independently when is_preset_trade=true (for preset strategies)
+    const presetTradeConnections = allConnections.filter((c: any) => {
+      const presetTrade = c.is_preset_trade === true || c.is_preset_trade === "1" || c.is_preset_trade === "true"
+      return presetTrade
+    })
+    const presetTradeEnabled = presetTradeConnections.length > 0
+    
+    // Main Engine status: running when main_enabled, regardless of live/preset
+    const mainStatus = mainEnabled 
+      ? "running" 
       : "stopped"
-    const presetStatus = globalStatus === "running" && anyDashboardEnabled && presetTradeCount > 0
+    
+    // Live Trade status: independent - running when enabled
+    const liveTradeStatus = liveTradeEnabled
       ? "running"
-      : presetTradeCount > 0
-      ? "ready"
+      : "stopped"
+    
+    // Preset status: independent - running when enabled  
+    const presetStatus = presetTradeEnabled
+      ? "running"
       : "stopped"
     
     // Connections with valid credentials (can actually trade)
@@ -145,12 +168,17 @@ export async function GET() {
       tradeEngines: {
         globalStatus,
         mainStatus,
-        mainCount: liveTradeCount,
+        mainCount: mainConnections.length,
         mainTotal: activeInsertedAll.length,
+        mainEnabled,  // Whether Main Engine is enabled
+        liveTradeStatus,
+        liveTradeCount: liveTradeConnections.length,
+        liveTradeEnabled,
         presetStatus,
-        presetCount: presetTradeCount,
+        presetCount: presetTradeConnections.length,
         presetTotal: activeInsertedAll.length,
-        totalEnabled: liveTradeCount + presetTradeCount,
+        presetEnabled: presetTradeEnabled,
+        totalEnabled: mainConnections.length + liveTradeConnections.length + presetTradeConnections.length,
       },
       database: {
         status: "healthy",
@@ -172,8 +200,8 @@ export async function GET() {
         // Active panel connections
         total: activeInsertedAll.length,
         active: enabledDashboard.length,
-        liveTrade: liveTradeCount,
-        presetTrade: presetTradeCount,
+        liveTrade: liveTradeConnections.length,
+        presetTrade: presetTradeConnections.length,
       },
       // Available connections = enabled base connections NOT yet in Active panel
       availableConnections: enabledBase.filter((c: any) => {

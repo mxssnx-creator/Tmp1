@@ -811,6 +811,123 @@ export async function getInsertedAndEnabledConnections(): Promise<any[]> {
   })
 }
 
+// ========== Clean Connection State Model ==========
+// Organizes chaos: base connections (Settings) vs main connections (Dashboard/Active)
+// 
+// BASE CONNECTIONS (Settings panel):
+// - base_enabled: maps to is_enabled - connection is enabled in Settings
+// - base_inserted: maps to is_inserted - connection exists in Settings
+//
+// MAIN CONNECTIONS (Dashboard/Active panel):
+// - main_enabled: maps to is_enabled_dashboard - connection is enabled in Main Connections
+// - main_assigned: maps to is_active_inserted - connection is assigned to Main Connections
+//
+// This eliminates the confusing doubled states (is_enabled, is_dashboard_inserted, etc.)
+
+export interface ConnectionState {
+  base_enabled: boolean
+  base_inserted: boolean
+  main_enabled: boolean
+  main_assigned: boolean
+  is_active: boolean  // derived: main_assigned && main_enabled
+}
+
+/**
+ * Get clean connection state from a connection object
+ * Normalizes all the confusing doubled states into a clean model
+ */
+export function getConnectionState(connection: any): ConnectionState {
+  return {
+    // Base Connection states (Settings)
+    base_enabled: isEnabledFlag(connection.is_enabled),
+    base_inserted: isEnabledFlag(connection.is_inserted),
+    
+    // Main Connection states (Dashboard/Active)
+    main_enabled: isEnabledFlag(connection.is_enabled_dashboard),
+    main_assigned: isEnabledFlag(connection.is_active_inserted),
+    
+    // Derived: active for processing = assigned AND enabled in main
+    is_active: isEnabledFlag(connection.is_active_inserted) && isEnabledFlag(connection.is_enabled_dashboard),
+  }
+}
+
+/**
+ * Check if connection is ready for engine processing
+ * Must be assigned AND enabled in Main Connections
+ */
+export function isConnectionReadyForEngine(connection: any): boolean {
+  const state = getConnectionState(connection)
+  return state.main_assigned && state.main_enabled
+}
+
+/**
+ * Check if connection is active (assigned to Main Connections)
+ */
+export function isConnectionAssignedToMain(connection: any): boolean {
+  return isEnabledFlag(connection.is_active_inserted)
+}
+
+/**
+ * Check if connection is enabled in Main Connections
+ */
+export function isConnectionMainEnabled(connection: any): boolean {
+  return isEnabledFlag(connection.is_enabled_dashboard)
+}
+
+/**
+ * Check if connection is enabled in Settings (Base)
+ */
+export function isConnectionBaseEnabled(connection: any): boolean {
+  return isEnabledFlag(connection.is_enabled)
+}
+
+/**
+ * Build connection update object for enabling in Main Connections
+ * Sets both main_assigned and main_enabled
+ */
+export function buildMainConnectionEnableUpdate(connection: any): any {
+  return {
+    ...connection,
+    // Main Connection states
+    is_enabled_dashboard: "1",  // main_enabled = true
+    is_dashboard_inserted: "1",  // backward compatibility
+    is_active_inserted: "1",     // main_assigned = true
+    is_active: "1",              // active for processing
+    
+    updated_at: new Date().toISOString(),
+  }
+}
+
+/**
+ * Build connection update object for disabling in Main Connections
+ * Disables main but keeps base states intact
+ */
+export function buildMainConnectionDisableUpdate(connection: any): any {
+  return {
+    ...connection,
+    // Main Connection states - disable
+    is_enabled_dashboard: "0",  // main_enabled = false
+    is_active: "0",             // not active for processing
+    // Keep is_active_inserted = "1" so it stays in active panel (just disabled)
+    
+    updated_at: new Date().toISOString(),
+  }
+}
+
+/**
+ * Build connection update object for enabling in Settings (Base)
+ */
+export function buildBaseConnectionEnableUpdate(connection: any): any {
+  return {
+    ...connection,
+    // Base Connection states
+    is_enabled: "1",   // base_enabled = true
+    is_inserted: "1",  // base_inserted = true
+    
+    updated_at: new Date().toISOString(),
+  }
+}
+
 // ========== Stats Operations ==========
 
 export async function closeRedis(): Promise<void> {

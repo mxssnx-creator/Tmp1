@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { getAllConnections, initRedis, updateConnection, setSettings, getRedisClient } from "@/lib/redis-db"
+import { getAllConnections, initRedis, updateConnection, setSettings, getRedisClient,
+  buildMainConnectionEnableUpdate } from "@/lib/redis-db"
 import { API_VERSIONS } from "@/lib/system-version"
 import { logProgressionEvent, getProgressionLogs } from "@/lib/engine-progression-logs"
 import { createExchangeConnector } from "@/lib/exchange-connectors"
@@ -230,21 +231,20 @@ export async function POST(request: Request) {
     // Step 3: Update connection state - ENABLE dashboard/main connections automatically
     // This will allow the engine to start immediately
     console.log(`${LOG_PREFIX}: [3/4] Updating connection state...`)
-    const enabled = {
+    
+    // Use clean helper to enable in Main Connections
+    const enabled = buildMainConnectionEnableUpdate({
       ...connection,
-      is_enabled: "1",  // Enable in Settings (base connection)
-      is_enabled_dashboard: "1",  // Enable in main connections/dashboard
-      is_dashboard_inserted: "1",  // Insert in main connections
-      is_active_inserted: "1",  // In active panel
-      is_active: "1",  // Active for processing
-      is_inserted: "1",  // Inserted as a base connection
+      is_enabled: "1",  // Also enable in Settings (base)
+      is_inserted: "1",  // Also mark as inserted in Settings
       is_testnet: false,
       active_symbols: JSON.stringify(symbols),
       last_test_status: testPassed ? "success" : "failed",
       last_test_balance: testBalance,
       last_test_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }
+    })
+    
     await updateConnection(connectionId, enabled)
     console.log(`${LOG_PREFIX}: [3/4] Connection configured and ENABLED in main connections (engine will start)`)
     

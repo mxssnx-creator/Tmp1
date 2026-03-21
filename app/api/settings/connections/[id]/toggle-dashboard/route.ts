@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { initRedis, getConnection, updateConnection, setSettings, getSettings, getAllConnections } from "@/lib/redis-db"
+import { initRedis, getConnection, updateConnection, setSettings, getSettings, getAllConnections, 
+  getConnectionState, buildMainConnectionEnableUpdate, buildMainConnectionDisableUpdate,
+  isConnectionReadyForEngine } from "@/lib/redis-db"
 import { toggleConnectionLimiter } from "@/lib/connection-rate-limiter"
 import { logProgressionEvent } from "@/lib/engine-progression-logs"
 import { isTruthyFlag, parseBooleanInput, toRedisFlag } from "@/lib/boolean-utils"
@@ -57,61 +59,41 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Connection not found" }, { status: 404 })
     }
 
+    // Get clean connection state
+    const state = getConnectionState(connection)
     console.log(`[v0] [Toggle] Toggling ${connection.name} (${connectionId}):`)
-    console.log(`[v0] [Toggle]   Before: is_active_inserted=${connection.is_active_inserted}, is_enabled_dashboard=${connection.is_enabled_dashboard}`)
-
-    // Check current state before making changes
-    const currentIsEnabled = isTruthyFlag(connection.is_enabled_dashboard)
-    const currentIsActiveInserted = isTruthyFlag(connection.is_active_inserted)
+    console.log(`[v0] [Toggle]   Before: main_assigned=${state.main_assigned}, main_enabled=${state.main_enabled}`)
     
-    // Build update object with all necessary fields
-    const updatedConnection = {
-      ...connection,
-      updated_at: new Date().toISOString(),
-    }
+    // Determine new state based on request
+    const enableMain = hasDashboardEnabled ? isDashboardEnabled : (hasActiveInserted ? isActiveInserted : state.main_enabled)
     
+    // Check if state actually changes
+    const currentMainEnabled = state.main_enabled
+    const needsUpdate = currentMainEnabled !== enableMain
+    
+    let updatedConnection: any
     let engineAction: "start" | "stop" | null = null
-    let stateChanged = false
     
-    if (hasActiveInserted) {
-      const newValue = toRedisFlag(isActiveInserted)
-      if (updatedConnection.is_active_inserted !== newValue) {
-        updatedConnection.is_active_inserted = newValue
-        stateChanged = true
-        console.log(`[v0] [Toggle]   Setting is_active_inserted=${isActiveInserted}`)
-      }
-    }
-    
-    if (hasDashboardEnabled) {
-      const newDashboardValue = toRedisFlag(isDashboardEnabled)
-      
-      // Check if there's actually a state change needed
-      if (currentIsEnabled !== isDashboardEnabled) {
-        updatedConnection.is_enabled_dashboard = newDashboardValue
-        updatedConnection.is_dashboard_inserted = "1"
-        stateChanged = true
-        
-        if (isDashboardEnabled) {
-          // Toggle ON: dashboard enabled, keep base settings independent
-          updatedConnection.is_active_inserted = "1"
-          updatedConnection.is_active = "1"
-          engineAction = "start"
-          console.log(`[v0] [Toggle] ENABLING: dashboard=1, active_inserted=1 (engine will process this connection)`)
-        } else {
-          // Toggle OFF: stop engine processing while preserving base settings state
-          updatedConnection.is_active_inserted = updatedConnection.is_active_inserted || "1"
-          updatedConnection.is_active = "0"
-          engineAction = "stop"
-          console.log(`[v0] [Toggle] DISABLING: dashboard=0, insertion preserved (engine will stop processing)`)
-        }
+    if (needsUpdate) {
+      if (enableMain) {
+        // Enable in Main Connections - use clean helper
+        updatedConnection = buildMainConnectionEnableUpdate(connection)
+        engineAction = "start"
+        console.log(`[v0] [Toggle] ENABLING: main_assigned=true, main_enabled=true (engine will process)`)
       } else {
-        // No change - already in requested state
-        console.log(`[v0] [Toggle] NO CHANGE: already ${isDashboardEnabled ? 'enabled' : 'disabled'}`)
+        // Disable in Main Connections - use clean helper  
+        updatedConnection = buildMainConnectionDisableUpdate(connection)
+        engineAction = "stop"
+        console.log(`[v0] [Toggle] DISABLING: main_enabled=false (engine will stop)`)
       }
+    } else {
+      // No change needed
+      updatedConnection = connection
+      console.log(`[v0] [Toggle] NO CHANGE: already ${enableMain ? 'enabled' : 'disabled'}`)
     }
 
     // Save connection state only if something changed
-    if (stateChanged || engineAction) {
+    if (needsUpdate && updatedConnection) {
       await updateConnection(resolvedId, updatedConnection)
       console.log(`[v0] [Toggle] Updated ${connection.name} (resolved id: ${resolvedId})`)
     } else {
@@ -163,11 +145,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           // Update global engine state to show running
           const globalState = await getSettings("trade_engine:global") || {}
           const allConnections = await getAllConnections()
-          const activeDashboardCount = allConnections.filter((c: any) => {
-            const isCurrent = c.id === resolvedId
-            if (isCurrent) return true
-            return isTruthyFlag(c.is_enabled_dashboard)
-          }).length
+          // Use clean helper function for counting main-enabled connections
+          const activeDashboardCount = allConnections.filter((c: any) => 
+            c.id === resolvedId || isConnectionReadyForEngine(c)
+          ).length
           await setSettings("trade_engine:global", {
             ...globalState,
             status: "running",
@@ -238,11 +219,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         // Update global engine state
         const globalState = await getSettings("trade_engine:global") || {}
         const allConnections = await getAllConnections()
-        const activeCount = allConnections.filter((c: any) => {
-          const isCurrent = c.id === resolvedId
-          if (isCurrent) return false
-          return isTruthyFlag(c.is_enabled_dashboard)
-        }).length
+        // Use clean helper function - exclude current connection
+        const activeCount = allConnections.filter((c: any) => 
+          c.id !== resolvedId && isConnectionReadyForEngine(c)
+        ).length
         await setSettings("trade_engine:global", {
           ...globalState,
           updated_at: new Date().toISOString(),

@@ -3,6 +3,8 @@ import { initRedis, getConnection, updateConnection, setSettings, getSettings, g
 import { toggleConnectionLimiter } from "@/lib/connection-rate-limiter"
 import { logProgressionEvent } from "@/lib/engine-progression-logs"
 import { isTruthyFlag, parseBooleanInput, toRedisFlag } from "@/lib/boolean-utils"
+import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
+import { loadSettingsAsync } from "@/lib/settings-storage"
 
 // POST toggle connection active status (inserted/enabled) - INDEPENDENT from Settings
 // When enabling, also triggers engine start for this connection
@@ -158,7 +160,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             updated_at: new Date().toISOString(),
           })
           
-          // Update global engine state to trigger coordinator
+          // Update global engine state to show running
           const globalState = await getSettings("trade_engine:global") || {}
           const allConnections = await getAllConnections()
           const activeDashboardCount = allConnections.filter((c: any) => {
@@ -172,15 +174,39 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             started_at: globalState.started_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
             active_connections: activeDashboardCount,
-            refresh_requested: new Date().toISOString(), // Signal coordinator to refresh
           })
           
-          // Signal the coordinator to refresh engines by setting a refresh flag
-          await setSettings("engine_coordinator:refresh_requested", {
-            timestamp: new Date().toISOString(),
-            connectionId: resolvedId,
-            action: "start",
-          })
+          // DIRECTLY START THE ENGINE - don't rely on coordinator polling
+          try {
+            const coordinator = getGlobalTradeEngineCoordinator()
+            const settings = await loadSettingsAsync()
+            
+            // Start the engine directly
+            await coordinator.startEngine(resolvedId, {
+              connectionId: resolvedId,
+              connection_name: connection.name,
+              exchange: connection.exchange,
+              engine_type: "main",
+              indicationInterval: settings.mainEngineIntervalMs ? settings.mainEngineIntervalMs / 1000 : 5,
+              strategyInterval: settings.strategyUpdateIntervalMs ? settings.strategyUpdateIntervalMs / 1000 : 10,
+              realtimeInterval: settings.realtimeIntervalMs ? settings.realtimeIntervalMs / 1000 : 3,
+            })
+            
+            console.log(`[v0] [Toggle] ✓ Engine started directly for ${connection.name}`)
+            await logProgressionEvent(resolvedId, "engine_started_direct", "info", "Main Trade Engine started directly from enable", {
+              connectionId: resolvedId,
+              connectionName: connection.name,
+              exchange: connection.exchange,
+            })
+          } catch (engineStartError) {
+            console.error(`[v0] [Toggle] Failed to start engine directly:`, engineStartError)
+            // Still set the flag as fallback - coordinator may pick it up
+            await setSettings("engine_coordinator:refresh_requested", {
+              timestamp: new Date().toISOString(),
+              connectionId: resolvedId,
+              action: "start",
+            })
+          }
           
           engineStatus = "started"
           console.log(`[v0] [Toggle] Engine progression initialized for ${connection.name}`)
@@ -222,15 +248,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           updated_at: new Date().toISOString(),
           active_connections: activeCount,
           status: activeCount > 0 ? "running" : "idle",
-          refresh_requested: new Date().toISOString(),
         })
         
-        // Signal the coordinator to refresh engines
-        await setSettings("engine_coordinator:refresh_requested", {
-          timestamp: new Date().toISOString(),
-          connectionId: resolvedId,
-          action: "stop",
-        })
+        // DIRECTLY STOP THE ENGINE - don't rely on coordinator polling
+        try {
+          const coordinator = getGlobalTradeEngineCoordinator()
+          await coordinator.stopEngine(resolvedId)
+          console.log(`[v0] [Toggle] ✓ Engine stopped directly for ${connection.name}`)
+          await logProgressionEvent(resolvedId, "engine_stopped_direct", "info", "Main Trade Engine stopped directly from disable", {
+            connectionId: resolvedId,
+            connectionName: connection.name,
+          })
+        } catch (engineStopError) {
+          console.warn(`[v0] [Toggle] Failed to stop engine directly:`, engineStopError)
+        }
         
         engineStatus = "stopped"
         console.log(`[v0] [Toggle] Engine stopped for ${connection.name}`)

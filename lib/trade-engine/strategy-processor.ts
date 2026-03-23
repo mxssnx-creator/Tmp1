@@ -264,27 +264,41 @@ export class StrategyProcessor {
   private async getActiveIndications(symbol: string): Promise<any[]> {
     try {
       await initRedis()
-      
-      // Use the EXACT same key format as the indication processor saves to
-      // indication-processor.ts line 307: `${this.connectionId}:${symbol}:realtime`
-      const indicationsKey = `${this.connectionId}:${symbol}:realtime`
-      const indications = await getIndications(indicationsKey)
-      
+
+      // Primary key: indication processor saves to this key
+      const primaryKey = `${this.connectionId}:${symbol}:realtime`
+      const indications = await getIndications(primaryKey)
+
       if (indications && Array.isArray(indications) && indications.length > 0) {
-        console.log(`[v0] [StrategyProcessor] Retrieved ${indications.length} indications for ${symbol} from Redis key=${indicationsKey}`)
+        console.log(`[v0] [StrategyProcessor] Retrieved ${indications.length} indications for ${symbol} from primary key=${primaryKey}`)
         return indications
       }
-      
-      // Fallback: Try without :realtime suffix in case old data exists
-      const fallbackKey = `${this.connectionId}:${symbol}`
-      const fallbackIndications = await getIndications(fallbackKey)
-      if (fallbackIndications && Array.isArray(fallbackIndications) && fallbackIndications.length > 0) {
-        console.log(`[v0] [StrategyProcessor] Retrieved ${fallbackIndications.length} indications from fallback key=${fallbackKey}`)
-        return fallbackIndications
+
+      // Secondary key: some processors might save without :realtime
+      const secondaryKey = `${this.connectionId}:${symbol}`
+      const secondaryIndications = await getIndications(secondaryKey)
+      if (secondaryIndications && Array.isArray(secondaryIndications) && secondaryIndications.length > 0) {
+        console.log(`[v0] [StrategyProcessor] Retrieved ${secondaryIndications.length} indications from secondary key=${secondaryKey}`)
+        return secondaryIndications
       }
-      
-      // No indications yet - normal during startup
-      console.log(`[v0] [StrategyProcessor] No indications found for ${symbol} - keys tried: ${indicationsKey}, ${fallbackKey}`)
+
+      // Try broader search for any indications for this connection
+      const client = (await import("@/lib/redis-db")).getRedisClient()
+      const allKeys = await client.keys(`${this.connectionId}:${symbol}:*`)
+      for (const key of allKeys) {
+        try {
+          const altIndications = await getIndications(key)
+          if (altIndications && Array.isArray(altIndications) && altIndications.length > 0) {
+            console.log(`[v0] [StrategyProcessor] Retrieved ${altIndications.length} indications from discovered key=${key}`)
+            return altIndications
+          }
+        } catch {
+          // Continue searching
+        }
+      }
+
+      // No indications found - this is expected during early startup
+      console.log(`[v0] [StrategyProcessor] No indications found for ${symbol} in connection ${this.connectionId}`)
       return []
     } catch (error) {
       console.error(`[v0] [StrategyProcessor] Error retrieving indications for ${symbol}:`, error)

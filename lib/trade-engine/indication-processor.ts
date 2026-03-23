@@ -208,8 +208,23 @@ export class IndicationProcessor {
     try {
       const marketData = await this.getLatestMarketDataCached(symbol)
       if (!marketData) {
-        // Disabled logging - runs per symbol per cycle causing excessive Redis key growth
-        return []
+        // Try to load market data if not available
+        const redis = await getRedisHelpers()
+        await redis.initRedis()
+
+        // Force load market data for this symbol
+        const { loadMarketDataForEngine } = await import("@/lib/market-data-loader")
+        await loadMarketDataForEngine([symbol])
+
+        // Retry getting market data
+        const retryMarketData = await this.getLatestMarketDataCached(symbol)
+        if (!retryMarketData) {
+          console.log(`[v0] [IndicationProcessor] No market data available for ${symbol} after loading attempt`)
+          return []
+        }
+        console.log(`[v0] [IndicationProcessor] Market data loaded on-demand for ${symbol}`)
+        // Continue with the loaded market data
+        const marketData = retryMarketData
       }
 
       // Market data is a single candle object with fields: price, open, high, low, close, volume, timestamp

@@ -8,6 +8,7 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Recently Completed
 
+- [x] Completed logistics integrity pass across queue, structure, and workflow surfaces so all dashboards consume unified live logistics health, backlog, and processing pressure metrics
 - [x] **COMPLETE DEPLOYMENT SETUP**: Created production-ready deployment configuration for CTS v3
 - [x] Built automated deployment scripts for Vercel, Docker, Railway, and Render
 - [x] Created comprehensive deployment documentation with troubleshooting guides
@@ -166,6 +167,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-23 | Completed logistics integrity pass: unified queue backlog/health/pressure metrics across logistics and structure surfaces, and corrected structure metrics API to return live workflow-backed system + trading logistics payloads |
 | 2026-03-23 | Major Statistics page overhaul and complete deployment setup: implemented comprehensive AI-powered analytics with optimal strategies, coordination analysis, market intelligence, and created production-ready deployment configuration with automated scripts |
 | 2026-03-23 | Completed workflow/integrity consolidation pass: removed duplicate system-stats v2 logic by delegating to v3 and normalized complete-workflow readiness/credential counters through shared connection-state utilities |
 | 2026-03-23 | Merged duplicated workflow/logistics processing paths: added shared connection-state utility module and centralized logistics queue payload builder; updated dashboard workflow, tracking overview, and system-stats APIs to consume unified helpers |

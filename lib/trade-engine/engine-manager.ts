@@ -196,23 +196,68 @@ export class TradeEngineManager {
       if (!immediateSymbols || immediateSymbols.length === 0) {
         immediateSymbols = ["BTCUSDT", "ETHUSDT"]
       }
-      await Promise.all(immediateSymbols.map((symbol) => this.indicationProcessor.processIndication(symbol).catch(() => [])))
+      
+      console.log(`[v0] [EngineManager] Running immediate indication processing for ${immediateSymbols.length} symbols...`)
+      const indicationResults = await Promise.all(immediateSymbols.map((symbol) => 
+        this.indicationProcessor.processIndication(symbol).catch((err) => {
+          console.error(`[v0] [EngineManager] Immediate indication failed for ${symbol}:`, err)
+          return []
+        })
+      ))
+      const totalIndications = indicationResults.reduce((sum, inds) => sum + (inds?.length || 0), 0)
+      console.log(`[v0] [EngineManager] Immediate indication complete: ${totalIndications} indications generated`)
+      
+      // Update engine state with immediate results
+      await setSettings(`trade_engine_state:${this.connectionId}`, {
+        indication_cycle_count: 1,
+        last_indication_run: new Date().toISOString(),
+        indications_generated_immediate: totalIndications,
+      })
 
       // Phase 4: Start strategy processor - immediate phase update
       console.log(`[v0] [EngineManager] Phase 4/6: Starting strategy processor`)
       await this.updateProgressionPhase("strategies", 75, "Processing strategies continuously")
       this.startStrategyProcessor(config.strategyInterval)
+      
       // Kick off an immediate strategy evaluation cycle for visibility and early results
-      await Promise.all(immediateSymbols.map((symbol) => this.strategyProcessor.processStrategy(symbol).catch(() => ({ strategiesEvaluated: 0, liveReady: 0 }))))
+      console.log(`[v0] [EngineManager] Running immediate strategy processing for ${immediateSymbols.length} symbols...`)
+      const strategyResults = await Promise.all(immediateSymbols.map((symbol) => 
+        this.strategyProcessor.processStrategy(symbol).catch((err) => {
+          console.error(`[v0] [EngineManager] Immediate strategy failed for ${symbol}:`, err)
+          return { strategiesEvaluated: 0, liveReady: 0 }
+        })
+      ))
+      const totalStrategies = strategyResults.reduce((sum, res) => sum + (res?.strategiesEvaluated || 0), 0)
+      const totalLiveReady = strategyResults.reduce((sum, res) => sum + (res?.liveReady || 0), 0)
+      console.log(`[v0] [EngineManager] Immediate strategy complete: ${totalStrategies} strategies evaluated, ${totalLiveReady} live-ready`)
+      
+      // Update engine state with immediate strategy results
+      await setSettings(`trade_engine_state:${this.connectionId}`, {
+        ...((await getSettings(`trade_engine_state:${this.connectionId}`)) || {}),
+        strategy_cycle_count: 1,
+        last_strategy_run: new Date().toISOString(),
+        strategies_evaluated_immediate: totalStrategies,
+        live_strategies_immediate: totalLiveReady,
+      })
 
       // Phase 5: Start realtime processor - immediate phase update
       console.log(`[v0] [EngineManager] Phase 5/6: Starting real-time processor`)
       await this.updateProgressionPhase("realtime", 85, "Monitoring real-time data and positions")
       this.startRealtimeProcessor(config.realtimeInterval)
+      
       // Run a realtime pass immediately so active positions are processed without delay
-      await this.realtimeProcessor.processRealtimeUpdates().catch((error) => {
-        console.warn(`[v0] [EngineManager] Immediate realtime pass failed:`, error)
+      console.log(`[v0] [EngineManager] Running immediate realtime processing...`)
+      await this.realtimeProcessor.processRealtimeUpdates()
+        .then(() => console.log(`[v0] [EngineManager] Immediate realtime complete`))
+        .catch((error) => console.warn(`[v0] [EngineManager] Immediate realtime pass failed:`, error))
+      
+      // Update engine state after realtime pass
+      await setSettings(`trade_engine_state:${this.connectionId}`, {
+        ...((await getSettings(`trade_engine_state:${this.connectionId}`)) || {}),
+        realtime_cycle_count: 1,
+        last_realtime_run: new Date().toISOString(),
       })
+      
       this.startHealthMonitoring()
       
       // Phase 6: Live trading ready - final phase update

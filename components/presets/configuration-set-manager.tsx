@@ -29,9 +29,9 @@ export function ConfigurationSetManager({
     setShowCreateDialog(true)
   }
 
-  const handleEdit = (set: PresetConfigurationSet) => {
-    toast.info("Configuration set editing coming soon")
-  }
+  // const handleEdit = (set: PresetConfigurationSet) => {
+  //   toast.info("Configuration set editing coming soon")
+  // }
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this configuration set?")) return
@@ -118,9 +118,10 @@ export function ConfigurationSetManager({
                     <Button variant="ghost" size="icon" onClick={() => handleToggleActive(set)}>
                       {set.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(set)}>
+                    {/* Edit functionality not yet implemented */}
+                    {/* <Button variant="ghost" size="icon" onClick={() => handleEdit(set)}>
                       <Edit className="h-4 w-4" />
-                    </Button>
+                    </Button> */}
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(set.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>

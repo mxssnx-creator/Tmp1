@@ -76,6 +76,13 @@ interface QueueData {
     totalTrades: number
     totalProfit: number
   } | null
+  quickstart?: {
+    connectionId?: string
+    connectionName?: string
+    exchange?: string
+    timestamp?: string
+    durationMs?: number
+  } | null
 }
 
 const defaultStatus: SystemStatus = {
@@ -276,6 +283,40 @@ function FocusConnectionCard({ queueData }: { queueData: QueueData | null }) {
             <Badge variant={focus.isActivePanel ? "default" : "outline"}>Active Panel</Badge>
             <Badge variant={focus.isDashboardEnabled ? "default" : "outline"}>Dashboard Enabled</Badge>
             <Badge variant={focus.liveTradeEnabled ? "default" : "outline"}>Live Trade</Badge>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function QuickstartStatusCard({ queueData }: { queueData: QueueData | null }) {
+  if (!queueData?.quickstart) return null
+  const run = queueData.quickstart
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Zap className="h-5 w-5" />
+          Last Quickstart Run
+        </CardTitle>
+        <CardDescription>Cross-system quickstart status used by overview/tracking/logistics</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 md:grid-cols-3">
+        <div>
+          <div className="text-sm text-muted-foreground">Connection</div>
+          <div className="font-semibold">{run.connectionName || run.connectionId || "N/A"}</div>
+        </div>
+        <div>
+          <div className="text-sm text-muted-foreground">Exchange</div>
+          <div className="font-semibold uppercase">{run.exchange || "N/A"}</div>
+        </div>
+        <div>
+          <div className="text-sm text-muted-foreground">Completed</div>
+          <div className="font-semibold">
+            {run.timestamp ? new Date(run.timestamp).toLocaleString() : "N/A"}
+            {typeof run.durationMs === "number" ? ` (${run.durationMs}ms)` : ""}
           </div>
         </div>
       </CardContent>
@@ -639,6 +680,7 @@ export default function LogisticsPage() {
           <RealTimeActivity systemStatus={systemStatus} />
           <WorkflowPhaseCard queueData={queueData} />
           <FocusConnectionCard queueData={queueData} />
+          <QuickstartStatusCard queueData={queueData} />
 
           {/* Order Queue Logistics */}
           {queueData && (

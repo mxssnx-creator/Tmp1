@@ -8,6 +8,8 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Recently Completed
 
+- [x] Unified connection-log dialog/API to Redis-first progression+workflow sources with phase breakdown and bottom detail metadata; added quickstart status propagation across workflow snapshot/logistics and hardened truthy parsing in tracking/quickstart readiness
+- [x] Synced `pnpm-lock.yaml` with the current dependency graph to restore deterministic installs after prior package alignment changes
 - [x] Fixed workflow-logger.ts: storage/retrieval mismatch (was using client.set vs client.zrevrange - fixed to use lpush/lrange consistently)
 - [x] Fixed progression-limits-manager.ts: risk calculation bug (was dividing by 100 unnecessarily - maxSafeSize was 100x too small)
 - [x] Fixed verify-engine route: wrong field reference (prehistoric_cycles vs prehistoric_cycles_completed)
@@ -94,6 +96,20 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Fixed indication progression failure accounting in `TradeEngineManager`: failed cycles are now counted on every processor error (instead of conditional modulo behavior), and error progression events now include attempted/success/error counters for better observability
 - [x] Fixed progression running-state detection in `/api/connections/progression/[id]` to require current runtime evidence (running flag/state/recent activity) instead of historical cycle totals, preventing stale "running" status after engines stop
 - [x] Fixed system integrity verification workflow for mixed persistence modes: `scripts/verify-system-integrity.js` now recognizes Redis-first runtime as valid (without requiring `data/trading.db`) and avoids legacy sqlite-only failure behavior
+- [x] Optimized Redis connection data access by introducing per-connection index sets for trades/positions (`trades:by-connection:*`, `positions:by-connection:*`) with backward-compatible fallback hydration and stale-index cleanup
+- [x] Improved logistics/workflow metrics coherence by exposing engine cycle+duration stats in `dashboard-workflow` and using measured engine latencies/rates in `/api/logistics/queue` instead of synthetic values
+- [x] Removed repeated base-seeding trigger from connections GET API to stop unintended re-creation/reappearance flows during normal polling
+- [x] Hardened base seeder with persisted one-time marker and adjusted startup defaults so only Bybit/BingX are pre-assigned to Main; Pionex/OrangeX remain base-enabled but unassigned
+- [x] Fixed connection state mutation edge-cases: prevented dashboard-enable from implicitly inserting unassigned connections, normalized `add-to-active` duplicate checks with truthy flag parser, and stopped `init-status`/credential inject helpers from forcing `is_active_inserted=1`
+- [x] Aligned Smart/System overview active counts and cycle stats to workflow snapshot metrics for consistent connection state display across sections
+- [x] Re-normalized indication set retention behavior to configurable per-type limits (default 250) and removed hardcoded 100-entry truncation in batch/single save paths to keep preprocessing datasets complete for independent config evaluations
+- [x] Expanded indication-set independence for Active/Optimal processing: Active now evaluates multidimensional config combinations (threshold/drawdown ratio/active-time ratio/last-part ratio/factor multiplier) with per-config set keys, and Optimal now evaluates full 3-30 ranges with factor variants
+- [x] Added strategy per-configuration persistence for MAIN stage (`strategies:{connection}:{symbol}:main:cfg:{configKey}`) so each position-size/leverage/state combination has its own independent set for stats/logistics diagnostics
+- [x] Extended Direction/Move indication independence to full 3-30 range configs with ratio/factor variants (drawdown + last-part + multiplier) and per-combination set keys, while preserving high-frequency performance via capped batch writes
+- [x] Updated Direction/Move/Active config processing to evaluate and persist the full generated combination sets each cycle (removed per-cycle 250-write slicing and timeout-gated skipping for Direction/Move) to ensure complete per-config coverage
+- [x] Optimized high-frequency indication persistence by converting per-config batch writes to bounded parallel chunk processing (concurrency-limited) while preserving per-set retention limits
+- [x] Added settings-driven indication grid controls (range start/end/step + ratio/factor arrays) so Direction/Move/Active/Optimal config spaces are tunable without code changes while retaining independent per-config persistence
+- [x] Fixed indication stats/entries retrieval for new per-config key model by aggregating across all matching config-set keys (`indication_set:{connection}:{symbol}:{type}*`) instead of legacy single-key lookups
 
 ## Current Structure
 
@@ -119,6 +135,17 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-23 | Unified logs dialog/backend on Redis-first sources, added quickstart status visibility in logistics/workflow snapshot, and hardened tracking/quickstart readiness boolean+credential parsing |
+| 2026-03-23 | Synced `pnpm-lock.yaml` with current package manifests/runtime pins to keep installs reproducible and avoid lock drift |
+| 2026-03-23 | Fixed indication set stats/entries APIs to aggregate across per-config keys so dashboards/logs reflect real expanded config persistence |
+| 2026-03-23 | Added settings-driven config-grid parsing for indication processors (ranges and ratio arrays) to tune batch/interval processing coverage without code edits |
+| 2026-03-23 | Optimized indication batch persistence with bounded parallel chunking for higher throughput under full per-config evaluation load |
+| 2026-03-23 | Removed Direction/Move timeout gating and per-cycle write slicing so full generated Direction/Move/Active config combinations are evaluated and persisted each cycle |
+| 2026-03-23 | Extended Direction/Move indication config independence to full 3-30 + ratio/factor combinations with independent set keys and capped batch persistence |
+| 2026-03-23 | Extended indication/strategy configuration-set independence: Active+Optimal indication configs now persist as per-combination sets and MAIN strategies now persist per-config set keys for independent tracking |
+| 2026-03-23 | Updated indication set processor retention to respect configurable per-type limits (default 250), replacing hardcoded 100-entry truncation for better prehistoric/realtime config coverage |
+| 2026-03-23 | Fixed connection reappearance/duplicate-main-assignment issues by removing GET-time seeding, persisting one-time base seed marker, hardening toggle/add guards, and aligning dashboard/system counts to shared workflow metrics |
+| 2026-03-23 | Optimized Redis trade/position lookup paths using per-connection indexes and improved logistics queue metrics to consume real engine cycle/duration telemetry |
 | 2026-03-23 | Updated system integrity checker to validate Redis-first deployments correctly, preventing false failures when sqlite file is intentionally absent |
 | 2026-03-23 | Hardened progression correctness: indication processor now records every failed cycle and emits richer error logs with counters; progression API running-state logic no longer treats old cycle totals as live runtime evidence |
 | 2026-03-21 | Fixed build failure: reinstalled deps, added @tailwindcss/postcss, fixed @next/swc version mismatch |

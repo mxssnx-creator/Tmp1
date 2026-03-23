@@ -13,8 +13,19 @@ export async function GET() {
     const failedOrders = connectionMetrics.progression?.failedCycles || 0
     const totalProcessed = completedOrders + failedOrders
     const successRate = totalProcessed > 0 ? Math.round((completedOrders / totalProcessed) * 100) : cycleSuccessRate
-    const processingRate = connectionMetrics.progression?.cyclesCompleted || 0
-    const avgLatency = Math.round(connectionMetrics.progression?.cycleSuccessRate ? Math.max(150, 1000 - connectionMetrics.progression.cycleSuccessRate * 5) : 0)
+    const processingRate =
+      connectionMetrics.engineCycles?.total ||
+      connectionMetrics.progression?.cyclesCompleted ||
+      0
+    const latencySamples = [
+      connectionMetrics.engineDurations?.indicationAvgMs || 0,
+      connectionMetrics.engineDurations?.strategyAvgMs || 0,
+      connectionMetrics.engineDurations?.realtimeAvgMs || 0,
+    ].filter((value) => value > 0)
+    const avgLatency =
+      latencySamples.length > 0
+        ? Math.round(latencySamples.reduce((sum, value) => sum + value, 0) / latencySamples.length)
+        : 0
     const latestSymbolFromLogs = connectionMetrics.logs.find((log: any) => typeof log.details?.symbol === "string")?.details?.symbol
     const focusSymbol = latestSymbolFromLogs || "N/A"
 
@@ -25,7 +36,7 @@ export async function GET() {
       successRate,
       avgLatency,
       maxLatency: avgLatency ? avgLatency + 120 : 0,
-      throughput: processingRate * 60,
+      throughput: processingRate > 0 ? processingRate * 60 : 0,
       completedOrders,
       failedOrders,
       activeOrders: focusConnection
@@ -43,6 +54,8 @@ export async function GET() {
       workflow: snapshot.workflowPhases,
       focusConnection,
       progression: connectionMetrics.progression,
+      quickstart: snapshot.quickstartState,
+      recentGlobalLogs: snapshot.recentGlobalLogs.slice(0, 5),
     })
   } catch (error) {
     console.error("[v0] [Logistics] Error:", error)

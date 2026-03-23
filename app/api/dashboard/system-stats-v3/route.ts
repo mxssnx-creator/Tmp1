@@ -198,10 +198,10 @@ export async function GET() {
       },
       activeConnections: {
         // Active panel connections
-        total: activeInsertedAll.length,
-        active: enabledDashboard.length,
-        liveTrade: liveTradeConnections.length,
-        presetTrade: presetTradeConnections.length,
+        total: workflow.overview.activePanelConnections,
+        active: workflow.overview.dashboardEnabledConnections,
+        liveTrade: workflow.overview.liveTradeConnections,
+        presetTrade: workflow.overview.presetTradeConnections,
       },
       // Available connections = enabled base connections NOT yet in Active panel
       availableConnections: enabledBase.filter((c: any) => {
@@ -213,12 +213,10 @@ export async function GET() {
         topConnections: [],
       },
       cycleStats: {
-        cycleCount: workflow.connectionMetrics.progression?.cyclesCompleted || 0,
-        indicationCycles: workflow.connectionMetrics.progression?.cyclesCompleted || 0,
-        strategyCycles: workflow.connectionMetrics.progression?.successfulCycles || 0,
-        cycleDurationMs: workflow.connectionMetrics.progression?.cycleSuccessRate
-          ? Math.max(150, 1000 - workflow.connectionMetrics.progression.cycleSuccessRate * 5)
-          : 0,
+        cycleCount: workflow.connectionMetrics.engineCycles?.total || workflow.connectionMetrics.progression?.cyclesCompleted || 0,
+        indicationCycles: workflow.connectionMetrics.engineCycles?.indication || 0,
+        strategyCycles: workflow.connectionMetrics.engineCycles?.strategy || 0,
+        cycleDurationMs: workflow.connectionMetrics.engineDurations?.indicationAvgMs || 0,
       },
       totalPositions: workflow.connectionMetrics.positions,
       totalTrades: workflow.connectionMetrics.trades,

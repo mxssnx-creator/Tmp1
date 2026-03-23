@@ -16,10 +16,21 @@ interface ConnectionLogDialogProps {
   connectionName: string
 }
 
+type LogSummary = {
+  total?: number
+  errors?: number
+  warnings?: number
+  info?: number
+  debug?: number
+  phases?: Record<string, number>
+  latestTimestamp?: string | null
+  oldestTimestamp?: string | null
+}
+
 export function ConnectionLogDialog({ open, onOpenChange, connectionId, connectionName }: ConnectionLogDialogProps) {
   const [loading, setLoading] = useState(true)
   const [logs, setLogs] = useState<any[]>([])
-  const [summary, setSummary] = useState<any>(null)
+  const [summary, setSummary] = useState<LogSummary | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -36,7 +47,7 @@ export function ConnectionLogDialog({ open, onOpenChange, connectionId, connecti
 
       const data = await response.json()
       setLogs(data.logs || [])
-      setSummary(data.summary || {})
+      setSummary(data.summary || null)
     } catch (error) {
       console.error("[v0] Failed to load connection logs:", error)
       toast.error("Error loading logs", {
@@ -121,6 +132,7 @@ export function ConnectionLogDialog({ open, onOpenChange, connectionId, connecti
                         </span>
                       </div>
                       <p className="text-sm font-medium">{log.message}</p>
+                      <div className="text-xs text-muted-foreground">Phase: {log.phase || "unknown"} • Source: {log.source || "runtime"}</div>
                       {log.details && (
                         <pre className="text-xs text-muted-foreground bg-muted p-2 rounded overflow-x-auto">
                           {JSON.stringify(log.details, null, 2)}
@@ -131,6 +143,41 @@ export function ConnectionLogDialog({ open, onOpenChange, connectionId, connecti
                 </div>
               )}
             </ScrollArea>
+
+            {!!summary?.phases && Object.keys(summary.phases).length > 0 && (
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="text-sm font-medium">Detailed Breakdown</div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">By Phase</div>
+                    <div className="space-y-1">
+                      {Object.entries(summary.phases)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 8)
+                        .map(([phase, count]) => (
+                          <div key={phase} className="flex items-center justify-between text-xs">
+                            <span className="truncate pr-2">{phase}</span>
+                            <Badge variant="outline">{count}</Badge>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Newest event:</span>{" "}
+                      {summary.latestTimestamp ? new Date(summary.latestTimestamp).toLocaleString() : "N/A"}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Oldest event:</span>{" "}
+                      {summary.oldestTimestamp ? new Date(summary.oldestTimestamp).toLocaleString() : "N/A"}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Connection:</span> {connectionName}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end pt-4">
               <Button onClick={() => onOpenChange(false)}>Close</Button>

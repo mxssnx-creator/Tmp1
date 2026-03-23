@@ -28,14 +28,6 @@ export async function GET(request: NextRequest) {
 
     await initRedis()
     
-    // Seed connections only once (module has internal flag to prevent re-seeding)
-    const { ensureDefaultExchangesExist } = await import("@/lib/default-exchanges-seeder")
-    try {
-      await ensureDefaultExchangesExist()
-    } catch (e) {
-      console.warn("[v0] [API] Connection seeding skipped:", e)
-    }
-    
     let connections = await getAllConnections()
 
     // Auto-initialize ONLY user-created connections (not predefined templates)

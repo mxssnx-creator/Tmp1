@@ -145,7 +145,7 @@ export class TradeEngineManager {
       await this.updateProgressionPhase("prehistoric_data", 15, "Loading historical market data...")
       console.log(`[v0] [EngineManager] Phase 2/6: Starting prehistoric data loading (background)...`)
 
-      // Start prehistoric loading and wait for completion to ensure data is ready
+      // Start prehistoric loading and keep a recovery path if it fails
       try {
         await Promise.race([
           this.loadPrehistoricData(),
@@ -156,12 +156,20 @@ export class TradeEngineManager {
         console.log(`[v0] [EngineManager] Phase 2/6: ✓ Prehistoric data loaded successfully`)
       } catch (err) {
         console.warn(`[v0] [EngineManager] Prehistoric data loading error (continuing anyway):`, err)
-        // Mark as failed but continue - prehistoric is not critical for realtime operation
         await setSettings(`trade_engine_state:${this.connectionId}`, {
           prehistoric_data_loaded: false,
           prehistoric_data_error: err instanceof Error ? err.message : String(err),
           updated_at: new Date().toISOString(),
         })
+        // Retry with a reduced fallback symbol set so realtime/strategy processing can still start cleanly
+        try {
+          const fallbackSymbols = ["BTCUSDT", "ETHUSDT"]
+          await loadMarketDataForEngine(fallbackSymbols)
+          await this.updateProgressionPhase("prehistoric_data", 18, "Fallback historical data loaded")
+          console.log(`[v0] [EngineManager] Fallback prehistoric data loaded for ${fallbackSymbols.join(", ")}`)
+        } catch (fallbackErr) {
+          console.warn(`[v0] [EngineManager] Fallback prehistoric loading also failed:`, fallbackErr)
+        }
       }
 
       console.log(`[v0] [EngineManager] Phase 2/6: Proceeding to indication processor setup`)
@@ -183,16 +191,28 @@ export class TradeEngineManager {
       }
 
       this.startIndicationProcessor(config.indicationInterval)
+      // Force an immediate indication cycle so the engine does not wait for the first interval tick
+      let immediateSymbols = await this.getSymbols()
+      if (!immediateSymbols || immediateSymbols.length === 0) {
+        immediateSymbols = ["BTCUSDT", "ETHUSDT"]
+      }
+      await Promise.all(immediateSymbols.map((symbol) => this.indicationProcessor.processIndication(symbol).catch(() => [])))
 
       // Phase 4: Start strategy processor - immediate phase update
       console.log(`[v0] [EngineManager] Phase 4/6: Starting strategy processor`)
       await this.updateProgressionPhase("strategies", 75, "Processing strategies continuously")
       this.startStrategyProcessor(config.strategyInterval)
+      // Kick off an immediate strategy evaluation cycle for visibility and early results
+      await Promise.all(immediateSymbols.map((symbol) => this.strategyProcessor.processStrategy(symbol).catch(() => ({ strategiesEvaluated: 0, liveReady: 0 }))))
 
       // Phase 5: Start realtime processor - immediate phase update
       console.log(`[v0] [EngineManager] Phase 5/6: Starting real-time processor`)
       await this.updateProgressionPhase("realtime", 85, "Monitoring real-time data and positions")
       this.startRealtimeProcessor(config.realtimeInterval)
+      // Run a realtime pass immediately so active positions are processed without delay
+      await this.realtimeProcessor.processRealtimeUpdates().catch((error) => {
+        console.warn(`[v0] [EngineManager] Immediate realtime pass failed:`, error)
+      })
       this.startHealthMonitoring()
       
       // Phase 6: Live trading ready - final phase update
@@ -219,6 +239,17 @@ export class TradeEngineManager {
         symbols: symbols.length,
         phases: 6,
         config,
+      })
+
+      // Ensure the engine state reflects active processors and result flow immediately
+      await setSettings(`trade_engine_state:${this.connectionId}`, {
+        ...((await getSettings(`trade_engine_state:${this.connectionId}`)) || {}),
+        indications_started: true,
+        strategies_started: true,
+        realtime_started: true,
+        live_trading_started: true,
+        engine_ready: true,
+        updated_at: new Date().toISOString(),
       })
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)

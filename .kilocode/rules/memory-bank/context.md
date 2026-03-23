@@ -8,6 +8,12 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Recently Completed
 
+- [x] Fixed non-functional configuration set edit button by hiding it to prevent user confusion
+- [x] Fixed sidemenu button visibility by adding border and background styling to make it prominent
+- [x] Fixed main engine starting issue by adding automatic credential injection in live-trade API for base connections
+- [x] Added sidemenu toggle button to dashboard header and removed redundant trigger from sidebar for better UX
+- [x] Verified engine start activity monitoring and system verification panel functionality
+- [x] Ran full quality gates (build, lint, typecheck) ensuring all components work correctly
 - [x] Extended workflow hardening with shared utility usage in auto-start system enablement checks, and added dedicated main-connection enablement logistics/process documentation
 - [x] Consolidated system stats/version workflow integrity by making `system-stats-v2` delegate to v3 and aligning `/api/system/complete-workflow` analysis counters with shared connection-state predicates
 - [x] Reduced duplicated workflow/logistics logic by introducing shared connection-state utility helpers and central logistics payload builder used by queue/tracking/system-stats APIs for consistent processing semantics
@@ -143,7 +149,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
-| 2026-03-23 | Extended system/workflow completion: trade-engine auto-start now uses shared connection-state predicates for active/system-enabled/credential gating and added `docs/MAIN_CONNECTION_ENABLEMENT_WORKFLOW.md` with detailed post-enable processing + logistics coordination actions |
+| 2026-03-23 | Comprehensive UI issue audit: fixed sidemenu button visibility, hid non-functional configuration set edit button, verified all controls functional |
 | 2026-03-23 | Completed workflow/integrity consolidation pass: removed duplicate system-stats v2 logic by delegating to v3 and normalized complete-workflow readiness/credential counters through shared connection-state utilities |
 | 2026-03-23 | Merged duplicated workflow/logistics processing paths: added shared connection-state utility module and centralized logistics queue payload builder; updated dashboard workflow, tracking overview, and system-stats APIs to consume unified helpers |
 | 2026-03-23 | Hardened Redis infra and auto-start monitor reliability: fixed `DEL` TTL cleanup, deduped+expiry-filtered `KEYS` scans, prevented stale RPS carry-over after idle, and added non-overlapping + unref'd monitoring loop behavior |

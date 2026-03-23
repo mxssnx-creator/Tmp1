@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Activity, Pause, Square, AlertCircle } from "lucide-react"
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { toast } from "sonner"
 import type { ExchangeConnection } from "@/lib/types"
 
@@ -225,9 +226,12 @@ export function Dashboard() {
     <div className="flex-1 space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">CTS v3.2 Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Monitor and control your Main Connections (Active Connections)</p>
+        <div className="flex items-center gap-4">
+          <SidebarTrigger />
+          <div>
+            <h1 className="text-3xl font-bold mb-1">CTS v3.2 Dashboard</h1>
+            <p className="text-muted-foreground text-sm">Monitor and control your Main Connections (Active Connections)</p>
+          </div>
         </div>
         <Button onClick={loadExchangeConnectionsActive} size="sm" variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />

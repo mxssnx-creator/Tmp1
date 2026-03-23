@@ -155,7 +155,7 @@ export function AppSidebar() {
               <span className="text-[10px] text-muted-foreground">Trading System</span>
             </div>
           </div>
-          <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
+
         </div>
       </SidebarHeader>
       <SidebarContent>

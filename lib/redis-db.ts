@@ -2,9 +2,8 @@
  * Redis Database Layer
  * In-memory Redis client for Next.js runtime
  * Handles all database operations for connections, trades, positions, settings
- * 
+ *
  * IMPORTANT: This file must NOT import 'fs' or 'path' as it's used by client components
- * Data persists in globalThis across hot reloads
  */
 
 interface RedisData {

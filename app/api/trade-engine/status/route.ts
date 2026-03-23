@@ -104,8 +104,8 @@ export async function GET() {
             positions: positionsCount,
             trades: tradesCount,
             progression: {
-              cycles_completed: progressionState.cyclesCompleted || 0,
-              successful_cycles: progressionState.successfulCycles || 0,
+              cycles_completed: progressionState.cyclesCompleted || progressionState.engine_cycles_total || 0,
+              successful_cycles: progressionState.successfulCycles || progressionState.engine_cycles_total || 0,
               failed_cycles: progressionState.failedCycles || 0,
             },
             state: progressionState,

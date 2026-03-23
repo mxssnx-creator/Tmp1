@@ -692,4 +692,49 @@ export class BybitConnector extends BaseExchangeConnector {
       return null
     }
   }
+
+  async getOHLCV(symbol: string, timeframe = "1m", limit = 250): Promise<Array<{timestamp: number; open: number; high: number; low: number; close: number; volume: number}> | null> {
+    try {
+      this.log(`Fetching OHLCV for ${symbol} (${timeframe}, ${limit} candles)`)
+
+      const baseUrl = this.getBaseUrl()
+      const category = this.credentials.apiType === "spot" ? "spot" : "linear"
+      
+      // Convert timeframe to Bybit interval format
+      const intervalMap: Record<string, string> = {
+        "1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30",
+        "1h": "60", "2h": "120", "4h": "240", "6h": "360", "12h": "720",
+        "1d": "D", "1w": "W", "1M": "M"
+      }
+      const interval = intervalMap[timeframe] || "1"
+
+      const response = await this.rateLimitedFetch(
+        `${baseUrl}/v5/market/kline?category=${category}&symbol=${symbol}&interval=${interval}&limit=${limit}`
+      )
+
+      const data = await response.json()
+
+      if (data.retCode !== 0 || !data.result?.list) {
+        this.logError(`✗ Failed to fetch OHLCV: ${data.retMsg || "Unknown error"}`)
+        return null
+      }
+
+      // Bybit returns: [timestamp, open, high, low, close, volume, turnover]
+      const candles = data.result.list.map((c: string[]) => ({
+        timestamp: Number.parseInt(c[0]),
+        open: Number.parseFloat(c[1]),
+        high: Number.parseFloat(c[2]),
+        low: Number.parseFloat(c[3]),
+        close: Number.parseFloat(c[4]),
+        volume: Number.parseFloat(c[5])
+      })).reverse() // Reverse to get chronological order
+
+      this.log(`✓ OHLCV fetched: ${candles.length} candles`)
+      return candles
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch OHLCV: ${errorMsg}`)
+      return null
+    }
+  }
 }

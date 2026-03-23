@@ -747,4 +747,60 @@ export class OKXConnector extends BaseExchangeConnector {
       return null
     }
   }
+
+  async getOHLCV(symbol: string, timeframe = "1m", limit = 250): Promise<Array<{timestamp: number; open: number; high: number; low: number; close: number; volume: number}> | null> {
+    try {
+      this.log(`Fetching OHLCV for ${symbol} (${timeframe}, ${limit} candles)`)
+
+      const timestamp = new Date().toISOString()
+      const baseUrl = this.getBaseUrl()
+      
+      // Convert timeframe to OKX bar format
+      const intervalMap: Record<string, string> = {
+        "1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m", "30m": "30m",
+        "1h": "1H", "2h": "2H", "4h": "4H", "6h": "6H", "12h": "12H",
+        "1d": "1D", "1w": "1W", "1M": "1M"
+      }
+      const bar = intervalMap[timeframe] || "1m"
+
+      const method = "GET"
+      const requestPath = `/api/v5/market/candles?instId=${symbol}&bar=${bar}&limit=${limit}`
+      const body = ""
+      const prehash = timestamp + method + requestPath + body
+      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+
+      const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
+        headers: {
+          "OK-ACCESS-KEY": this.credentials.apiKey,
+          "OK-ACCESS-SIGN": signature,
+          "OK-ACCESS-TIMESTAMP": timestamp,
+          "OK-ACCESS-PASSPHRASE": this.credentials.apiPassphrase || "",
+        },
+      })
+
+      const data = await response.json()
+
+      if (data.code !== "0") {
+        this.logError(`✗ Failed to fetch OHLCV: ${data.msg || "Unknown error"}`)
+        return null
+      }
+
+      // OKX returns: [timestamp, open, high, low, close, volume, ...]
+      const candles = data.data.map((c: string[]) => ({
+        timestamp: Number.parseInt(c[0]),
+        open: Number.parseFloat(c[1]),
+        high: Number.parseFloat(c[2]),
+        low: Number.parseFloat(c[3]),
+        close: Number.parseFloat(c[4]),
+        volume: Number.parseFloat(c[5])
+      })).reverse() // Reverse to get chronological order
+
+      this.log(`✓ OHLCV fetched: ${candles.length} candles`)
+      return candles
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch OHLCV: ${errorMsg}`)
+      return null
+    }
+  }
 }

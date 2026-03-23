@@ -507,4 +507,56 @@ export class PionexConnector extends BaseExchangeConnector {
       return null
     }
   }
+
+  async getOHLCV(symbol: string, timeframe = "1m", limit = 250): Promise<Array<{timestamp: number; open: number; high: number; low: number; close: number; volume: number}> | null> {
+    try {
+      this.log(`Fetching OHLCV for ${symbol} (${timeframe}, ${limit} candles)`)
+
+      const baseUrl = this.getBaseUrl()
+      const timestamp = Date.now().toString()
+      const method = "GET"
+      
+      // Convert timeframe to Pionex interval format
+      const intervalMap: Record<string, string> = {
+        "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m",
+        "1h": "1h", "2h": "2h", "4h": "4h", "6h": "6h", "12h": "12h",
+        "1d": "1d", "1w": "1w", "1M": "1M"
+      }
+      const interval = intervalMap[timeframe] || "1m"
+      
+      const path = `/api/v1/market/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+      const params: Record<string, string> = { timestamp }
+      const signature = this.generateSignature(method, path, params)
+
+      const sortedKeys = Object.keys(params).sort()
+      const queryString = sortedKeys.map((k) => `${k}=${params[k]}`).join("&")
+
+      const response = await this.rateLimitedFetch(`${baseUrl}${path}&${queryString}&signature=${signature}`, {
+        headers: { "PIONEX-KEY": this.credentials.apiKey },
+      })
+
+      const data = await safeParseResponse(response)
+
+      if (data.error || data.result === false || !data.data) {
+        this.logError(`✗ Failed to fetch OHLCV: ${data.error || "Unknown error"}`)
+        return null
+      }
+
+      const candles = data.data.map((c: any) => ({
+        timestamp: Number.parseInt(c.time),
+        open: Number.parseFloat(c.open),
+        high: Number.parseFloat(c.high),
+        low: Number.parseFloat(c.low),
+        close: Number.parseFloat(c.close),
+        volume: Number.parseFloat(c.volume)
+      }))
+
+      this.log(`✓ OHLCV fetched: ${candles.length} candles`)
+      return candles
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch OHLCV: ${errorMsg}`)
+      return null
+    }
+  }
 }

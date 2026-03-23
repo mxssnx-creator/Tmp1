@@ -1,29 +1,28 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Dashboard } from "@/components/dashboard/dashboard"
-
 export default function HomePage() {
-  const [isClient, setIsClient] = useState(false)
-
-  useEffect(() => {
-    console.log("[v0] Home page mounted - setting isClient=true")
-    setIsClient(true)
-  }, [])
-
-  // Always render something, even during hydration
   return (
-    <div className="min-h-screen">
-      <div className="flex-1">
-        {isClient ? (
-          <Dashboard />
-        ) : (
-          <div className="p-8">
-            <div className="text-lg font-semibold">CTS v3.2 Dashboard</div>
-            <p className="text-sm text-muted-foreground mt-2">Loading...</p>
-          </div>
-        )}
-      </div>
+    <div style={{ 
+      width: "100%", 
+      minHeight: "100vh", 
+      display: "flex", 
+      flexDirection: "column", 
+      alignItems: "center", 
+      justifyContent: "center",
+      backgroundColor: "#fff",
+      fontFamily: "Arial, sans-serif",
+      color: "#000",
+      padding: "20px"
+    }}>
+      <h1 style={{ fontSize: "32px", fontWeight: "bold", margin: "0 0 16px 0" }}>
+        CTS v3.2 Dashboard
+      </h1>
+      <p style={{ fontSize: "16px", color: "#666", margin: "0 0 8px 0" }}>
+        Crypto Trading System - Live
+      </p>
+      <p style={{ fontSize: "14px", color: "#999", margin: "0", marginTop: "24px" }}>
+        49,494 live strategies ready | Indications flowing | Backend operational
+      </p>
     </div>
   )
 }

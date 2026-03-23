@@ -189,14 +189,16 @@ export class BingXConnector extends BaseExchangeConnector {
       this.log(`[Debug] USDT entry found: ${!!usdtEntry}`)
       this.log(`[Debug] USDT balance value: ${usdtBalance}`)
 
-      // Get BTC price from market data or estimate
+      // Get BTC price from market data
+      // BingX spot ticker returns: { code: 0, data: { symbol, lastPrice, priceChangePercent, ... } }
       let btcPrice = 0
       try {
-        // Try to fetch current BTC/USDT price
-        const priceResponse = await fetch("https://open-api.bingx.com/openApi/spot/v1/ticker/price?symbol=BTC-USDT")
+        const priceResponse = await fetch("https://open-api.bingx.com/openApi/spot/v1/ticker/24hr?symbol=BTC-USDT")
         if (priceResponse.ok) {
           const priceData = await priceResponse.json()
-          btcPrice = Number.parseFloat(priceData.data?.price || "0")
+          // The 24hr ticker returns data as an array or object; lastPrice is the current price
+          const ticker = Array.isArray(priceData.data) ? priceData.data[0] : priceData.data
+          btcPrice = Number.parseFloat(ticker?.lastPrice || ticker?.closePrice || ticker?.price || "0")
           this.log(`[Debug] BTC/USDT price fetched: $${btcPrice.toFixed(2)}`)
         }
       } catch (e) {
@@ -206,10 +208,6 @@ export class BingXConnector extends BaseExchangeConnector {
       // Map all balances with proper field extraction
       // IMPORTANT: BingX uses different field names for SPOT vs PERPETUAL
       const isFutures = apiType === "perpetual_futures" || apiType === "futures"
-      
-      console.log(`[v0] [BingX] Balance parsing - API Type: ${apiType}, isFutures: ${isFutures}`)
-      console.log(`[v0] [BingX] Sample balance entry fields:`, balanceData.length > 0 ? Object.keys(balanceData[0]) : "no data")
-      
       const balances = balanceData.map((b: any) => {
         // For SPOT: availableMargin/frozenMargin are futures-only fields
         // Use free/locked for spot, availableMargin/frozenMargin for perpetual
@@ -232,8 +230,6 @@ export class BingXConnector extends BaseExchangeConnector {
           }
         }
       })
-      
-      console.log(`[v0] [BingX] Parsed ${balances.length} balances, USDT balance: ${usdtBalance}`)
 
       this.log(`✓ Account balance: ${usdtBalance.toFixed(4)} USDT`)
       this.log(`✓ Total assets: ${balances.length}`)

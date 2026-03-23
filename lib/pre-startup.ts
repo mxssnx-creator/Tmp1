@@ -113,24 +113,26 @@ export async function testAllExchangeConnections() {
   try {
     const allConnections = await getAllConnections()
     
-    // Only test connections that have real API keys (not placeholder)
+    // Only test the 2 base connections (bybit + bingx) that are actually inserted into Main
+    // Do NOT test template connections (pionex, orangex, etc.) even if they have valid keys
     const testable = allConnections.filter((c: any) => {
-      const hasValidKey = c.api_key && c.api_key.length >= 20 
-        && !c.api_key.includes("PLACEHOLDER") 
+      const isBaseConnection = c.is_active_inserted === true || c.is_active_inserted === "true" || c.is_active_inserted === "1"
+      const hasValidKey = c.api_key && c.api_key.length >= 20
+        && !c.api_key.includes("PLACEHOLDER")
         && !c.api_key.includes("00998877")
         && !c.api_key.includes("your_")
       const hasSecret = c.api_secret && c.api_secret.length >= 10
         && !c.api_secret.includes("PLACEHOLDER")
         && !c.api_secret.includes("your_")
-      return hasValidKey && hasSecret
+      return isBaseConnection && hasValidKey && hasSecret
     })
 
     if (testable.length === 0) {
-      console.log(`[v0] [Startup] No connections with valid API keys to test (${allConnections.length} total, all placeholder)`)
+      console.log(`[v0] [Startup] No base connections with valid API keys to test (${allConnections.length} total)`)
       return { tested: 0, passed: 0, failed: 0 }
     }
 
-    console.log(`[v0] [Startup] Testing ${testable.length} connections with valid keys (skipping ${allConnections.length - testable.length} placeholder)`)
+    console.log(`[v0] [Startup] Testing ${testable.length} base connections (bybit+bingx only, skipping ${allConnections.length - testable.length} templates)`)
     
     let passed = 0
     let failed = 0

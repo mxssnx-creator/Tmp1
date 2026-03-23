@@ -41,6 +41,10 @@ interface TradingLogistics {
   total_volume_24h: number
   trades_per_hour: number
   avg_response_time: number
+  workflow_health?: string
+  queue_backlog?: number
+  processing_pressure?: number
+  success_rate?: number
 }
 
 interface ModuleStatus {
@@ -70,6 +74,10 @@ export default function OverviewPage() {
     total_volume_24h: 125000,
     trades_per_hour: 32,
     avg_response_time: 45,
+    workflow_health: "unknown",
+    queue_backlog: 0,
+    processing_pressure: 0,
+    success_rate: 0,
   })
 
   const [modules, setModules] = useState<ModuleStatus[]>([
@@ -417,14 +425,22 @@ export default function OverviewPage() {
                 <div className="space-y-4">
                   <div className="text-4xl font-bold">{tradingLogistics.open_positions}</div>
                   <div className="text-sm text-muted-foreground">Open positions</div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Trades/hour</span>
-                      <span className="font-semibold">{tradingLogistics.trades_per_hour}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">24h Volume</span>
-                      <span className="font-semibold">{formatCurrency(tradingLogistics.total_volume_24h)}</span>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Trades/hour</span>
+                        <span className="font-semibold">{tradingLogistics.trades_per_hour}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Workflow Health</span>
+                        <span className="font-semibold capitalize">{tradingLogistics.workflow_health || "unknown"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Queue Backlog</span>
+                        <span className="font-semibold">{tradingLogistics.queue_backlog || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">24h Volume</span>
+                        <span className="font-semibold">{formatCurrency(tradingLogistics.total_volume_24h)}</span>
                     </div>
                   </div>
                 </div>
@@ -444,8 +460,8 @@ export default function OverviewPage() {
                   { name: "Market Data", status: "active", health: 98 },
                   { name: "Signal Generation", status: "active", health: 95 },
                   { name: "Strategy Execution", status: "active", health: 96 },
-                  { name: "Position Management", status: "active", health: 97 },
-                  { name: "Risk Control", status: "active", health: 94 },
+                  { name: "Position Management", status: "active", health: Math.max(0, 100 - (tradingLogistics.processing_pressure || 0)) },
+                  { name: "Risk Control", status: "active", health: tradingLogistics.success_rate || 94 },
                 ].map((step, index) => (
                   <div key={index} className="text-center space-y-2">
                     <div className="flex justify-center">

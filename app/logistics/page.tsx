@@ -49,6 +49,9 @@ interface WorkflowPhase {
 
 interface QueueData {
   queueSize: number
+  queueBacklog?: number
+  workflowHealth?: string
+  processingPressure?: number
   processingRate: number
   successRate: number
   avgLatency: number
@@ -223,6 +226,21 @@ function WorkflowPhaseCard({ queueData }: { queueData: QueueData | null }) {
         <CardDescription>Live readiness state for logistics, processing, and engine activation</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-lg border p-3">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Workflow Health</div>
+            <div className="mt-1 text-lg font-semibold capitalize">{queueData.workflowHealth || "unknown"}</div>
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Queue Backlog</div>
+            <div className="mt-1 text-lg font-semibold">{queueData.queueBacklog || 0}</div>
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Processing Pressure</div>
+            <div className="mt-1 text-lg font-semibold">{queueData.processingPressure || 0}%</div>
+            <Progress value={queueData.processingPressure || 0} className="mt-2 h-2" />
+          </div>
+        </div>
         {queueData.workflow.map((phase) => (
           <div key={phase.id} className="flex items-start justify-between gap-4 rounded-lg border p-3">
             <div>

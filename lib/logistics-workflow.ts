@@ -26,10 +26,25 @@ export function buildLogisticsQueuePayload(snapshot: DashboardWorkflowSnapshot) 
 
   const latestSymbolFromLogs = connectionMetrics.logs.find((log: any) => typeof log.details?.symbol === "string")?.details?.symbol
   const focusSymbol = latestSymbolFromLogs || "N/A"
+  const queueBacklog = Math.max(0, overview.eligibleEngineConnections - processingRate)
+  const workflowHealth =
+    overview.eligibleEngineConnections === 0
+      ? "needs-input"
+      : globalStatus === "running"
+        ? "operational"
+        : globalStatus === "paused"
+          ? "degraded"
+          : "blocked"
+  const processingPressure = overview.eligibleEngineConnections > 0
+    ? Math.min(100, Math.round((queueBacklog / overview.eligibleEngineConnections) * 100))
+    : 0
 
   return {
     success: true,
     queueSize: Math.max(0, overview.eligibleEngineConnections - overview.liveTradeConnections),
+    queueBacklog,
+    workflowHealth,
+    processingPressure,
     processingRate,
     successRate,
     avgLatency,

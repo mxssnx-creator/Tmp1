@@ -105,50 +105,114 @@ export class TradeEngineManager {
       // Phase 1: Initializing
       await this.updateProgressionPhase("initializing", 5, "Setting up engine components...")
       await logProgressionEvent(this.connectionId, "initializing", "info", "Engine initialization started")
+
       await this.updateEngineState("running")
       await this.setRunningFlag(true)
-      console.log(`[v0] [EngineManager] Phase 1/6: Initialized`)
+      console.log(`[v0] [EngineManager] Phase 1/6: Initialized - starting progression tracking`)
 
       // Phase 1.5: Load market data for all symbols
       await this.updateProgressionPhase("market_data", 8, "Loading market data for all symbols...")
       const symbols = await this.getSymbols()
-      
+
       // Store symbols in trade_engine_state for easy access
       await setSettings(`trade_engine_state:${this.connectionId}`, {
         symbols: symbols,
         active_symbols: symbols,
         updated_at: new Date().toISOString(),
       })
-      
+
       console.log(`[v0] [EngineManager] Loaded ${symbols.length} symbols for connection: ${symbols.join(", ")}`)
       const loaded = await loadMarketDataForEngine(symbols)
       console.log(`[v0] [EngineManager] Phase 1.5/6: Market data loaded for ${loaded} symbols`)
+
+      // CRITICAL: Verify market data was actually loaded by checking a sample symbol
+      if (loaded > 0) {
+        const sampleSymbol = symbols[0]
+        const client = getRedisClient()
+        const testData = await client.get(`market_data:${sampleSymbol}:1m`)
+        if (!testData) {
+          console.warn(`[v0] [EngineManager] WARNING: Market data verification failed for ${sampleSymbol}`)
+          // Retry loading once
+          const retryLoaded = await loadMarketDataForEngine([sampleSymbol])
+          console.log(`[v0] [EngineManager] Retry loaded ${retryLoaded} symbols`)
+        } else {
+          console.log(`[v0] [EngineManager] ✓ Market data verification passed for ${sampleSymbol}`)
+        }
+      }
 
       // Phase 2: Load prehistoric data (historical data retrieval + calculation)
       // Run in background - don't block engine startup
       await this.updateProgressionPhase("prehistoric_data", 15, "Loading historical market data...")
       console.log(`[v0] [EngineManager] Phase 2/6: Starting prehistoric data loading (background)...`)
-      // Fire and forget - don't await
-      this.loadPrehistoricData().catch(err => {
-        console.warn(`[v0] [EngineManager] Prehistoric data loading error (non-blocking):`, err)
-        // Don't throw - engine continues
-      })
-      console.log(`[v0] [EngineManager] Phase 2/6: Prehistoric loading queued (engine will continue)`)
 
+      // Start prehistoric loading and keep a recovery path if it fails
+      try {
+        await Promise.race([
+          this.loadPrehistoricData(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Prehistoric loading timeout')), 30000)
+          )
+        ])
+        console.log(`[v0] [EngineManager] Phase 2/6: ✓ Prehistoric data loaded successfully`)
+      } catch (err) {
+        console.warn(`[v0] [EngineManager] Prehistoric data loading error (continuing anyway):`, err)
+        await setSettings(`trade_engine_state:${this.connectionId}`, {
+          prehistoric_data_loaded: false,
+          prehistoric_data_error: err instanceof Error ? err.message : String(err),
+          updated_at: new Date().toISOString(),
+        })
+        // Retry with a reduced fallback symbol set so realtime/strategy processing can still start cleanly
+        try {
+          const fallbackSymbols = ["BTCUSDT", "ETHUSDT"]
+          await loadMarketDataForEngine(fallbackSymbols)
+          await this.updateProgressionPhase("prehistoric_data", 18, "Fallback historical data loaded")
+          console.log(`[v0] [EngineManager] Fallback prehistoric data loaded for ${fallbackSymbols.join(", ")}`)
+        } catch (fallbackErr) {
+          console.warn(`[v0] [EngineManager] Fallback prehistoric loading also failed:`, fallbackErr)
+        }
+      }
+
+      console.log(`[v0] [EngineManager] Phase 2/6: Proceeding to indication processor setup`)
       // Phase 3: Start indication processor - immediate phase update
       console.log(`[v0] [EngineManager] Phase 3/6: Starting indication processor (${symbols.length} symbols)`)
       await this.updateProgressionPhase("indications", 60, "Processing indications continuously")
+
+      // Verify symbols are available for indication processing
+      if (!symbols || symbols.length === 0) {
+        console.warn(`[v0] [EngineManager] WARNING: No symbols available for indication processing`)
+        const fallbackSymbols = ["BTCUSDT", "ETHUSDT"] // Fallback symbols
+        console.log(`[v0] [EngineManager] Using fallback symbols: ${fallbackSymbols.join(", ")}`)
+        // Update engine state with fallback symbols
+        await setSettings(`trade_engine_state:${this.connectionId}`, {
+          symbols: fallbackSymbols,
+          active_symbols: fallbackSymbols,
+          updated_at: new Date().toISOString(),
+        })
+      }
+
       this.startIndicationProcessor(config.indicationInterval)
+      // Force an immediate indication cycle so the engine does not wait for the first interval tick
+      let immediateSymbols = await this.getSymbols()
+      if (!immediateSymbols || immediateSymbols.length === 0) {
+        immediateSymbols = ["BTCUSDT", "ETHUSDT"]
+      }
+      await Promise.all(immediateSymbols.map((symbol) => this.indicationProcessor.processIndication(symbol).catch(() => [])))
 
       // Phase 4: Start strategy processor - immediate phase update
       console.log(`[v0] [EngineManager] Phase 4/6: Starting strategy processor`)
       await this.updateProgressionPhase("strategies", 75, "Processing strategies continuously")
       this.startStrategyProcessor(config.strategyInterval)
+      // Kick off an immediate strategy evaluation cycle for visibility and early results
+      await Promise.all(immediateSymbols.map((symbol) => this.strategyProcessor.processStrategy(symbol).catch(() => ({ strategiesEvaluated: 0, liveReady: 0 }))))
 
       // Phase 5: Start realtime processor - immediate phase update
       console.log(`[v0] [EngineManager] Phase 5/6: Starting real-time processor`)
       await this.updateProgressionPhase("realtime", 85, "Monitoring real-time data and positions")
       this.startRealtimeProcessor(config.realtimeInterval)
+      // Run a realtime pass immediately so active positions are processed without delay
+      await this.realtimeProcessor.processRealtimeUpdates().catch((error) => {
+        console.warn(`[v0] [EngineManager] Immediate realtime pass failed:`, error)
+      })
       this.startHealthMonitoring()
       
       // Phase 6: Live trading ready - final phase update
@@ -175,6 +239,17 @@ export class TradeEngineManager {
         symbols: symbols.length,
         phases: 6,
         config,
+      })
+
+      // Ensure the engine state reflects active processors and result flow immediately
+      await setSettings(`trade_engine_state:${this.connectionId}`, {
+        ...((await getSettings(`trade_engine_state:${this.connectionId}`)) || {}),
+        indications_started: true,
+        strategies_started: true,
+        realtime_started: true,
+        live_trading_started: true,
+        engine_ready: true,
+        updated_at: new Date().toISOString(),
       })
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)

@@ -91,6 +91,9 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 - [x] Completed connection-system conformity hardening pass: normalized boolean input/flag handling across toggle APIs, removed SQL/Redis split in critical connection mutation routes, fixed batch-test limiter window semantics, ensured credential injection also maintains `connections` set membership, and corrected coordinator credential/state gating + health refresh behavior
 - [x] Repaired dashboard monitoring/info/state stability: normalized Smart Overview and Monitoring payload handling, fixed symbols stats contract mismatch (`openPositions` vs `livePositions`), added DB size estimation in monitoring API, and improved Symbols Overview responsive layout for mobile/tablet density
 - [x] Fixed build failure: installed missing deps (@radix-ui, tailwindcss, sonner, bcryptjs, etc.), added @tailwindcss/postcss for Tailwind 4, fixed @next/swc version mismatch by installing correct SWC versions (15.5.7)
+- [x] Fixed indication progression failure accounting in `TradeEngineManager`: failed cycles are now counted on every processor error (instead of conditional modulo behavior), and error progression events now include attempted/success/error counters for better observability
+- [x] Fixed progression running-state detection in `/api/connections/progression/[id]` to require current runtime evidence (running flag/state/recent activity) instead of historical cycle totals, preventing stale "running" status after engines stop
+- [x] Fixed system integrity verification workflow for mixed persistence modes: `scripts/verify-system-integrity.js` now recognizes Redis-first runtime as valid (without requiring `data/trading.db`) and avoids legacy sqlite-only failure behavior
 
 ## Current Structure
 
@@ -116,6 +119,8 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-23 | Updated system integrity checker to validate Redis-first deployments correctly, preventing false failures when sqlite file is intentionally absent |
+| 2026-03-23 | Hardened progression correctness: indication processor now records every failed cycle and emits richer error logs with counters; progression API running-state logic no longer treats old cycle totals as live runtime evidence |
 | 2026-03-21 | Fixed build failure: reinstalled deps, added @tailwindcss/postcss, fixed @next/swc version mismatch |
 | 2026-03-21 | Fixed main connections: disabled by default, show 4 base exchanges, add global coordinator status banner, prevent auto-enable via quickstart |
 | 2026-03-19 | Fixed workflow, progression, and stats bugs: workflow logger storage/retrieval mismatch (set vs zrevrange), progression limits risk calculation (100x too small), and verify-engine wrong field reference (prehistoric_cycles) |

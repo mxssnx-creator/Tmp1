@@ -372,6 +372,7 @@ export class TradeEngineManager {
     console.log(`[v0] Starting indication processor (interval: ${intervalSeconds}s)`)
 
     let cycleCount = 0
+    let attemptedCycles = 0
     let totalDuration = 0
     let errorCount = 0
     let isProcessing = false
@@ -381,6 +382,7 @@ export class TradeEngineManager {
       if (isProcessing) return
       
       isProcessing = true
+      attemptedCycles++
       const startTime = Date.now()
 
       try {
@@ -400,7 +402,8 @@ export class TradeEngineManager {
         totalDuration += duration
 
         this.componentHealth.indications.lastCycleDuration = duration
-        this.componentHealth.indications.successRate = ((cycleCount - errorCount) / cycleCount) * 100
+        this.componentHealth.indications.successRate =
+          attemptedCycles > 0 ? ((attemptedCycles - errorCount) / attemptedCycles) * 100 : 100
 
         // Log every cycle for debugging
         if (cycleCount % 10 === 0) {
@@ -443,9 +446,20 @@ export class TradeEngineManager {
       } catch (error) {
         errorCount++
         this.componentHealth.indications.errorCount++
-        if (cycleCount % 10 === 0) {
-          await ProgressionStateManager.incrementCycle(this.connectionId, false, 0)
-        }
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        // Track failed cycle on every error to keep progression counters accurate.
+        await ProgressionStateManager.incrementCycle(this.connectionId, false, 0)
+        await logProgressionEvent(
+          this.connectionId,
+          "indications",
+          "error",
+          `Indication processor error: ${errorMessage}`,
+          {
+            attemptedCycles,
+            successfulCycles: cycleCount,
+            errorCount,
+          },
+        )
         console.error("[v0] Indication processor error:", error)
       } finally {
         isProcessing = false

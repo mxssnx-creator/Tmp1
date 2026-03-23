@@ -227,7 +227,7 @@ export function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <SidebarTrigger />
+          <SidebarTrigger className="border bg-background" />
           <div>
             <h1 className="text-3xl font-bold mb-1">CTS v3.2 Dashboard</h1>
             <p className="text-muted-foreground text-sm">Monitor and control your Main Connections (Active Connections)</p>

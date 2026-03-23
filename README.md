@@ -19,6 +19,46 @@ CTS v3.1 is a professional-grade crypto trading system featuring:
 - **Real-time WebSocket**: Live market data and position tracking
 - **Comprehensive Logging**: System-wide activity monitoring
 
+## Deployment
+
+### Quick Deploy Options
+
+#### Vercel (Recommended - 1 minute)
+```bash
+# One-click deployment
+vercel --prod
+
+# Or use our deployment script
+./vercel-deploy.sh
+```
+
+#### Docker
+```bash
+# Build and run
+docker-compose up --build
+
+# Or manual build
+docker build -t cts-v3 .
+docker run -p 3001:3001 --env-file .env.local cts-v3
+```
+
+#### Railway / Render
+- Import your GitHub repository
+- Set environment variables (see DEPLOYMENT.md)
+- Deploy automatically
+
+### Environment Setup
+
+**Required Variables:**
+```bash
+NEXT_PUBLIC_APP_URL=https://your-app.com
+KV_REST_API_URL=https://your-redis-endpoint.upstash.io
+KV_REST_API_TOKEN=your-redis-token
+JWT_SECRET=your-secure-jwt-secret-32-chars
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for complete deployment guide.
+
 ## Quick Install
 
 ### Interactive Setup (Recommended)

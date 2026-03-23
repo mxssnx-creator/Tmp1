@@ -599,11 +599,12 @@ const migrations: Migration[] = [
         if (!connData || Object.keys(connData).length === 0) continue
         
         if (baseExchangeIds.includes(connId)) {
-          // Base connection: ensure proper state
+          // Base connection: ensure proper state in BASE connections only
+          // NOTE: is_active_inserted is NOT set here - user must explicitly assign to main
           await client.hset(`connection:${connId}`, {
             is_inserted: "1",
             is_enabled: "1",
-            is_active_inserted: "1",
+            is_active_inserted: "0",      // NOT auto-assigned to main - user must explicitly do this
             is_enabled_dashboard: "0",    // UI toggle OFF by default
             is_active: "0",
             is_predefined: "1",
@@ -633,6 +634,44 @@ const migrations: Migration[] = [
     },
     down: async (client: any) => {
       await client.set("_schema_version", "16")
+    },
+  },
+  {
+    name: "018-remove-auto-assignment-from-main-connections",
+    version: 18,
+    up: async (client: any) => {
+      await client.set("_schema_version", "18")
+      
+      // Fix: Remove auto-assignment from main connections
+      // Connections should only be in main if user explicitly assigned them
+      const connections = await client.smembers("connections")
+      let fixed = 0
+      
+      for (const connId of connections) {
+        const connData = await client.hgetall(`connection:${connId}`)
+        if (!connData || Object.keys(connData).length === 0) continue
+        
+        // If connection has is_active_inserted="1" but no explicit user action,
+        // reset it to NOT assigned to main connections
+        // Only keep assignment if dashboard is enabled (user intent)
+        const isDashboardEnabled = connData.is_enabled_dashboard === "1" || connData.is_enabled_dashboard === "true"
+        const isActiveInserted = connData.is_active_inserted === "1" || connData.is_active_inserted === "true"
+        
+        if (isActiveInserted && !isDashboardEnabled) {
+          // Reset to not assigned - user must explicitly add to main
+          await client.hset(`connection:${connId}`, {
+            is_active_inserted: "0",
+            updated_at: new Date().toISOString(),
+          })
+          fixed++
+          console.log(`[v0] Migration 018: ✓ ${connId} -> removed auto-assignment (dashboard not enabled)`)
+        }
+      }
+      
+      console.log(`[v0] Migration 018: COMPLETE - fixed ${fixed} connections that were auto-assigned`)
+    },
+    down: async (client: any) => {
+      await client.set("_schema_version", "17")
     },
   },
 ]

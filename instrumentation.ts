@@ -11,6 +11,14 @@ export async function register() {
     console.error("[ERROR_HANDLER] Failed to initialize production error handlers:", error)
   }
 
+  // Initialize error handling integration (circuit breakers, metrics, etc.)
+  try {
+    const { initializeErrorHandling } = await import("@/lib/error-handling-integration")
+    initializeErrorHandling()
+  } catch (error) {
+    console.error("[ERROR_INTEGRATION] Failed to initialize error handling integration:", error)
+  }
+
   // Then run pre-startup sequence
   try {
     const { runPreStartup } = await import("@/lib/pre-startup")

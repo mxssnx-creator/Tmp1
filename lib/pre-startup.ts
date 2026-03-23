@@ -8,6 +8,7 @@ import { runMigrations } from "@/lib/redis-migrations"
 import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
 import { getDefaultSettings } from "@/lib/settings-storage"
 import { createExchangeConnector } from "@/lib/exchange-connectors"
+import { validateDatabase, repairDatabase, logDatabaseStatus } from "@/lib/database-validator"
 
 // Use globalThis to survive module re-evaluation across Next.js compilations
 const globalStore = globalThis as any
@@ -264,6 +265,15 @@ export async function runPreStartup() {
     console.log("[v0] [2/10] Running ALL Redis migrations (automatic)...")
     const migrationResult = await runMigrations()
     console.log(`[v0] [2/10] ✓ Migrations: ${migrationResult.message} (schema v${migrationResult.version})`)
+    
+    console.log("[v0] [2.5/10] Validating database integrity...")
+    const dbStatus = await validateDatabase()
+    if (!dbStatus.valid) {
+      console.log("[v0] [2.5/10] Database issues found, attempting repair...")
+      await repairDatabase()
+    }
+    await logDatabaseStatus()
+    console.log("[v0] [2.5/10] ✓ Database validated")
     
     console.log("[v0] [3/10] Initializing settings...")
     await initializeDefaultSettings()

@@ -801,11 +801,20 @@ export class BingXConnector extends BaseExchangeConnector {
       const baseUrl = this.getBaseUrl()
       const apiType = this.credentials.apiType || "perpetual_futures"
       
+      // Transform symbol format for BingX
+      let bingxSymbol = symbol
+      if (apiType !== "spot") {
+        // For perpetual/futures, ensure dash format: BTC-USDT
+        if (!symbol.includes('-')) {
+          bingxSymbol = symbol.replace('USDT', '-USDT').replace('USDC', '-USDC')
+        }
+      }
+      
       let endpoint = ""
       if (apiType === "spot") {
-        endpoint = `/openApi/spot/v1/ticker/price?symbol=${symbol}`
+        endpoint = `/openApi/spot/v1/ticker/price?symbol=${bingxSymbol}`
       } else {
-        endpoint = `/openApi/swap/v3/quote/price?symbol=${symbol}`
+        endpoint = `/openApi/swap/v3/quote/price?symbol=${bingxSymbol}`
       }
 
       const response = await this.rateLimitedFetch(`${baseUrl}${endpoint}`, {
@@ -846,11 +855,23 @@ export class BingXConnector extends BaseExchangeConnector {
       }
       const interval = intervalMap[timeframe] || "1m"
 
+      // Transform symbol format for BingX
+      // BingX perpetual futures requires format: BTC-USDT (with dash)
+      // BingX spot requires format: BTCUSDT (no dash)
+      let bingxSymbol = symbol
+      if (apiType !== "spot") {
+        // For perpetual/futures, ensure dash format: BTC-USDT
+        if (!symbol.includes('-')) {
+          // Convert BTCUSDT → BTC-USDT
+          bingxSymbol = symbol.replace('USDT', '-USDT').replace('USDC', '-USDC')
+        }
+      }
+
       let endpoint = ""
       if (apiType === "spot") {
-        endpoint = `/openApi/spot/v2/market/kline?symbol=${symbol}&interval=${interval}&limit=${limit}`
+        endpoint = `/openApi/spot/v2/market/kline?symbol=${bingxSymbol}&interval=${interval}&limit=${limit}`
       } else {
-        endpoint = `/openApi/swap/v3/quote/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+        endpoint = `/openApi/swap/v3/quote/klines?symbol=${bingxSymbol}&interval=${interval}&limit=${limit}`
       }
 
       const response = await this.rateLimitedFetch(`${baseUrl}${endpoint}`, {

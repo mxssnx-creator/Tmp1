@@ -69,6 +69,13 @@ export class TradeEngineManager {
   }
 
   /**
+   * Public getter to check if engine is running
+   */
+  get isEngineRunning(): boolean {
+    return this.isRunning
+  }
+
+  /**
    * Start the trade engine
    */
   async start(config: EngineConfig): Promise<void> {

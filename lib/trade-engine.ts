@@ -41,6 +41,7 @@ export interface ComponentHealth {
 export class GlobalTradeEngineCoordinator {
   private engineManagers: Map<string, TradeEngineManager> = new Map()
   private startingEngines = new Set<string>()  // PHASE 1 FIX: Startup lock to prevent duplicate starts
+  private stoppingEngines = new Set<string>()  // PHASE 2 FIX: Stop lock to prevent race conditions
   private isGloballyRunning = false
   private isPaused = false
   private healthCheckTimer?: NodeJS.Timeout
@@ -136,21 +137,79 @@ export class GlobalTradeEngineCoordinator {
 
   /**
    * Stop engine for a specific connection
+   * PHASE 2 FIX: Added stop lock to prevent concurrent stop requests and race conditions
    */
   async stopEngine(connectionId: string): Promise<void> {
-    console.log(`[v0] Stopping TradeEngine for connection: ${connectionId}`)
-
-    const manager = this.engineManagers.get(connectionId)
-
-    if (!manager) {
-      console.log(`[v0] No engine found for connection: ${connectionId}`)
+    // Step 1: Check if already stopping
+    if (this.stoppingEngines.has(connectionId)) {
+      console.log(`[v0] [STOP LOCK] Engine already stopping for ${connectionId}, skipping duplicate stop request`)
       return
     }
 
-    await manager.stop()
-    this.engineManagers.delete(connectionId)
+    // Step 2: Add to stop lock set
+    this.stoppingEngines.add(connectionId)
+    console.log(`[v0] [STOP LOCK] Added ${connectionId} to stop lock`)
 
-    console.log(`[v0] TradeEngine stopped for connection: ${connectionId}`)
+    try {
+      console.log(`[v0] Stopping TradeEngine for connection: ${connectionId}`)
+
+      const manager = this.engineManagers.get(connectionId)
+
+      if (!manager) {
+        console.log(`[v0] No engine found for connection: ${connectionId}`)
+        return
+      }
+
+      await manager.stop()
+      this.engineManagers.delete(connectionId)
+
+      console.log(`[v0] ✓ TradeEngine stopped for connection: ${connectionId}`)
+    } finally {
+      // Step 3: Remove from stop lock set (always, even on error)
+      this.stoppingEngines.delete(connectionId)
+      console.log(`[v0] [STOP LOCK] Removed ${connectionId} from stop lock`)
+    }
+  }
+
+  /**
+   * Toggle engine state with proper synchronization
+   * PHASE 2 FIX: Ensures safe enable/disable by waiting for any ongoing state changes
+   */
+  async toggleEngine(connectionId: string, enabled: boolean, config?: EngineConfig): Promise<void> {
+    // Wait for any ongoing state changes to complete
+    const maxWaits = 100 // 5 seconds max
+    let waits = 0
+    while (
+      (this.startingEngines.has(connectionId) || this.stoppingEngines.has(connectionId)) &&
+      waits < maxWaits
+    ) {
+      await new Promise((r) => setTimeout(r, 50))
+      waits++
+    }
+
+    if (waits >= maxWaits) {
+      console.warn(
+        `[v0] [TOGGLE] Timeout waiting for engine state change for ${connectionId}, proceeding anyway`
+      )
+    }
+
+    if (enabled) {
+      if (config) {
+        await this.startEngine(connectionId, config)
+      } else {
+        console.warn(`[v0] [TOGGLE] Cannot start engine ${connectionId} - missing config`)
+      }
+    } else {
+      await this.stopEngine(connectionId)
+    }
+  }
+
+  /**
+   * Check if engine is currently running
+   */
+  isEngineRunning(connectionId: string): boolean {
+    const manager = this.engineManagers.get(connectionId)
+    return manager ? manager.isEngineRunning : false
   }
 
   /**

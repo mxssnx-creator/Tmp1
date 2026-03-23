@@ -228,25 +228,23 @@ export async function POST(request: Request) {
       count: symbols.length,
     })
     
-    // Step 3: Update connection state - ENABLE dashboard/main connections automatically
-    // This will allow the engine to start immediately
-    console.log(`${LOG_PREFIX}: [3/4] Updating connection state...`)
-    
-    // Use clean helper to enable in Main Connections
-    const enabled = buildMainConnectionEnableUpdate({
-      ...connection,
-      is_enabled: "1",  // Also enable in Settings (base)
-      is_inserted: "1",  // Also mark as inserted in Settings
-      is_testnet: false,
-      active_symbols: JSON.stringify(symbols),
-      last_test_status: testPassed ? "success" : "failed",
-      last_test_balance: testBalance,
-      last_test_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    
-    await updateConnection(connectionId, enabled)
-    console.log(`${LOG_PREFIX}: [3/4] Connection configured and ENABLED in main connections (engine will start)`)
+     // Step 3: Update connection state - PRESERVE user settings
+     // PHASE 2 FIX: Do NOT auto-enable - only update symbols and test status
+     // User must explicitly assign to main and enable dashboard toggle
+     console.log(`${LOG_PREFIX}: [3/4] Updating connection state...`)
+     
+     // Only update test results and symbols, preserve enable/disable state
+     const updated = {
+       ...connection,
+       active_symbols: JSON.stringify(symbols),
+       last_test_status: testPassed ? "success" : "failed",
+       last_test_balance: testBalance,
+       last_test_at: new Date().toISOString(),
+       updated_at: new Date().toISOString(),
+     }
+     
+     await updateConnection(connectionId, updated)
+     console.log(`${LOG_PREFIX}: [3/4] Connection state updated (symbols, test results). Engine will start only if explicitly enabled.`)
     
     // ALSO store in trade_engine_state for engine to find
     await setSettings(`trade_engine_state:${connectionId}`, {
@@ -258,58 +256,71 @@ export async function POST(request: Request) {
     })
     console.log(`${LOG_PREFIX}: [3/4] Stored symbols in trade_engine_state: ${symbols.join(", ")}`)
     
-    await logProgressionEvent(connectionId, "quickstart_updated", "info", "Connection state updated", {
-      is_enabled: "1",
-      is_enabled_dashboard: "1",
-      is_active_inserted: "1",
-      symbols,
-    })
-    
-    // Step 4: Initialize engine progression state AND START THE ENGINE
-    console.log(`${LOG_PREFIX}: [4/4] Initializing engine state and starting engine...`)
-    await setSettings(`engine_progression:${connectionId}`, {
-      phase: "initializing",
-      progress: 5,
-      connectionId,
-      connectionName: connection.name,
-      exchange: exchangeName,
-      symbols,
-      testPassed,
-      detail: testPassed 
-        ? "Starting Main Trade Engine..."
-        : `Connection test failed: ${testError}. Fix credentials and retry.`,
-      updated_at: new Date().toISOString(),
-    })
-    
-    // START THE ENGINE DIRECTLY - regardless of testPass for demo/testing purposes
-    // This ensures Main Trade Engine starts when quick-start is run
-    try {
-      const coordinator = getGlobalTradeEngineCoordinator()
-      const settings = await loadSettingsAsync()
-      
-      await coordinator.startEngine(connectionId, {
-        connectionId,
-        connection_name: connection.name,
-        exchange: exchangeName,
-        engine_type: "main",
-        indicationInterval: settings.mainEngineIntervalMs ? settings.mainEngineIntervalMs / 1000 : 5,
-        strategyInterval: settings.strategyUpdateIntervalMs ? settings.strategyUpdateIntervalMs / 1000 : 10,
-        realtimeInterval: settings.realtimeIntervalMs ? settings.realtimeIntervalMs / 1000 : 3,
-      })
-      
-      console.log(`[v0] [QuickStart] ✓ Engine started for ${connection.name}`)
-      await logProgressionEvent(connectionId, "engine_started", "info", "Main Trade Engine started via QuickStart", {
-        connectionId,
-        connectionName: connection.name,
-        exchange: exchangeName,
-        testPassed,
-      })
-    } catch (engineError) {
-      console.error(`[v0] [QuickStart] Failed to start engine:`, engineError)
-      await logProgressionEvent(connectionId, "engine_start_error", "error", "Failed to start engine", {
-        error: engineError instanceof Error ? engineError.message : String(engineError),
-      })
-    }
+     // PHASE 2 FIX: Respect user's explicit enable/disable choice
+     const isAssignedToMain = updated.is_assigned === "1" || updated.is_assigned === true
+     const isDashboardEnabled = updated.is_enabled_dashboard === "1" || updated.is_enabled_dashboard === true
+     
+     await logProgressionEvent(connectionId, "quickstart_updated", "info", "Connection state updated", {
+       symbols,
+       isAssignedToMain,
+       isDashboardEnabled,
+       testPassed,
+     })
+     
+     // Step 4: Start engine ONLY if user explicitly enabled it
+     console.log(`${LOG_PREFIX}: [4/4] Checking if engine should start...`)
+     
+     if (isAssignedToMain && isDashboardEnabled) {
+       console.log(`${LOG_PREFIX}: [4/4] Connection is explicitly enabled - initializing engine...`)
+       await setSettings(`engine_progression:${connectionId}`, {
+         phase: "initializing",
+         progress: 5,
+         connectionId,
+         connectionName: connection.name,
+         exchange: exchangeName,
+         symbols,
+         testPassed,
+         detail: testPassed 
+           ? "Starting Main Trade Engine..."
+           : `Connection test failed: ${testError}. Fix credentials and retry.`,
+         updated_at: new Date().toISOString(),
+       })
+       
+       try {
+         const coordinator = getGlobalTradeEngineCoordinator()
+         const settings = await loadSettingsAsync()
+         
+         await coordinator.startEngine(connectionId, {
+           connectionId,
+           connection_name: connection.name,
+           exchange: exchangeName,
+           engine_type: "main",
+           indicationInterval: settings.mainEngineIntervalMs ? settings.mainEngineIntervalMs / 1000 : 5,
+           strategyInterval: settings.strategyUpdateIntervalMs ? settings.strategyUpdateIntervalMs / 1000 : 10,
+           realtimeInterval: settings.realtimeIntervalMs ? settings.realtimeIntervalMs / 1000 : 3,
+         })
+         
+         console.log(`${LOG_PREFIX} ✓ Engine started for ${connection.name}`)
+         await logProgressionEvent(connectionId, "engine_started", "info", "Main Trade Engine started via QuickStart", {
+           connectionId,
+           connectionName: connection.name,
+           exchange: exchangeName,
+           testPassed,
+         })
+       } catch (engineError) {
+         console.error(`${LOG_PREFIX} Failed to start engine:`, engineError)
+         await logProgressionEvent(connectionId, "engine_start_error", "error", "Failed to start engine", {
+           error: engineError instanceof Error ? engineError.message : String(engineError),
+         })
+       }
+     } else {
+       console.log(`${LOG_PREFIX} [4/4] Connection not explicitly enabled - engine will not start`)
+       await logProgressionEvent(connectionId, "quickstart_engine_not_started", "info", "Engine not started - connection not explicitly enabled", {
+         isAssignedToMain,
+         isDashboardEnabled,
+         message: "Add connection to Main Connections and enable dashboard toggle to start engine",
+       })
+     }
     
     // Store in global quickstart state
     await client.set("quickstart:last_run", JSON.stringify({

@@ -41,6 +41,13 @@ export function isConnectionInActivePanel(connection: any): boolean {
   return isConnectionAssignedToMain(connection)
 }
 
+// PHASE 2 FIX: Add independent state check for main processing
+export function isConnectionMainProcessing(connection: any): boolean {
+  // Connection is processing if BOTH assigned AND dashboard-enabled
+  // These states are independent - removing from base doesn't affect main
+  return isConnectionAssignedToMain(connection) && isConnectionDashboardEnabled(connection)
+}
+
 export function isConnectionSystemEnabled(connection: any): boolean {
   return isTruthyFlag(connection?.is_enabled)
 }

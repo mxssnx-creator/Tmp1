@@ -129,42 +129,22 @@ export class GlobalTradeEngineCoordinator {
       console.log("[v0] [Coordinator] Starting global trade engine...")
       
       // Import Redis functions
-      const { initRedis, getInsertedAndEnabledConnections, getAllConnections, updateConnection } = await import("@/lib/redis-db")
+      const { initRedis, getAssignedAndEnabledConnections, getAllConnections } = await import("@/lib/redis-db")
       const { loadSettingsAsync } = await import("@/lib/settings-storage")
       
       // Initialize Redis and get connections
       await initRedis()
       const allConnections = await getAllConnections()
       
-      // AUTO-ENABLE: Find inserted connections with credentials that aren't dashboard-enabled
-      // This fixes the production issue where connections exist but dashboard_enabled=0
-      let autoEnabledCount = 0
-      for (const conn of allConnections) {
-        const isInserted = conn.is_inserted === "1" || conn.is_inserted === true
-        const isDashboardEnabled = conn.is_enabled_dashboard === "1" || conn.is_enabled_dashboard === true
-        const hasCredentials = (conn.api_key || conn.apiKey) && (conn.api_secret || conn.apiSecret)
-        const hasValidCredentials = hasCredentials && 
-          (conn.api_key || conn.apiKey || "").length > 5 && 
-          (conn.api_secret || conn.apiSecret || "").length > 5
-        
-        if (isInserted && hasValidCredentials && !isDashboardEnabled) {
-          console.log(`[v0] [Coordinator] Auto-enabling dashboard for ${conn.name || conn.id} (has credentials, inserted but not dashboard-enabled)`)
-          await updateConnection(conn.id, {
-            ...conn,
-            is_enabled_dashboard: "1",
-            is_active_inserted: "1",
-            updated_at: new Date().toISOString(),
-          })
-          autoEnabledCount++
-        }
-      }
+      // NOTE: Removed auto-enable logic
+      // Connections must be explicitly:
+      // 1. Created in base connections
+      // 2. Assigned to main connections via add-to-active flow
+      // 3. Enabled via dashboard toggle
+      // This ensures user control over which connections are processed
       
-      if (autoEnabledCount > 0) {
-        console.log(`[v0] [Coordinator] Auto-enabled ${autoEnabledCount} connections for processing`)
-      }
-      
-      // Now get inserted + enabled connections (including auto-enabled ones)
-      const connections = await getInsertedAndEnabledConnections()
+      // Get assigned + enabled connections (user must explicitly assign to main)
+      const connections = await getAssignedAndEnabledConnections()
       
       console.log(`[v0] [Coordinator] Connection audit: total=${allConnections.length}, inserted+enabled=${connections.length}`)
       
@@ -233,11 +213,11 @@ export class GlobalTradeEngineCoordinator {
     try {
       console.log("[v0] [Coordinator] === REFRESH ENGINES START ===")
       
-      const { initRedis, getInsertedAndEnabledConnections, getAllConnections } = await import("@/lib/redis-db")
+      const { initRedis, getAssignedAndEnabledConnections, getAllConnections } = await import("@/lib/redis-db")
       const { logProgressionEvent } = await import("@/lib/engine-progression-logs")
       
       await initRedis()
-      const enabledConnections = await getInsertedAndEnabledConnections()
+      const enabledConnections = await getAssignedAndEnabledConnections()
       const allConnections = await getAllConnections()
       
       const enabledIds = new Set(enabledConnections.map(c => c.id))

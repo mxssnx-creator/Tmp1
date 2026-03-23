@@ -220,7 +220,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         totalTrades: progressionState.totalTrades,
         successfulTrades: progressionState.successfulTrades,
         totalProfit: progressionState.totalProfit,
-        tradeSuccessRate: Math.round(progressionState.tradeSuccessRate * 10) / 10,
+        tradeSuccessRate: Math.round((progressionState.tradeSuccessRate ?? 0) * 10) / 10,
         lastCycleTime: progressionState.lastCycleTime?.toISOString() || null,
         prehistoricCyclesCompleted: progressionState.prehistoricCyclesCompleted,
         prehistoricPhaseActive: progressionState.prehistoricPhaseActive,

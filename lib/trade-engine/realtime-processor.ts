@@ -25,14 +25,7 @@ export class RealtimeProcessor {
     try {
       const activePositions = await this.positionManager.getActivePositions()
 
-      if (activePositions.length === 0) {
-        return
-      }
-
-      // Process each position in parallel
-      await Promise.all(activePositions.map((position) => this.processPosition(position)))
-
-      // Update engine state in Redis
+      // Always update engine state, even with 0 positions (shows processor is running)
       const stateKey = `trade_engine_state:${this.connectionId}`
       const engineState = (await getSettings(stateKey)) || {}
       await setSettings(stateKey, {
@@ -40,7 +33,15 @@ export class RealtimeProcessor {
         active_positions_count: activePositions.length,
         last_realtime_run: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        realtime_processor_active: true,
       })
+
+      if (activePositions.length === 0) {
+        return
+      }
+
+      // Process each position in parallel
+      await Promise.all(activePositions.map((position) => this.processPosition(position)))
     } catch (error) {
       console.error("[v0] Failed to process realtime updates:", error)
     }
@@ -68,6 +69,11 @@ export class RealtimeProcessor {
       const pnl = side === "long"
         ? (currentPrice - entryPrice) * quantity
         : (entryPrice - currentPrice) * quantity
+
+      // Log position monitoring (reduced frequency to avoid spam)
+      if (Math.random() < 0.01) { // Log ~1% of cycles
+        console.log(`[v0] [Realtime] Monitoring ${position.symbol} ${side}: Price=${currentPrice.toFixed(2)}, PnL=${pnl.toFixed(4)}`)
+      }
 
       // Check take profit
       if (this.shouldCloseTakeProfit(position, currentPrice)) {

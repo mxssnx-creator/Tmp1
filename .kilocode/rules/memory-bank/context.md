@@ -8,6 +8,8 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Recently Completed
 
+- [x] **FIXED LINT TOOLCHAIN COMPATIBILITY**: Updated ESLint to v9 to support flat config format and resolved lint bootstrap failures
+- [x] **COMPREHENSIVE ENGINE PROGRESSION LOGISTICS FIX**: Fixed engine progression timer continuity by adding missing startStrategyProcessor method, corrected timer assignments (indicationTimer vs strategyTimer), resolved TypeScript errors, and ensured continuous cycle processing across all processors
 - [x] **COMPREHENSIVE ENGINE PROGRESSION FIX**: Implemented complete engine progression pipeline with prehistoric data loading, realtime processing, and results emission
 - [x] **ENGINE STARTUP VISIBILITY**: Forced immediate indication, strategy, and realtime passes after enable so the UI shows activity/results without waiting for the first timer tick
 - [x] **LOGISTICS INTEGRITY OVERHAUL**: Unified all logistics surfaces with live workflow-backed metrics, queue pressure analysis, and comprehensive error handling
@@ -161,12 +163,12 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Current Focus
 
-Current focus is runtime correctness and operational workflow completeness for the recovered CTS application, with remaining effort centered on lint-toolchain compatibility and incremental UX hardening.
+Current focus is runtime correctness and operational workflow completeness for the recovered CTS application, with remaining effort centered on incremental UX hardening and build fixes.
 
 ## Known Issues
 
+- Build error on /active-exchange page due to missing ExchangeProvider context during static generation
 - Sandbox preview routing still needs to target the real app process instead of the placeholder service on port `3000`
-- `bun run lint` currently fails at tool bootstrap (`@rushstack/eslint-patch` with ESLint 9) before rule evaluation; this is a lint-toolchain compatibility issue, not a TypeScript/runtime blocker
 - Preview routing to the sandbox website panel is still external to the repo even though `/tracking` and `/logistics` now build and run correctly
 - A stale `.next` directory can still cause misleading module-resolution build failures; clearing `.next` remains the correct workaround before rebuilds
 
@@ -174,6 +176,8 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-23 | Fixed lint toolchain compatibility by updating ESLint to v9 for flat config support; resolved lint bootstrap failures and achieved clean lint+typecheck pipeline |
+| 2026-03-23 | Fixed comprehensive engine progression logistics: resolved timer continuity issues, added missing startStrategyProcessor method, corrected timer assignments, and ensured continuous cycle processing with proper error logging and progression tracking |
 | 2026-03-23 | Completed logistics integrity pass: unified queue backlog/health/pressure metrics across logistics and structure surfaces, and corrected structure metrics API to return live workflow-backed system + trading logistics payloads |
 | 2026-03-23 | Complete engine progression pipeline fix: resolved prehistoric data loading, realtime processing, results emission visibility, and startup immediacy with comprehensive logistics integration and market data reliability enhancements |
 | 2026-03-23 | Completed workflow/integrity consolidation pass: removed duplicate system-stats v2 logic by delegating to v3 and normalized complete-workflow readiness/credential counters through shared connection-state utilities |

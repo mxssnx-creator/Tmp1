@@ -82,13 +82,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     console.log(`[v0] [ProgressionAPI] ${connectionId}: Full engineState keys=`, Object.keys(engineState || {}))
     console.log(`[v0] [ProgressionAPI] ${connectionId}: progression.phase=${progression?.phase}, progress=${progression?.progress}`)
     
-    // Engine is running if: flag set, state says running, OR there's recent cycle activity
+    // Engine is running only when there is current runtime evidence.
+    // Historical cycle counters are intentionally excluded to avoid stale "running" state.
     const engineRunning = isEngineRunning || 
       (isGloballyRunning && (isActiveInserted || isInserted) && isEnabled) ||
       engineState?.status === "running" ||
-      hasRecentActivity ||
-      indicationCycleCount > 0 ||
-      progressionState.cyclesCompleted > 0
+      hasRecentActivity
     
     // Phase progression depends on stored phase or derived from state
     let phase = progression?.phase || "idle"

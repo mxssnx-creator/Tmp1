@@ -5,7 +5,6 @@
 
 import { initRedis, getAllConnections, saveMarketData, setSettings, getSettings, updateConnection, getRedisClient } from "@/lib/redis-db"
 import { runMigrations } from "@/lib/redis-migrations"
-import { initializeTradeEngineAutoStart } from "@/lib/trade-engine-auto-start"
 import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
 import { getDefaultSettings } from "@/lib/settings-storage"
 import { createExchangeConnector } from "@/lib/exchange-connectors"
@@ -290,7 +289,9 @@ export async function runPreStartup() {
     console.log("[v0] [8/10] ✓ Global Trade Engine Coordinator running")
     
     console.log("[v0] [9/10] Initializing Trade Engines for active connections...")
-    await initializeTradeEngineAutoStart()
+    // Use coordinator's unified startAll() which includes auto-enable logic
+    const coordinator = getGlobalTradeEngineCoordinator()
+    await coordinator.startAll()
     console.log("[v0] [9/10] ✓ Trade Engines initialized and auto-start activated")
     
     console.log("[v0] [10/10] Starting periodic connection monitoring...")

@@ -8,6 +8,7 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Recently Completed
 
+- [x] **COMPREHENSIVE ENGINE PERFORMANCE MONITORING**: Added detailed cycle tracking, processing rates, data size monitoring, and comprehensive logging for all processors (indications, strategies, realtime)
 - [x] **FIXED ENGINE AUTO-START**: Added auto-enable logic for dashboard-enabled flag when connections have valid credentials but dashboard_enabled=0 - this fixes production issue where engine couldn't start
 - [x] **FIXED LINT TOOLCHAIN COMPATIBILITY**: Updated ESLint to v9 to support flat config format and resolved lint bootstrap failures
 - [x] **COMPREHENSIVE ENGINE PROGRESSION LOGISTICS FIX**: Fixed engine progression timer continuity by adding missing startStrategyProcessor method, corrected timer assignments (indicationTimer vs strategyTimer), resolved TypeScript errors, and ensured continuous cycle processing across all processors
@@ -177,6 +178,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-23 | Added comprehensive engine performance monitoring with cycle tracking, processing rates, data size metrics, detailed logging every 10/50 cycles, and metrics API endpoint |
 | 2026-03-23 | Fixed engine auto-start by auto-enabling dashboard flag for inserted connections with valid credentials, resolving production issue where engine showed dashboardEnabled=0 |
 | 2026-03-23 | Fixed lint toolchain compatibility by updating ESLint to v9 for flat config support; resolved lint bootstrap failures and achieved clean lint+typecheck pipeline |
 | 2026-03-23 | Fixed comprehensive engine progression logistics: resolved timer continuity issues, added missing startStrategyProcessor method, corrected timer assignments, and ensured continuous cycle processing with proper error logging and progression tracking |

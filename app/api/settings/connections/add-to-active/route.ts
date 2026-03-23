@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { SystemLogger } from "@/lib/system-logger"
-import { initRedis, getConnection, updateConnection, getAllConnections } from "@/lib/redis-db"
+import { initRedis, getConnection, updateConnection } from "@/lib/redis-db"
+import { isTruthyFlag } from "@/lib/boolean-utils"
 
 /**
  * POST /api/settings/connections/add-to-active
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if already inserted in active list
-    if (baseConnection.is_active_inserted === "1" || baseConnection.is_active_inserted === true) {
+    if (isTruthyFlag(baseConnection.is_active_inserted)) {
       return NextResponse.json({
         success: false,
         error: "Connection already in Active panel",

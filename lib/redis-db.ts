@@ -748,7 +748,7 @@ export function getRedisRequestsPerSecond(): number {
   
   // Return the operations from the last completed second
   const rps = globalData.__redis_data.requestStats.operationsPerSecond
-  return Math.max(1, rps) // At least 1 RPS if system is active
+  return Math.max(0, rps)
 }
 
 export async function verifyRedisHealth(): Promise<{ healthy: boolean; message: string }> {
@@ -946,6 +946,10 @@ export async function createPosition(data: Record<string, any>): Promise<void> {
   }
   await client.hset(`position:${id}`, flattened)
   await client.sadd("positions", id)
+  const connectionId = data.connection_id || data.connectionId
+  if (connectionId) {
+    await client.sadd(`positions:by-connection:${connectionId}`, id)
+  }
 }
 
 export async function getPosition(id: string): Promise<any | null> {
@@ -956,24 +960,53 @@ export async function getPosition(id: string): Promise<any | null> {
 
 export async function updatePosition(id: string, updates: Record<string, any>): Promise<void> {
   const client = getClient()
+  const existing = await getPosition(id)
   const flattened: Record<string, string> = {}
   for (const [k, v] of Object.entries(updates)) {
     flattened[k] = convertToString(v)
   }
   await client.hset(`position:${id}`, flattened)
+
+  const previousConnectionId = existing?.connection_id
+  const newConnectionId = updates.connection_id || updates.connectionId
+  if (previousConnectionId && newConnectionId && previousConnectionId !== newConnectionId) {
+    await client.srem(`positions:by-connection:${previousConnectionId}`, id)
+    await client.sadd(`positions:by-connection:${newConnectionId}`, id)
+  } else if (newConnectionId) {
+    await client.sadd(`positions:by-connection:${newConnectionId}`, id)
+  }
 }
 
 export async function deletePosition(id: string): Promise<void> {
   const client = getClient()
+  const existing = await getPosition(id)
   await client.del(`position:${id}`)
   await client.srem("positions", id)
+  if (existing?.connection_id) {
+    await client.srem(`positions:by-connection:${existing.connection_id}`, id)
+  }
 }
 
 export async function getConnectionPositions(connectionId: string): Promise<any[]> {
   const client = getClient()
+  const indexedIds = await client.smembers(`positions:by-connection:${connectionId}`)
+  if (indexedIds.length > 0) {
+    const positions = await Promise.all(indexedIds.map((id) => getPosition(id)))
+    const staleIds = indexedIds.filter((_, index) => !positions[index])
+    if (staleIds.length > 0) {
+      await client.srem(`positions:by-connection:${connectionId}`, ...staleIds)
+    }
+    return positions.filter(Boolean)
+  }
+
+  // Backward-compat fallback: scan global set once and hydrate per-connection index.
   const positionIds = await client.smembers("positions")
   const positions = await Promise.all(positionIds.map((id) => getPosition(id)))
-  return positions.filter((pos) => pos && pos.connection_id === connectionId)
+  const filtered = positions.filter((pos) => pos && pos.connection_id === connectionId)
+  if (filtered.length > 0) {
+    await client.sadd(`positions:by-connection:${connectionId}`, ...filtered.map((pos) => pos.id))
+  }
+  return filtered
 }
 
 // ========== Trade Operations ==========
@@ -987,6 +1020,10 @@ export async function createTrade(data: Record<string, any>): Promise<void> {
   }
   await client.hset(`trade:${id}`, flattened)
   await client.sadd("trades", id)
+  const connectionId = data.connection_id || data.connectionId
+  if (connectionId) {
+    await client.sadd(`trades:by-connection:${connectionId}`, id)
+  }
 }
 
 export async function getTrade(id: string): Promise<any | null> {
@@ -997,18 +1034,43 @@ export async function getTrade(id: string): Promise<any | null> {
 
 export async function updateTrade(id: string, updates: Record<string, any>): Promise<void> {
   const client = getClient()
+  const existing = await getTrade(id)
   const flattened: Record<string, string> = {}
   for (const [k, v] of Object.entries(updates)) {
     flattened[k] = convertToString(v)
   }
   await client.hset(`trade:${id}`, flattened)
+
+  const previousConnectionId = existing?.connection_id
+  const newConnectionId = updates.connection_id || updates.connectionId
+  if (previousConnectionId && newConnectionId && previousConnectionId !== newConnectionId) {
+    await client.srem(`trades:by-connection:${previousConnectionId}`, id)
+    await client.sadd(`trades:by-connection:${newConnectionId}`, id)
+  } else if (newConnectionId) {
+    await client.sadd(`trades:by-connection:${newConnectionId}`, id)
+  }
 }
 
 export async function getConnectionTrades(connectionId: string): Promise<any[]> {
   const client = getClient()
+  const indexedIds = await client.smembers(`trades:by-connection:${connectionId}`)
+  if (indexedIds.length > 0) {
+    const trades = await Promise.all(indexedIds.map((id) => getTrade(id)))
+    const staleIds = indexedIds.filter((_, index) => !trades[index])
+    if (staleIds.length > 0) {
+      await client.srem(`trades:by-connection:${connectionId}`, ...staleIds)
+    }
+    return trades.filter(Boolean)
+  }
+
+  // Backward-compat fallback: scan global set once and hydrate per-connection index.
   const tradeIds = await client.smembers("trades")
   const trades = await Promise.all(tradeIds.map((id) => getTrade(id)))
-  return trades.filter((trade) => trade && trade.connection_id === connectionId)
+  const filtered = trades.filter((trade) => trade && trade.connection_id === connectionId)
+  if (filtered.length > 0) {
+    await client.sadd(`trades:by-connection:${connectionId}`, ...filtered.map((trade) => trade.id))
+  }
+  return filtered
 }
 
 export interface Connection {

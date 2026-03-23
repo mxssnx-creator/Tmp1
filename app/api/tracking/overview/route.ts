@@ -5,6 +5,16 @@ import { getProgressionLogs } from "@/lib/engine-progression-logs"
 
 export const dynamic = "force-dynamic"
 
+function isTruthy(value: unknown): boolean {
+  return value === true || value === "1" || value === "true"
+}
+
+function hasCredentials(connection: any): boolean {
+  const apiKey = connection.api_key || connection.apiKey || ""
+  const apiSecret = connection.api_secret || connection.apiSecret || ""
+  return apiKey.length >= 10 && apiSecret.length >= 10
+}
+
 function isOpenPosition(position: any) {
   return position.status === "open" || position.status === "active" || position.is_open === "1"
 }
@@ -42,9 +52,9 @@ export async function GET() {
           winRate,
           progression,
           logs: logs.slice(0, 10),
-          hasCredentials: Boolean((connection.api_key || connection.apiKey) && (connection.api_secret || connection.apiSecret)),
-          dashboardEnabled: connection.is_enabled_dashboard === "1" || connection.is_enabled_dashboard === true,
-          liveTradeEnabled: connection.is_live_trade === "1" || connection.is_live_trade === true,
+          hasCredentials: hasCredentials(connection),
+          dashboardEnabled: isTruthy(connection.is_enabled_dashboard),
+          liveTradeEnabled: isTruthy(connection.is_live_trade) || isTruthy(connection.live_trade_enabled),
           lastUpdate: progression.lastUpdate?.toISOString?.() || new Date().toISOString(),
         }
       }),

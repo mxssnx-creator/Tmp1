@@ -1,4 +1,4 @@
-import { getAllConnections, getConnectionPositions, getConnectionTrades, getRedisClient, initRedis } from "@/lib/redis-db"
+import { getAllConnections, getConnectionPositions, getConnectionTrades, getRedisClient, getSettings, initRedis } from "@/lib/redis-db"
 import { ProgressionStateManager } from "@/lib/progression-state-manager"
 import { getProgressionLogs } from "@/lib/engine-progression-logs"
 
@@ -85,14 +85,22 @@ async function buildDashboardWorkflowSnapshot() {
   })
 
   const eligibleConnections = allConnections.filter((connection: any) => isConnectionEligibleForEngine(connection))
+  const eligibleIds = new Set(eligibleConnections.map((conn: any) => conn.id))
 
-  const focusConnection = normalizedConnections.find((conn) => conn.isDashboardEnabled) || normalizedConnections[0] || null
+  const focusConnection =
+    normalizedConnections.find((conn) => eligibleIds.has(conn.id)) ||
+    normalizedConnections.find((conn) => conn.isActivePanel && conn.isDashboardEnabled) ||
+    normalizedConnections.find((conn) => conn.isActivePanel) ||
+    normalizedConnections[0] ||
+    null
 
   let connectionMetrics = {
     progression: null as null | Awaited<ReturnType<typeof ProgressionStateManager.getProgressionState>>,
     positions: 0,
     trades: 0,
     logs: [] as Awaited<ReturnType<typeof getProgressionLogs>>,
+    engineCycles: { indication: 0, strategy: 0, realtime: 0, total: 0 },
+    engineDurations: { indicationAvgMs: 0, strategyAvgMs: 0, realtimeAvgMs: 0 },
     comprehensiveStats: null as null | {
       symbols: { prehistoricLoaded: number; prehistoricDataSize: number; intervalsProcessed: number }
       indicationsByType: { direction: number; move: number; active: number; optimal: number; auto: number; total: number }
@@ -102,11 +110,12 @@ async function buildDashboardWorkflowSnapshot() {
   }
 
   if (focusConnection) {
-    const [progression, positions, trades, logs] = await Promise.all([
+    const [progression, positions, trades, logs, engineState] = await Promise.all([
       ProgressionStateManager.getProgressionState(focusConnection.id),
       getConnectionPositions(focusConnection.id),
       getConnectionTrades(focusConnection.id),
       getProgressionLogs(focusConnection.id),
+      getSettings(`trade_engine_state:${focusConnection.id}`),
     ])
 
     // Gather comprehensive stats for the focus connection
@@ -143,6 +152,20 @@ async function buildDashboardWorkflowSnapshot() {
       positions: positions.length,
       trades: trades.length,
       logs: logs.slice(0, 50),
+      engineCycles: {
+        indication: Number((engineState as any)?.indication_cycle_count || 0),
+        strategy: Number((engineState as any)?.strategy_cycle_count || 0),
+        realtime: Number((engineState as any)?.realtime_cycle_count || 0),
+        total:
+          Number((engineState as any)?.indication_cycle_count || 0) +
+          Number((engineState as any)?.strategy_cycle_count || 0) +
+          Number((engineState as any)?.realtime_cycle_count || 0),
+      },
+      engineDurations: {
+        indicationAvgMs: Number((engineState as any)?.indication_avg_duration_ms || 0),
+        strategyAvgMs: Number((engineState as any)?.strategy_avg_duration_ms || 0),
+        realtimeAvgMs: Number((engineState as any)?.realtime_avg_duration_ms || 0),
+      },
       // Comprehensive stats
       comprehensiveStats: {
         symbols: {
@@ -169,7 +192,24 @@ async function buildDashboardWorkflowSnapshot() {
     }
   }
 
-  const recentGlobalLogs = await getProgressionLogs("global")
+  const [recentGlobalLogs, quickstartStateRaw] = await Promise.all([
+    getProgressionLogs("global"),
+    client.get("quickstart:last_run").catch(() => null),
+  ])
+  let quickstartState: null | {
+    connectionId?: string
+    connectionName?: string
+    exchange?: string
+    timestamp?: string
+    durationMs?: number
+  } = null
+  if (quickstartStateRaw) {
+    try {
+      quickstartState = JSON.parse(quickstartStateRaw as string)
+    } catch {
+      quickstartState = null
+    }
+  }
 
   const workflowPhases = [
     {
@@ -235,5 +275,6 @@ async function buildDashboardWorkflowSnapshot() {
     focusConnection,
     connectionMetrics,
     recentGlobalLogs: recentGlobalLogs.slice(0, 20),
+    quickstartState,
   }
 }

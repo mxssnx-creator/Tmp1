@@ -29,6 +29,7 @@ const LEGACY_CONNECTION_IDS = [
 
 // Module-level flag to prevent re-seeding
 let seedingCompleted = false
+const SEED_MARKER_KEY = "system:base_connections_seeded_v2"
 
 /**
  * Backward-compatible entrypoint. Ensures canonical base connections only.
@@ -52,6 +53,15 @@ export async function ensureDefaultExchangesExist() {
   await initRedis()
 
   try {
+    const { getRedisClient } = await import("@/lib/redis-db")
+    const client = getRedisClient()
+    const alreadySeeded = await client.get(SEED_MARKER_KEY)
+    if (alreadySeeded === "1") {
+      seedingCompleted = true
+      console.log("[v0] [BaseSeed] Skipping - persisted seed marker found")
+      return { success: true, skipped: true, marker: true }
+    }
+
     let removedLegacy = 0
     let created = 0
     let updated = 0
@@ -90,7 +100,8 @@ export async function ensureDefaultExchangesExist() {
         is_testnet: existing?.is_testnet ?? false,
         is_predefined: existing?.is_predefined ?? true,
         is_inserted: existing?.is_inserted ?? "1",
-        is_active_inserted: existing?.is_active_inserted ?? "1",
+        // Startup defaults: bybit + bingx pre-assigned to Main panel, others available in Settings only.
+        is_active_inserted: existing?.is_active_inserted ?? (cfg.id === "bybit-x03" || cfg.id === "bingx-x01" ? "1" : "0"),
         is_enabled: existing?.is_enabled ?? "1",
         is_enabled_dashboard: existing?.is_enabled_dashboard ?? "0",
         is_active: existing?.is_active ?? "0",
@@ -124,6 +135,7 @@ export async function ensureDefaultExchangesExist() {
       )
 
     // Mark seeding as completed to prevent re-seeding
+    await client.set(SEED_MARKER_KEY, "1")
     seedingCompleted = true
 
     return {

@@ -23,7 +23,7 @@ export async function POST() {
       await client.hset(`connection:${connectionId}`, {
         api_key: apiKey,
         api_secret: apiSecret,
-        is_active_inserted: (existing?.is_active_inserted as string) || "1",
+        is_active_inserted: (existing?.is_active_inserted as string) || "0",
         is_enabled: (existing?.is_enabled as string) || "1",
         is_enabled_dashboard: (existing?.is_enabled_dashboard as string) || "0",
         is_active: dashboardEnabled ? "1" : "0",

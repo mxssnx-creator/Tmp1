@@ -42,20 +42,21 @@ export async function GET(request: NextRequest) {
       const { getRedisClient } = await import("@/lib/redis-db")
       const redisClient = getRedisClient()
       const existingConn = await redisClient.hgetall("connection:bingx-x01")
+      const existsInConnectionsSet = await redisClient.sismember("connections", "bingx-x01")
       // Only update if credentials are missing or different
-       if (!existingConn?.api_key || existingConn.api_key.length < 10 || existingConn.api_key !== bingxKey) {
+       if (existsInConnectionsSet && existingConn && Object.keys(existingConn).length > 0 &&
+         (!existingConn.api_key || existingConn.api_key.length < 10 || existingConn.api_key !== bingxKey)) {
          const dashboardEnabled = existingConn?.is_enabled_dashboard === "1" || existingConn?.is_enabled_dashboard === "true"
          await redisClient.hset("connection:bingx-x01", {
            api_key: bingxKey,
            api_secret: bingxSecret,
-           is_active_inserted: (existingConn?.is_active_inserted as string) || "1",
+           is_active_inserted: (existingConn?.is_active_inserted as string) || "0",
            is_enabled: (existingConn?.is_enabled as string) || "1",
            is_enabled_dashboard: (existingConn?.is_enabled_dashboard as string) || "0",
            is_active: dashboardEnabled ? "1" : "0",
            connection_method: "library",
             updated_at: new Date().toISOString(),
           })
-         await redisClient.sadd("connections", "bingx-x01")
          console.log("[v0] [Init] Auto-injected BingX predefined credentials")
       }
     }

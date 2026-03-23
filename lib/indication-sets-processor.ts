@@ -1,6 +1,6 @@
 /**
  * Independent Indication Sets Processor
- * Maintains separate 500-entry pools for each indication type AND each configuration
+ * Maintains separate 250-entry pools for each indication type AND each configuration
  * Each type+config combination calculates independently with own set
  * 
  * Key Design Principles:
@@ -15,11 +15,11 @@ import { logProgressionEvent } from "@/lib/engine-progression-logs"
 
 // Default limits per indication type (independently configurable)
 const DEFAULT_LIMITS = {
-  direction: 500,
-  move: 500,
-  active: 500,
-  optimal: 500,
-  active_advanced: 500,
+  direction: 250,
+  move: 250,
+  active: 250,
+  optimal: 250,
+  active_advanced: 250,
 }
 
 // Pre-cached client reference
@@ -68,7 +68,7 @@ export interface IndicationSet {
     metadata: any
     direction: "long" | "short"
   }>
-  maxEntries: number // Configurable per type, default 500
+  maxEntries: number // Configurable per type, default 250
   positionCounts: {
     long: number
     short: number
@@ -87,7 +87,13 @@ export class IndicationSetsProcessor {
   private limits: IndicationSetLimits = { ...DEFAULT_LIMITS }
   private positionLimits: PositionLimits = { ...DEFAULT_POSITION_LIMITS }
   private indicationTimeoutMs: number = DEFAULT_INDICATION_TIMEOUT_MS
-  private lastValidEvaluationTime: Map<string, number> = new Map() // Track per config
+  private directionMoveRanges: number[] = Array.from({ length: 28 }, (_, i) => i + 3) // 3..30
+  private optimalRanges: number[] = Array.from({ length: 28 }, (_, i) => i + 3) // 3..30
+  private drawdownRatios: number[] = [0.5, 1.0, 1.5]
+  private lastPartRatios: number[] = [0.25, 0.5]
+  private factorMultipliers: number[] = [0.9, 1.0, 1.1]
+  private activeThresholds: number[] = [0.5, 1.0, 1.5, 2.0, 2.5]
+  private activeTimeRatios: number[] = [0.5, 1.0]
 
   constructor(connectionId: string) {
     this.connectionId = connectionId
@@ -112,6 +118,25 @@ export class IndicationSetsProcessor {
         if (settings.indicationTimeoutMs) {
           this.indicationTimeoutMs = Math.max(100, Math.min(3000, Number(settings.indicationTimeoutMs)))
         }
+
+        // Config-grid controls (optional)
+        this.directionMoveRanges = this.parseRangeSettings(
+          settings.directionRangeStart,
+          settings.directionRangeEnd,
+          settings.directionRangeStep,
+          this.directionMoveRanges,
+        )
+        this.optimalRanges = this.parseRangeSettings(
+          settings.optimalRangeStart,
+          settings.optimalRangeEnd,
+          settings.optimalRangeStep,
+          this.optimalRanges,
+        )
+        this.drawdownRatios = this.parseNumericList(settings.indicationDrawdownRatios, this.drawdownRatios)
+        this.lastPartRatios = this.parseNumericList(settings.indicationLastPartRatios, this.lastPartRatios)
+        this.factorMultipliers = this.parseNumericList(settings.indicationFactorMultipliers, this.factorMultipliers)
+        this.activeThresholds = this.parseNumericList(settings.activeThresholds, this.activeThresholds)
+        this.activeTimeRatios = this.parseNumericList(settings.activeTimeRatios, this.activeTimeRatios)
         
         // Fallback: legacy maxEntriesPerSet applies to all
         if (settings.maxEntriesPerSet && !settings.databaseSizeDirection) {
@@ -135,7 +160,34 @@ export class IndicationSetsProcessor {
 
   /** Get the limit for a specific indication type */
   getLimit(type: keyof IndicationSetLimits): number {
-    return this.limits[type] || DEFAULT_LIMITS[type] || 500
+    return this.limits[type] || DEFAULT_LIMITS[type] || 250
+  }
+
+  private parseRangeSettings(startRaw: any, endRaw: any, stepRaw: any, fallback: number[]): number[] {
+    const start = Number(startRaw)
+    const end = Number(endRaw)
+    const step = Number(stepRaw)
+    if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(step) || step <= 0 || end < start) {
+      return fallback
+    }
+    const values: number[] = []
+    for (let v = start; v <= end; v += step) values.push(v)
+    return values.length > 0 ? values : fallback
+  }
+
+  private parseNumericList(raw: any, fallback: number[]): number[] {
+    if (Array.isArray(raw)) {
+      const parsed = raw.map((v) => Number(v)).filter((v) => Number.isFinite(v))
+      return parsed.length > 0 ? parsed : fallback
+    }
+    if (typeof raw === "string") {
+      const parsed = raw
+        .split(",")
+        .map((v) => Number(v.trim()))
+        .filter((v) => Number.isFinite(v))
+      return parsed.length > 0 ? parsed : fallback
+    }
+    return fallback
   }
   
   /** Get position limits */
@@ -149,17 +201,6 @@ export class IndicationSetsProcessor {
     return currentCount < limit
   }
   
-  /** Check if indication timeout has passed since last valid evaluation */
-  isTimeoutPassed(configKey: string): boolean {
-    const lastTime = this.lastValidEvaluationTime.get(configKey) || 0
-    return Date.now() - lastTime >= this.indicationTimeoutMs
-  }
-  
-  /** Mark valid evaluation time for a config */
-  markValidEvaluation(configKey: string): void {
-    this.lastValidEvaluationTime.set(configKey, Date.now())
-  }
-
   /**
    * Process all indication types independently for a symbol
    */
@@ -227,30 +268,41 @@ export class IndicationSetsProcessor {
    * OPTIMIZED: Process all ranges in batch, minimize Redis calls
    */
   private async processDirectionSet(symbol: string, marketData: any): Promise<any> {
-    // Process only key ranges for performance (3, 5, 7, 10, 14, 20, 30)
-    const keyRanges = [3, 5, 7, 10, 14, 20, 30]
+    const keyRanges = this.directionMoveRanges
+    const drawdownRatios = this.drawdownRatios
+    const lastPartRatios = this.lastPartRatios
+    const factorMultipliers = this.factorMultipliers
     let qualified = 0
     let total = 0
     const pendingWrites: Array<{ setKey: string; indication: any; config: any }> = []
 
     for (const range of keyRanges) {
-      const configKey = `direction:range${range}`
-      
-      // Check timeout per config (memory-only check, no Redis)
-      if (!this.isTimeoutPassed(configKey)) continue
-      
-      const indication = this.calculateDirectionIndication(marketData, range)
-      if (!indication) continue
-      
-      total++
-      const direction = indication.metadata?.firstDir > 0 ? "long" : "short"
-      indication.direction = direction
-      
-      if (indication.profitFactor >= 1.0) {
-        qualified++
-        const setKey = `indication_set:${this.connectionId}:${symbol}:direction:range${range}`
-        pendingWrites.push({ setKey, indication, config: { range } })
-        this.markValidEvaluation(configKey)
+      for (const drawdownRatio of drawdownRatios) {
+        for (const lastPartRatio of lastPartRatios) {
+          for (const factorMultiplier of factorMultipliers) {
+            const indication = this.calculateDirectionIndication(marketData, {
+              range,
+              drawdownRatio,
+              lastPartRatio,
+              factorMultiplier,
+            })
+            if (!indication) continue
+            
+            total++
+            const direction = indication.metadata?.firstDir > 0 ? "long" : "short"
+            indication.direction = direction
+            
+            if (indication.profitFactor >= 1.0) {
+              qualified++
+              const setKey = `indication_set:${this.connectionId}:${symbol}:direction:r${range}:dd${drawdownRatio}:lp${lastPartRatio}:f${factorMultiplier}`
+              pendingWrites.push({
+                setKey,
+                indication,
+                config: { range, drawdownRatio, lastPartRatio, factorMultiplier },
+              })
+            }
+          }
+        }
       }
     }
 
@@ -267,27 +319,41 @@ export class IndicationSetsProcessor {
    * OPTIMIZED: Process key ranges only, batch writes
    */
   private async processMoveSet(symbol: string, marketData: any): Promise<any> {
-    const keyRanges = [3, 5, 7, 10, 14, 20, 30]
+    const keyRanges = this.directionMoveRanges
+    const drawdownRatios = this.drawdownRatios
+    const lastPartRatios = this.lastPartRatios
+    const factorMultipliers = this.factorMultipliers
     let qualified = 0
     let total = 0
     const pendingWrites: Array<{ setKey: string; indication: any; config: any }> = []
 
     for (const range of keyRanges) {
-      const configKey = `move:range${range}`
-      if (!this.isTimeoutPassed(configKey)) continue
-      
-      const indication = this.calculateMoveIndication(marketData, range)
-      if (!indication) continue
-      
-      total++
-      const direction = (indication.metadata?.movement || 0) >= 0 ? "long" : "short"
-      indication.direction = direction
-      
-      if (indication.profitFactor >= 1.0) {
-        qualified++
-        const setKey = `indication_set:${this.connectionId}:${symbol}:move:range${range}`
-        pendingWrites.push({ setKey, indication, config: { range } })
-        this.markValidEvaluation(configKey)
+      for (const drawdownRatio of drawdownRatios) {
+        for (const lastPartRatio of lastPartRatios) {
+          for (const factorMultiplier of factorMultipliers) {
+            const indication = this.calculateMoveIndication(marketData, {
+              range,
+              drawdownRatio,
+              lastPartRatio,
+              factorMultiplier,
+            })
+            if (!indication) continue
+            
+            total++
+            const direction = (indication.metadata?.movement || 0) >= 0 ? "long" : "short"
+            indication.direction = direction
+            
+            if (indication.profitFactor >= 1.0) {
+              qualified++
+              const setKey = `indication_set:${this.connectionId}:${symbol}:move:r${range}:dd${drawdownRatio}:lp${lastPartRatio}:f${factorMultiplier}`
+              pendingWrites.push({
+                setKey,
+                indication,
+                config: { range, drawdownRatio, lastPartRatio, factorMultiplier },
+              })
+            }
+          }
+        }
       }
     }
 
@@ -302,27 +368,54 @@ export class IndicationSetsProcessor {
    * Process Active Indication Set (thresholds 0.5-2.5%)
    */
   private async processActiveSet(symbol: string, marketData: any): Promise<any> {
-    const setKey = `indication_set:${this.connectionId}:${symbol}:active`
-    const thresholds = [0.5, 1.0, 1.5, 2.0, 2.5]
+    const thresholds = this.activeThresholds
+    const drawdownRatios = this.drawdownRatios
+    const activeTimeRatios = this.activeTimeRatios
+    const lastPartRatios = this.lastPartRatios
+    const factorMultipliers = this.factorMultipliers
     let qualified = 0
     let total = 0
+    const pendingWrites: Array<{ setKey: string; indication: any; config: any }> = []
 
     for (const threshold of thresholds) {
-      try {
-        const indication = this.calculateActiveIndication(marketData, threshold)
-        if (indication) {
-          total++
-          if (indication.profitFactor >= 1.0) {
-            qualified++
-            await this.saveIndicationToSet(setKey, indication, "active", threshold)
+      for (const drawdownRatio of drawdownRatios) {
+        for (const activeTimeRatio of activeTimeRatios) {
+          for (const lastPartRatio of lastPartRatios) {
+            for (const factorMultiplier of factorMultipliers) {
+              try {
+                const indication = this.calculateActiveIndication(marketData, {
+                  threshold,
+                  drawdownRatio,
+                  activeTimeRatio,
+                  lastPartRatio,
+                  factorMultiplier,
+                })
+                if (indication) {
+                  total++
+                  if (indication.profitFactor >= 1.0) {
+                    qualified++
+                    const setKey = `indication_set:${this.connectionId}:${symbol}:active:t${threshold}:dd${drawdownRatio}:ar${activeTimeRatio}:lp${lastPartRatio}:f${factorMultiplier}`
+                    pendingWrites.push({
+                      setKey,
+                      indication,
+                      config: { threshold, drawdownRatio, activeTimeRatio, lastPartRatio, factorMultiplier },
+                    })
+                  }
+                }
+              } catch (error) {
+                console.error(`[v0] [IndicationSets] Active config error:`, error)
+              }
+            }
           }
         }
-      } catch (error) {
-        console.error(`[v0] [IndicationSets] Active threshold ${threshold}% error:`, error)
       }
     }
 
-    return { type: "active", total, qualified }
+    if (pendingWrites.length > 0) {
+      await this.batchSaveIndications(pendingWrites, "active")
+    }
+
+    return { type: "active", total, qualified, configs: pendingWrites.length }
   }
 
   /**
@@ -330,20 +423,23 @@ export class IndicationSetsProcessor {
    * OPTIMIZED: Process key ranges only, batch writes
    */
   private async processOptimalSet(symbol: string, marketData: any): Promise<any> {
-    const keyRanges = [5, 10, 15, 20]
+    const keyRanges = this.optimalRanges
+    const factorMultipliers = this.factorMultipliers
     let qualified = 0
     let total = 0
     const pendingWrites: Array<{ setKey: string; indication: any; config: any }> = []
 
     for (const range of keyRanges) {
-      const indication = this.calculateOptimalIndication(marketData, range)
-      if (!indication) continue
-      
-      total++
-      if (indication.profitFactor >= 1.0) {
-        qualified++
-        const setKey = `indication_set:${this.connectionId}:${symbol}:optimal:range${range}`
-        pendingWrites.push({ setKey, indication, config: { range } })
+      for (const factorMultiplier of factorMultipliers) {
+        const indication = this.calculateOptimalIndication(marketData, range, factorMultiplier)
+        if (!indication) continue
+        
+        total++
+        if (indication.profitFactor >= 1.0) {
+          qualified++
+          const setKey = `indication_set:${this.connectionId}:${symbol}:optimal:range${range}:factor${factorMultiplier}`
+          pendingWrites.push({ setKey, indication, config: { range, factorMultiplier } })
+        }
       }
     }
 
@@ -367,24 +463,30 @@ export class IndicationSetsProcessor {
       const client = await getCachedClient()
       const now = Date.now()
       const timestamp = new Date().toISOString()
-      
-      // Process all writes with single timestamp
-      for (const { setKey, indication, config } of writes) {
-        const entry = {
-          id: `${type}_${now}_${Math.random().toString(36).slice(2, 6)}`,
-          timestamp,
-          profitFactor: indication.profitFactor,
-          confidence: indication.confidence,
-          config,
-          metadata: indication.metadata,
-        }
-        
-        // Simple append - no read required (Redis handles trimming via ltrim if needed)
-        const existing = await client.get(setKey)
-        let entries = existing ? JSON.parse(existing) : []
-        entries.unshift(entry)
-        if (entries.length > 100) entries = entries.slice(0, 100) // Keep last 100
-        await client.set(setKey, JSON.stringify(entries))
+
+      // Process writes in bounded parallel chunks for high-frequency throughput.
+      const concurrency = 20
+      const limit = this.getLimit(type as keyof IndicationSetLimits)
+      for (let i = 0; i < writes.length; i += concurrency) {
+        const chunk = writes.slice(i, i + concurrency)
+        await Promise.all(
+          chunk.map(async ({ setKey, indication, config }, idx) => {
+            const entry = {
+              id: `${type}_${now}_${i + idx}_${Math.random().toString(36).slice(2, 6)}`,
+              timestamp,
+              profitFactor: indication.profitFactor,
+              confidence: indication.confidence,
+              config,
+              metadata: indication.metadata,
+            }
+
+            const existing = await client.get(setKey)
+            let entries = existing ? JSON.parse(existing) : []
+            entries.unshift(entry)
+            if (entries.length > limit) entries = entries.slice(0, limit)
+            await client.set(setKey, JSON.stringify(entries))
+          }),
+        )
       }
     } catch (error) {
       // Silent fail for non-critical batch operations
@@ -392,7 +494,7 @@ export class IndicationSetsProcessor {
   }
 
   /**
-   * Save indication to its independent set pool (max 100 entries)
+   * Save indication to its independent set pool (default 250 entries)
    * OPTIMIZED: Removed redundant stats updates
    */
   private async saveIndicationToSet(
@@ -416,8 +518,8 @@ export class IndicationSetsProcessor {
         metadata: indication.metadata,
       })
 
-      // Trim to 100 entries (reduced from 250 for performance)
-      if (entries.length > 100) entries = entries.slice(0, 100)
+      const limit = this.getLimit(type as keyof IndicationSetLimits)
+      if (entries.length > limit) entries = entries.slice(0, limit)
 
       await client.set(setKey, JSON.stringify(entries))
       // Stats updates removed - too expensive for high-frequency operations
@@ -430,7 +532,11 @@ export class IndicationSetsProcessor {
    * Calculation methods for each type
    */
 
-  private calculateDirectionIndication(marketData: any, range: number): any {
+  private calculateDirectionIndication(
+    marketData: any,
+    config: { range: number; drawdownRatio: number; lastPartRatio: number; factorMultiplier: number },
+  ): any {
+    const { range, drawdownRatio, lastPartRatio, factorMultiplier } = config
     const prices = this.getPriceHistory(marketData, range * 2)
     if (!prices || prices.length < range * 2) return null
 
@@ -442,48 +548,80 @@ export class IndicationSetsProcessor {
 
     // Opposite direction = signal
     if ((firstDir > 0 && secondDir < 0) || (firstDir < 0 && secondDir > 0)) {
+      const reversalStrength = Math.abs(firstDir + secondDir)
+      const drawdownPenalty = reversalStrength / Math.max(drawdownRatio * 10, 1)
+      const tailWeight = 1 + lastPartRatio
       return {
-        profitFactor: 1.0 + Math.abs(firstDir + secondDir),
-        confidence: Math.min(1.0, (Math.abs(firstDir) + Math.abs(secondDir)) / 2),
-        metadata: { firstDir, secondDir, range },
+        profitFactor: 1.0 + reversalStrength * factorMultiplier * tailWeight - drawdownPenalty,
+        confidence: Math.min(1.0, ((Math.abs(firstDir) + Math.abs(secondDir)) / 2) * factorMultiplier),
+        metadata: { firstDir, secondDir, range, drawdownRatio, lastPartRatio, factorMultiplier },
       }
     }
 
     return null
   }
 
-  private calculateMoveIndication(marketData: any, range: number): any {
+  private calculateMoveIndication(
+    marketData: any,
+    config: { range: number; drawdownRatio: number; lastPartRatio: number; factorMultiplier: number },
+  ): any {
+    const { range, drawdownRatio, lastPartRatio, factorMultiplier } = config
     const prices = this.getPriceHistory(marketData, range)
     if (!prices || prices.length < range) return null
 
     const movement = Math.abs(prices[0] - prices[range - 1]) / prices[range - 1]
     const volatility = this.calculateVolatility(prices)
+    const drawdownPenalty = movement / Math.max(drawdownRatio * 10, 1)
+    const tailWeight = 1 + lastPartRatio
 
     return {
-      profitFactor: 1.0 + movement * 2 + volatility,
-      confidence: Math.min(1.0, movement + volatility / 2),
-      metadata: { movement, volatility, range },
+      profitFactor: 1.0 + (movement * 2 + volatility) * factorMultiplier * tailWeight - drawdownPenalty,
+      confidence: Math.min(1.0, (movement + volatility / 2) * factorMultiplier),
+      metadata: { movement, volatility, range, drawdownRatio, lastPartRatio, factorMultiplier },
     }
   }
 
-  private calculateActiveIndication(marketData: any, threshold: number): any {
+  private calculateActiveIndication(
+    marketData: any,
+    config: {
+      threshold: number
+      drawdownRatio: number
+      activeTimeRatio: number
+      lastPartRatio: number
+      factorMultiplier: number
+    },
+  ): any {
+    const { threshold, drawdownRatio, activeTimeRatio, lastPartRatio, factorMultiplier } = config
     const prices = this.getPriceHistory(marketData, 10)
     if (!prices || prices.length < 2) return null
 
     const priceChange = Math.abs((prices[0] - prices[prices.length - 1]) / prices[prices.length - 1]) * 100
 
     if (priceChange >= threshold) {
+      const normalizedChange = priceChange / Math.max(threshold, 0.1)
+      const estimatedDrawdown = Math.max(0.1, normalizedChange / Math.max(drawdownRatio, 0.1))
+      const activeTimeScore = normalizedChange * activeTimeRatio
+      const tailWeight = 1 + lastPartRatio
       return {
-        profitFactor: 1.0 + priceChange / 100,
+        profitFactor: 1.0 + ((priceChange / 100) * factorMultiplier * tailWeight) - (estimatedDrawdown * 0.01),
         confidence: Math.min(1.0, priceChange / threshold / 2),
-        metadata: { priceChange, threshold },
+        metadata: {
+          priceChange,
+          threshold,
+          drawdownRatio,
+          activeTimeRatio,
+          lastPartRatio,
+          factorMultiplier,
+          estimatedDrawdown,
+          activeTimeScore,
+        },
       }
     }
 
     return null
   }
 
-  private calculateOptimalIndication(marketData: any, range: number): any {
+  private calculateOptimalIndication(marketData: any, range: number, factorMultiplier: number): any {
     const prices = this.getPriceHistory(marketData, range * 3)
     if (!prices || prices.length < range * 3) return null
 
@@ -493,9 +631,9 @@ export class IndicationSetsProcessor {
     if (steps >= 2) {
       const volatility = this.calculateVolatility(prices)
       return {
-        profitFactor: 1.0 + steps * 0.5 + volatility,
+        profitFactor: 1.0 + (steps * 0.5 + volatility) * factorMultiplier,
         confidence: Math.min(1.0, steps / 3),
-        metadata: { consecutiveSteps: steps, volatility, range },
+        metadata: { consecutiveSteps: steps, volatility, range, factorMultiplier },
       }
     }
 
@@ -539,8 +677,45 @@ export class IndicationSetsProcessor {
    */
   async getSetStats(symbol: string, type: string): Promise<any> {
     try {
-      const setKey = `indication_set:${this.connectionId}:${symbol}:${type}:stats`
-      return await getSettings(setKey)
+      const client = await getCachedClient()
+      const prefix = `indication_set:${this.connectionId}:${symbol}:${type}`
+      const keys = await client.keys(`${prefix}*`)
+      if (!keys || keys.length === 0) {
+        return {
+          type,
+          totalConfigurations: 0,
+          currentEntries: 0,
+          avgProfitFactor: 0,
+          avgConfidence: 0,
+        }
+      }
+
+      let totalEntries = 0
+      let totalProfitFactor = 0
+      let totalConfidence = 0
+      let sampleCount = 0
+
+      for (const key of keys) {
+        const raw = await client.get(key)
+        if (!raw) continue
+        const entries = JSON.parse(raw)
+        if (!Array.isArray(entries)) continue
+
+        totalEntries += entries.length
+        for (const entry of entries) {
+          totalProfitFactor += Number(entry?.profitFactor || 0)
+          totalConfidence += Number(entry?.confidence || 0)
+          sampleCount++
+        }
+      }
+
+      return {
+        type,
+        totalConfigurations: keys.length,
+        currentEntries: totalEntries,
+        avgProfitFactor: sampleCount > 0 ? totalProfitFactor / sampleCount : 0,
+        avgConfidence: sampleCount > 0 ? totalConfidence / sampleCount : 0,
+      }
     } catch (error) {
       console.error(`[v0] [IndicationSets] Failed to get stats for ${type}:`, error)
       return null
@@ -553,13 +728,22 @@ export class IndicationSetsProcessor {
   async getSetEntries(symbol: string, type: string, limit = 50): Promise<any[]> {
     try {
       const client = await getCachedClient()
-      const setKey = `indication_set:${this.connectionId}:${symbol}:${type}`
-      const data = await client.get(setKey)
+      const prefix = `indication_set:${this.connectionId}:${symbol}:${type}`
+      const keys = await client.keys(`${prefix}*`)
+      if (!keys || keys.length === 0) return []
 
-      if (!data) return []
+      const allEntries: any[] = []
+      for (const key of keys) {
+        const raw = await client.get(key)
+        if (!raw) continue
+        const entries = JSON.parse(raw)
+        if (!Array.isArray(entries)) continue
+        allEntries.push(...entries.map((entry) => ({ ...entry, setKey: key })))
+      }
 
-      const entries = JSON.parse(data)
-      return entries.slice(0, limit)
+      return allEntries
+        .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+        .slice(0, limit)
     } catch (error) {
       console.error(`[v0] [IndicationSets] Failed to get entries for ${type}:`, error)
       return []

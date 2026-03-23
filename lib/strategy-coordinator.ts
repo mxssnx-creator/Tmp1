@@ -202,6 +202,7 @@ export class StrategyCoordinator {
     const metrics = this.METRICS.main
     let totalCreated = 0
     const mainStrategies: any[] = []
+    const perConfigStrategies = new Map<string, any[]>()
 
     if (baseSurvivors.length === 0) {
       console.log(`[v0] [StrategyFlow] ${symbol} MAIN: No BASE survivors to create MAIN strategies from`)
@@ -235,6 +236,7 @@ export class StrategyCoordinator {
               ...baseStrategy,
               id: `${symbol}-main-${Date.now()}-${totalCreated}`,
               type: "main",
+              configKey: `size${sizeMultiplier}:lev${leverage}:state${posState}`,
               baseStrategyId: baseStrategy.id,
               positionState: posState,
               sizeMultiplier,
@@ -256,6 +258,9 @@ export class StrategyCoordinator {
                 mainStrategy.drawdownTime <= metrics.maxDrawdownTime &&
                 (mainStrategy.confidence || 0.5) >= minConf) {
               mainStrategies.push(mainStrategy)
+              const existing = perConfigStrategies.get(mainStrategy.configKey) || []
+              existing.push(mainStrategy)
+              perConfigStrategies.set(mainStrategy.configKey, existing)
               totalCreated++
             }
           }
@@ -266,6 +271,18 @@ export class StrategyCoordinator {
     // Store MAIN strategies
     const setKey = `strategies:${this.connectionId}:${symbol}:main`
     await setSettings(setKey, { strategies: mainStrategies, count: totalCreated, created: new Date() })
+
+    // Store independent per-configuration sets (capped) for detailed strategy diagnostics/statistics.
+    const maxPerType = this.config?.maxPositionsPerType || 250
+    for (const [configKey, configStrategies] of perConfigStrategies.entries()) {
+      const cfgSetKey = `strategies:${this.connectionId}:${symbol}:main:cfg:${configKey}`
+      await setSettings(cfgSetKey, {
+        strategies: configStrategies.slice(0, maxPerType),
+        count: configStrategies.length,
+        configKey,
+        created: new Date(),
+      })
+    }
 
     // Enforce 250-position limit for MAIN strategies (important: can create 100s-1000s)
     const thresholdMgr = new PositionThresholdManager(this.connectionId)

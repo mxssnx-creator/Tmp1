@@ -4,6 +4,10 @@ import { initRedis, getAllConnections } from "@/lib/redis-db"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+function isTruthy(value: unknown): boolean {
+  return value === true || value === "1" || value === "true"
+}
+
 /**
  * GET /api/trade-engine/quick-start/ready
  * Returns whether the system is ready for quickstart
@@ -18,7 +22,9 @@ export async function GET() {
     // Check for connections with credentials (highest priority)
     const connectionsWithCredentials = allConnections.filter((c: any) => {
       const exch = (c.exchange || "").toLowerCase()
-      const hasCredentials = !!(c.api_key && c.api_secret && c.api_key.length >= 10 && c.api_secret.length >= 10)
+      const key = c.api_key || c.apiKey || ""
+      const secret = c.api_secret || c.apiSecret || ""
+      const hasCredentials = key.length >= 10 && secret.length >= 10
       const isBase = BASE_EXCHANGES.includes(exch)
       return isBase && hasCredentials
     })
@@ -26,8 +32,7 @@ export async function GET() {
     // Check for base connections that are inserted (even without credentials)
     const baseConnections = allConnections.filter((c: any) => {
       const exch = (c.exchange || "").toLowerCase()
-      const isBaseInserted = c.is_active_inserted === "1" || c.is_active_inserted === true ||
-                            c.is_dashboard_inserted === "1" || c.is_dashboard_inserted === true
+      const isBaseInserted = isTruthy(c.is_active_inserted) || isTruthy(c.is_dashboard_inserted)
       const isBase = BASE_EXCHANGES.includes(exch)
       return isBase && isBaseInserted
     })
@@ -46,7 +51,7 @@ export async function GET() {
         id: c.id,
         name: c.name,
         exchange: c.exchange,
-        hasCredentials: !!(c.api_key && c.api_secret && c.api_key.length >= 10),
+        hasCredentials: (c.api_key || c.apiKey || "").length >= 10 && (c.api_secret || c.apiSecret || "").length >= 10,
       })),
       totalConnections: allConnections.length,
       message: isReady

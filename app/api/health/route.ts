@@ -1,24 +1,29 @@
 import { NextResponse } from "next/server"
 import { initRedis, verifyRedisHealth, getAllConnections, getRedisClient } from "@/lib/redis-db"
+import { healthCheckService } from "@/lib/health-check"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
-    console.log("[v0] Health check initiated...")
+    console.log("[HEALTH] Full health check initiated...")
 
-    // Check Redis connection
+    // Use new health check service
+    const report = await healthCheckService.getHealthReport()
+
+    // Also get legacy metrics for backward compatibility
     const redisHealthy = await verifyRedisHealth()
     if (!redisHealthy) {
-      console.error("[v0] Redis health check failed")
+      console.error("[HEALTH] Redis health check failed")
       return NextResponse.json({
+        ...report,
         status: "degraded",
         redis: "unhealthy",
         message: "Redis connection is not healthy",
       }, { status: 503 })
     }
 
-    console.log("[v0] Redis health check passed")
+    console.log("[HEALTH] Redis health check passed")
 
     // Get all connections from Redis
     const connections = await getAllConnections()
@@ -43,11 +48,12 @@ export async function GET() {
         totalTrades += trades.length
         totalPositions += positions.length
       } catch (error) {
-        console.warn(`[v0] Failed to get metrics for connection ${connection.id}:`, error)
+        console.warn(`[HEALTH] Failed to get metrics for connection ${connection.id}:`, error)
       }
     }
 
     const response = {
+      ...report,
       status: "healthy",
       timestamp: new Date().toISOString(),
       redis: {
@@ -63,10 +69,12 @@ export async function GET() {
       },
     }
 
-    console.log("[v0] Health check completed successfully")
-    return NextResponse.json(response)
+    console.log("[HEALTH] Full health check completed successfully")
+    
+    const statusCode = report.status === 'healthy' ? 200 : report.status === 'degraded' ? 202 : 503
+    return NextResponse.json(response, { status: statusCode })
   } catch (error) {
-    console.error("[v0] Health check failed:", error)
+    console.error("[HEALTH] Health check failed:", error)
     return NextResponse.json({
       status: "unhealthy",
       redis: "error",

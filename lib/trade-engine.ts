@@ -40,6 +40,7 @@ export interface ComponentHealth {
  */
 export class GlobalTradeEngineCoordinator {
   private engineManagers: Map<string, TradeEngineManager> = new Map()
+  private startingEngines = new Set<string>()  // PHASE 1 FIX: Startup lock to prevent duplicate starts
   private isGloballyRunning = false
   private isPaused = false
   private healthCheckTimer?: NodeJS.Timeout
@@ -88,18 +89,49 @@ export class GlobalTradeEngineCoordinator {
 
   /**
    * Start engine for a specific connection
+   * PHASE 1 FIX: Added startup lock to prevent duplicate engines
    */
   async startEngine(connectionId: string, config: EngineConfig): Promise<void> {
-    console.log(`[v0] Starting TradeEngine for connection: ${connectionId}`)
-
-    let manager = this.engineManagers.get(connectionId)
-
-    if (!manager) {
-      manager = await this.initializeEngine(connectionId, config)
+    // Step 1: Check if already starting
+    if (this.startingEngines.has(connectionId)) {
+      console.log(`[v0] [STARTUP LOCK] Engine already starting for ${connectionId}, skipping duplicate start request`)
+      return
     }
 
-    await manager.start(config)
-    console.log(`[v0] TradeEngine started for connection: ${connectionId}`)
+    // Step 2: Check if already running (check Redis state)
+    try {
+      const { getSettings } = await import("@/lib/redis-db")
+      const runningFlag = await getSettings(`engine_is_running:${connectionId}`)
+      if (runningFlag === "true" || runningFlag === true || runningFlag === "1") {
+        console.log(`[v0] [STARTUP LOCK] Engine already running for ${connectionId}, skipping...`)
+        return
+      }
+    } catch (e) {
+      console.log(`[v0] [STARTUP LOCK] Could not check running status: ${e}`)
+    }
+
+    // Step 3: Add to lock set
+    this.startingEngines.add(connectionId)
+    console.log(`[v0] [STARTUP LOCK] Added ${connectionId} to startup lock`)
+
+    try {
+      // Step 4: Initialize engine if needed
+      let manager = this.engineManagers.get(connectionId)
+      if (!manager) {
+        console.log(`[v0] Starting TradeEngine for connection: ${connectionId}`)
+        manager = await this.initializeEngine(connectionId, config)
+      } else {
+        console.log(`[v0] [STARTUP LOCK] Reusing existing engine manager for: ${connectionId}`)
+      }
+
+      // Step 5: Start the engine
+      await manager.start(config)
+      console.log(`[v0] [STARTUP LOCK] TradeEngine successfully started for connection: ${connectionId}`)
+    } finally {
+      // Step 6: Remove from lock set (always, even on error)
+      this.startingEngines.delete(connectionId)
+      console.log(`[v0] [STARTUP LOCK] Removed ${connectionId} from startup lock`)
+    }
   }
 
   /**

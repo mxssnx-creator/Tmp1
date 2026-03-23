@@ -85,10 +85,12 @@ export class TradeEngineManager {
       await initRedis()
       
       // Initialize progression state in Redis if not exists
+      // PHASE 1 FIX: Preserve existing progress counters on restart
       try {
         const client = getRedisClient()
         const existingProgression = await client.hgetall(`progression:${this.connectionId}`)
         if (!existingProgression || Object.keys(existingProgression).length === 0) {
+          // First time initialization - set all counters to 0
           await client.hset(`progression:${this.connectionId}`, {
             cycles_completed: "0",
             successful_cycles: "0",
@@ -98,6 +100,13 @@ export class TradeEngineManager {
             engine_started: "true",
           })
           console.log(`[v0] [EngineManager] Initialized progression state for ${this.connectionId}`)
+        } else {
+          // Engine restarted - preserve existing counters, only update metadata
+          await client.hset(`progression:${this.connectionId}`, {
+            last_update: new Date().toISOString(),
+            engine_started: "true",
+          })
+          console.log(`[v0] [EngineManager] ✓ Preserved progress counters on restart (completed: ${existingProgression.cycles_completed}, successful: ${existingProgression.successful_cycles})`)
         }
       } catch (e) {
         console.warn("[v0] [EngineManager] Failed to init progression state:", e)
@@ -142,38 +151,60 @@ export class TradeEngineManager {
       }
 
       // Phase 2: Load prehistoric data (historical data retrieval + calculation)
-      // Run in background - don't block engine startup
-      await this.updateProgressionPhase("prehistoric_data", 15, "Loading historical market data...")
-      console.log(`[v0] [EngineManager] Phase 2/6: Starting prehistoric data loading (background)...`)
-
-      // Start prehistoric loading and keep a recovery path if it fails
-      try {
-        await Promise.race([
-          this.loadPrehistoricData(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Prehistoric loading timeout')), 30000)
-          )
-        ])
-        console.log(`[v0] [EngineManager] Phase 2/6: ✓ Prehistoric data loaded successfully`)
+      // PHASE 1 FIX: Check cache before loading to prevent redundant API calls
+      const prehistoricCacheKey = `prehistoric_loaded:${this.connectionId}`
+      const redisClient = getRedisClient()
+      const prehistoricCached = await redisClient.get(prehistoricCacheKey)
+      
+      if (prehistoricCached === "1") {
+        // Already loaded recently, skip reload
+        console.log(`[v0] [EngineManager] Phase 2/6: Prehistoric data already cached (24h TTL), skipping reload`)
+        await this.updateProgressionPhase("prehistoric_data", 15, "Historical data cached")
         await setSettings(`trade_engine_state:${this.connectionId}`, {
           prehistoric_data_loaded: true,
+          prehistoric_data_source: "cache",
           updated_at: new Date().toISOString(),
         })
-      } catch (err) {
-        console.warn(`[v0] [EngineManager] Prehistoric data loading error (continuing anyway):`, err)
-        await setSettings(`trade_engine_state:${this.connectionId}`, {
-          prehistoric_data_loaded: false,
-          prehistoric_data_error: err instanceof Error ? err.message : String(err),
-          updated_at: new Date().toISOString(),
-        })
-        // Retry with a reduced fallback symbol set so realtime/strategy processing can still start cleanly
+      } else {
+        // Not cached, load from exchange
+        console.log(`[v0] [EngineManager] Phase 2/6: Starting prehistoric data loading (background)...`)
+        await this.updateProgressionPhase("prehistoric_data", 15, "Loading historical market data...")
+
+        // Start prehistoric loading and keep a recovery path if it fails
         try {
-          const fallbackSymbols = ["BTCUSDT", "ETHUSDT"]
-          await loadMarketDataForEngine(fallbackSymbols)
-          await this.updateProgressionPhase("prehistoric_data", 18, "Fallback historical data loaded")
-          console.log(`[v0] [EngineManager] Fallback prehistoric data loaded for ${fallbackSymbols.join(", ")}`)
-        } catch (fallbackErr) {
-          console.warn(`[v0] [EngineManager] Fallback prehistoric loading also failed:`, fallbackErr)
+          await Promise.race([
+            this.loadPrehistoricData(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Prehistoric loading timeout')), 30000)
+            )
+          ])
+          console.log(`[v0] [EngineManager] Phase 2/6: ✓ Prehistoric data loaded successfully`)
+          
+          // PHASE 1 FIX: Set cache for 24 hours to prevent reloading
+          await redisClient.set(prehistoricCacheKey, "1", { EX: 86400 })
+          console.log(`[v0] [EngineManager] ✓ Prehistoric cache set for 24 hours`)
+          
+          await setSettings(`trade_engine_state:${this.connectionId}`, {
+            prehistoric_data_loaded: true,
+            prehistoric_data_source: "exchange",
+            updated_at: new Date().toISOString(),
+          })
+        } catch (err) {
+          console.warn(`[v0] [EngineManager] Prehistoric data loading error (continuing anyway):`, err)
+          await setSettings(`trade_engine_state:${this.connectionId}`, {
+            prehistoric_data_loaded: false,
+            prehistoric_data_error: err instanceof Error ? err.message : String(err),
+            updated_at: new Date().toISOString(),
+          })
+          // Retry with a reduced fallback symbol set so realtime/strategy processing can still start cleanly
+          try {
+            const fallbackSymbols = ["BTCUSDT", "ETHUSDT"]
+            await loadMarketDataForEngine(fallbackSymbols)
+            await this.updateProgressionPhase("prehistoric_data", 18, "Fallback historical data loaded")
+            console.log(`[v0] [EngineManager] Fallback prehistoric data loaded for ${fallbackSymbols.join(", ")}`)
+          } catch (fallbackErr) {
+            console.warn(`[v0] [EngineManager] Fallback prehistoric loading also failed:`, fallbackErr)
+          }
         }
       }
 

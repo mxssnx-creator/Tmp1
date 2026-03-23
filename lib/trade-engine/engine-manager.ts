@@ -12,6 +12,7 @@ import { RealtimeProcessor } from "./realtime-processor"
 import { logProgressionEvent } from "@/lib/engine-progression-logs"
 import { loadMarketDataForEngine } from "@/lib/market-data-loader"
 import { ProgressionStateManager } from "@/lib/progression-state-manager"
+import { engineMonitor } from "@/lib/engine-performance-monitor"
 
 export interface EngineConfig {
   connectionId: string
@@ -548,13 +549,33 @@ export class TradeEngineManager {
           await client.sadd(`intervals:${this.connectionId}:processed`, intervalId)
         } catch { /* ignore Redis errors */ }
 
-        // Log to progression events every 10 cycles only (to avoid flooding)
+        // Track detailed performance metrics
+        await engineMonitor.trackCycle(this.connectionId, "indications", {
+          cycleNumber: cycleCount,
+          startTime,
+          endTime: Date.now(),
+          durationMs: duration,
+          symbolsProcessed: symbols.length,
+          indicationsGenerated: processedThisCycle,
+          errors: errorCount,
+        })
+
+        // Log detailed stats every 10 cycles
         if (cycleCount % 10 === 0) {
-          await logProgressionEvent(this.connectionId, "indications", "info", `Processed ${symbols.length} symbols`, {
+          await logProgressionEvent(this.connectionId, "indications", "info", 
+            `Cycle ${cycleCount}: Processed ${symbols.length} symbols, ${processedThisCycle} indications in ${duration}ms`, {
             cycleDuration_ms: duration,
             cycleCount,
             symbolsCount: symbols.length,
+            indicationsGenerated: processedThisCycle,
+            avgIndicationsPerSymbol: Math.round(processedThisCycle / symbols.length),
+            totalIndications: totalStrategiesEvaluated,
           })
+        }
+
+        // Log comprehensive summary every 50 cycles
+        if (cycleCount % 50 === 0) {
+          await engineMonitor.logEngineSummary(this.connectionId)
         }
       } catch (error) {
         errorCount++
@@ -628,10 +649,22 @@ export class TradeEngineManager {
           // Silently fail - non-critical for engine operation
         }
 
+        // Track detailed performance metrics
+        await engineMonitor.trackCycle(this.connectionId, "strategies", {
+          cycleNumber: cycleCount,
+          startTime,
+          endTime: Date.now(),
+          durationMs: duration,
+          symbolsProcessed: symbols.length,
+          strategiesEvaluated: evaluatedThisCycle,
+          errors: errorCount,
+        })
+
         // Batch detailed logs every 5 cycles
         if (cycleCount % 5 === 0) {
           console.log(`[v0] [StrategyEngine] Cycle ${cycleCount}: Evaluated ${evaluatedThisCycle} strategies`)
-          await logProgressionEvent(this.connectionId, "strategies", "info", `Processed strategies for ${symbols.length} symbols`, {
+          await logProgressionEvent(this.connectionId, "strategies", "info", 
+            `Cycle ${cycleCount}: Evaluated ${evaluatedThisCycle} strategies for ${symbols.length} symbols in ${duration}ms`, {
             cycleDuration_ms: duration,
             cycleCount,
             symbolsCount: symbols.length,
@@ -639,6 +672,7 @@ export class TradeEngineManager {
             strategiesEvaluatedThisCycle: evaluatedThisCycle,
             totalStrategiesEvaluated,
             avgStrategiesPerSymbol: Math.round(evaluatedThisCycle / symbols.length),
+            processingRate: Math.round(evaluatedThisCycle / (duration / 1000)),
           })
         }
       } catch (error) {
@@ -693,6 +727,16 @@ export class TradeEngineManager {
           await this.updateProgressionPhase("realtime", Math.min(95, 85 + (cycleCount % 10)), `Monitoring real-time data continuously (${cycleCount} cycles)`)
         }
 
+        // Track detailed performance metrics
+        await engineMonitor.trackCycle(this.connectionId, "realtime", {
+          cycleNumber: cycleCount,
+          startTime,
+          endTime: Date.now(),
+          durationMs: duration,
+          symbolsProcessed: 0, // Realtime processes positions, not symbols directly
+          errors: errorCount,
+        })
+
         // Update Redis every cycle for real-time visibility
         try {
           await setSettings(`trade_engine_state:${this.connectionId}`, {
@@ -703,6 +747,17 @@ export class TradeEngineManager {
           })
         } catch (err) {
           // Silently fail - non-critical for engine operation
+        }
+
+        // Log detailed stats every 20 cycles
+        if (cycleCount % 20 === 0) {
+          await logProgressionEvent(this.connectionId, "realtime", "info",
+            `Realtime cycle ${cycleCount}: Monitoring active positions in ${duration}ms`, {
+            cycleDuration_ms: duration,
+            cycleCount,
+            avgDurationMs: Math.round(totalDuration / cycleCount),
+            errorCount,
+          })
         }
       } catch (error) {
         errorCount++

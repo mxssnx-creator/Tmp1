@@ -6,6 +6,7 @@
 import { getGlobalTradeEngineCoordinator } from "./trade-engine"
 import { getAllConnections, getRedisClient, initRedis } from "./redis-db"
 import { loadSettingsAsync } from "./settings-storage"
+import { hasConnectionCredentials, isConnectionInActivePanel, isConnectionSystemEnabled } from "./connection-state-utils"
 
 let autoStartInitialized = false
 let autoStartTimer: NodeJS.Timeout | null = null
@@ -20,6 +21,10 @@ export function isAutoStartInitialized(): boolean {
 export async function initializeTradeEngineAutoStart(): Promise<void> {
   if (autoStartInitialized) {
     console.log("[v0] [Auto-Start] Already initialized, skipping")
+    if (!autoStartTimer) {
+      console.log("[v0] [Auto-Start] Monitor missing after init; restarting monitor")
+      startConnectionMonitoring()
+    }
     return
   }
 
@@ -48,6 +53,7 @@ export async function initializeTradeEngineAutoStart(): Promise<void> {
     if (!Array.isArray(connections)) {
       console.error("[v0] [Auto-Start] ERROR: connections is not an array", typeof connections)
       autoStartInitialized = true
+      startConnectionMonitoring()
       return
     }
 
@@ -55,10 +61,10 @@ export async function initializeTradeEngineAutoStart(): Promise<void> {
     // Engines use is_enabled (internal system state), not is_enabled_dashboard (user UI toggle)
     // This allows engines to start automatically for base connections
     const enabledConnections = connections.filter((c) => {
-      const isActiveInserted = c.is_active_inserted === true || c.is_active_inserted === "true" || c.is_active_inserted === "1"
-      const isSystemEnabled = c.is_enabled === true || c.is_enabled === "true" || c.is_enabled === "1"
-      const hasValidKey = c.api_key && c.api_key.length >= 20 && !c.api_key.includes("PLACEHOLDER")
-      return isActiveInserted && isSystemEnabled && hasValidKey
+      const isActiveInserted = isConnectionInActivePanel(c)
+      const isSystemEnabled = isConnectionSystemEnabled(c)
+      const hasValidCredentials = hasConnectionCredentials(c, 20, false)
+      return isActiveInserted && isSystemEnabled && hasValidCredentials
     })
 
     console.log(`[v0] [Auto-Start] Found ${enabledConnections.length} eligible connections (main-inserted + system-enabled + valid keys) out of ${connections.length} total`)
@@ -98,6 +104,7 @@ export async function initializeTradeEngineAutoStart(): Promise<void> {
   } catch (error) {
     console.error("[v0] [Auto-Start] Initialization failed:", error)
     autoStartInitialized = true
+    startConnectionMonitoring()
   }
 }
 
@@ -105,12 +112,23 @@ export async function initializeTradeEngineAutoStart(): Promise<void> {
  * Monitor for connection changes and auto-start new engines
  */
 function startConnectionMonitoring(): void {
+  if (autoStartTimer) {
+    return
+  }
+
   let lastEnabledCount = 0
+  let lastEnabledSignature = ""
   let cachedSettings: any = null
   let settingsCacheTime = 0
+  let monitorCycleInFlight = false
   const SETTINGS_CACHE_TTL = 60000 // 60 seconds
 
   autoStartTimer = setInterval(async () => {
+    if (monitorCycleInFlight) {
+      return
+    }
+
+    monitorCycleInFlight = true
     try {
       // Always check global engine status first
       await initRedis()
@@ -132,16 +150,22 @@ function startConnectionMonitoring(): void {
       // Filter for Main-inserted + system-enabled connections with valid API keys only
       // Uses is_enabled (internal system state), NOT is_enabled_dashboard (user UI toggle)
       const enabledConnections = connections.filter((c) => {
-        const isActiveInserted = c.is_active_inserted === true || c.is_active_inserted === "true" || c.is_active_inserted === "1"
-        const isSystemEnabled = c.is_enabled === true || c.is_enabled === "true" || c.is_enabled === "1"
-        const hasValidKey = c.api_key && c.api_key.length >= 20 && !c.api_key.includes("PLACEHOLDER")
-        return isActiveInserted && isSystemEnabled && hasValidKey
+        const isActiveInserted = isConnectionInActivePanel(c)
+        const isSystemEnabled = isConnectionSystemEnabled(c)
+        const hasValidCredentials = hasConnectionCredentials(c, 20, false)
+        return isActiveInserted && isSystemEnabled && hasValidCredentials
       })
 
-      // If enabled connection count changed, log it
-      if (enabledConnections.length !== lastEnabledCount) {
+      const enabledSignature = enabledConnections
+        .map((connection) => connection.id)
+        .sort()
+        .join(",")
+
+      // If enabled connection set changed, log it
+      if (enabledSignature !== lastEnabledSignature) {
         console.log(`[v0] [Monitor] Enabled connections changed: ${lastEnabledCount} -> ${enabledConnections.length}`)
         lastEnabledCount = enabledConnections.length
+        lastEnabledSignature = enabledSignature
       }
 
       // Load settings ONCE per interval, not per connection
@@ -187,8 +211,12 @@ function startConnectionMonitoring(): void {
       } else {
         console.warn("[v0] [Monitor] Error during connection monitoring:", error instanceof Error ? error.message : String(error))
       }
+    } finally {
+      monitorCycleInFlight = false
     }
   }, 10000) // Check every 10 seconds for new enabled connections
+
+  autoStartTimer.unref?.()
 }
 
 /**

@@ -1,6 +1,14 @@
 import { getAllConnections, getConnectionPositions, getConnectionTrades, getRedisClient, getSettings, initRedis } from "@/lib/redis-db"
 import { ProgressionStateManager } from "@/lib/progression-state-manager"
 import { getProgressionLogs } from "@/lib/engine-progression-logs"
+import {
+  hasConnectionCredentials,
+  isConnectionDashboardEnabled,
+  isConnectionEligibleForEngine,
+  isConnectionInActivePanel,
+  isConnectionLiveTradeEnabled,
+  isConnectionPresetTradeEnabled,
+} from "@/lib/connection-state-utils"
 
 type WorkflowConnection = {
   id: string
@@ -14,23 +22,6 @@ type WorkflowConnection = {
   testStatus: string
 }
 
-function isTruthyFlag(value: unknown): boolean {
-  return value === true || value === "1" || value === "true"
-}
-
-function isConnectionEligibleForEngine(connection: any): boolean {
-  const isActiveInserted = isTruthyFlag(connection.is_active_inserted) || isTruthyFlag(connection.is_dashboard_inserted)
-  const isDashboardEnabled = isTruthyFlag(connection.is_enabled_dashboard)
-
-  const apiKey = connection.api_key || connection.apiKey || ""
-  const apiSecret = connection.api_secret || connection.apiSecret || ""
-  const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
-
-  const isTestnet = isTruthyFlag(connection.is_testnet)
-  const isDemoMode = isTruthyFlag(connection.demo_mode)
-
-  return isActiveInserted && isDashboardEnabled && (hasCredentials || isTestnet || isDemoMode)
-}
 
 const SNAPSHOT_TTL_MS = 1000
 let cachedSnapshot: any | null = null
@@ -68,18 +59,15 @@ async function buildDashboardWorkflowSnapshot() {
   const globalStatus = globalState?.status || "stopped"
 
   const normalizedConnections: WorkflowConnection[] = allConnections.map((connection: any) => {
-    const apiKey = connection.api_key || connection.apiKey || ""
-    const apiSecret = connection.api_secret || connection.apiSecret || ""
-
     return {
       id: connection.id,
       name: connection.name || connection.exchange || connection.id,
       exchange: connection.exchange || "unknown",
-      hasCredentials: apiKey.length > 10 && apiSecret.length > 10,
-      isActivePanel: isTruthyFlag(connection.is_active_inserted) || isTruthyFlag(connection.is_dashboard_inserted),
-      isDashboardEnabled: isTruthyFlag(connection.is_enabled_dashboard),
-      liveTradeEnabled: isTruthyFlag(connection.is_live_trade) || isTruthyFlag(connection.live_trade_enabled),
-      presetTradeEnabled: isTruthyFlag(connection.is_preset_trade) || isTruthyFlag(connection.preset_trade_enabled),
+      hasCredentials: hasConnectionCredentials(connection, 10),
+      isActivePanel: isConnectionInActivePanel(connection),
+      isDashboardEnabled: isConnectionDashboardEnabled(connection),
+      liveTradeEnabled: isConnectionLiveTradeEnabled(connection),
+      presetTradeEnabled: isConnectionPresetTradeEnabled(connection),
       testStatus: connection.last_test_status || connection.test_status || "untested",
     }
   })

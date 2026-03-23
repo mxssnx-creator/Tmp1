@@ -156,6 +156,8 @@ Market Data → Indication Processing → Strategy Evaluation → Position Manag
 - [INSTALL.md](INSTALL.md) - Installation guide
 - [DEPLOYMENT.md](DEPLOYMENT.md) - Deployment options
 - [DATABASE_SETUP.md](DATABASE_SETUP.md) - Database configuration
+- [docs/PROJECT_RECREATION_GUIDE.md](docs/PROJECT_RECREATION_GUIDE.md) - End-to-end rebuild/recreation guide (auth, exchanges, keys, migrations, menus/pages)
+- [docs/MAIN_CONNECTION_ENABLEMENT_WORKFLOW.md](docs/MAIN_CONNECTION_ENABLEMENT_WORKFLOW.md) - Detailed post-enable processing flow, action sequence, and logistics coordination model
 - [SETTINGS_DOCUMENTATION.md](SETTINGS_DOCUMENTATION.md) - Settings reference
 - [VOLUME_CALCULATION_CORRECTIONS.md](VOLUME_CALCULATION_CORRECTIONS.md) - Volume architecture
 

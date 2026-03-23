@@ -4,6 +4,7 @@ import { initRedis, getRedisClient, getConnection, updateConnection } from "@/li
 import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
 import { loadSettingsAsync } from "@/lib/settings-storage"
 import { isTruthyFlag, parseBooleanInput, toRedisFlag } from "@/lib/boolean-utils"
+import { BASE_CONNECTION_CREDENTIALS } from "@/lib/base-connection-credentials"
 
 // POST toggle live trading for a connection
 // This enables REAL exchange trading via strategies
@@ -36,17 +37,35 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // It mirrors exchange positions without requiring main engine
     if (isLiveTrade) {
       console.log(`[v0] [LiveTrade] Checking prerequisites for enabling ${connName}...`)
-      
+
       // Check: Connection must have credentials for exchange API calls
       const client = getRedisClient()
-      const apiKey = (connection.api_key || connection.apiKey || "") as string
-      const apiSecret = (connection.api_secret || connection.apiSecret || "") as string
-      const hasCredentials = apiKey.length > 10 && apiSecret.length > 10
+      let apiKey = (connection.api_key || connection.apiKey || "") as string
+      let apiSecret = (connection.api_secret || connection.apiSecret || "") as string
+      let hasCredentials = apiKey.length > 10 && apiSecret.length > 10
       console.log(`[v0] [LiveTrade]   - Has API credentials: ${hasCredentials}`)
-      
+
+      // If no credentials but this is a base connection with predefined credentials, inject them
+      if (!hasCredentials && BASE_CONNECTION_CREDENTIALS[connectionId as keyof typeof BASE_CONNECTION_CREDENTIALS]) {
+        console.log(`[v0] [LiveTrade]   - Injecting predefined credentials for base connection: ${connectionId}`)
+        const creds = BASE_CONNECTION_CREDENTIALS[connectionId as keyof typeof BASE_CONNECTION_CREDENTIALS]
+        apiKey = creds.apiKey
+        apiSecret = creds.apiSecret
+        hasCredentials = true
+
+        // Update connection with injected credentials
+        await updateConnection(connectionId, {
+          ...connection,
+          api_key: apiKey,
+          api_secret: apiSecret,
+          updated_at: new Date().toISOString(),
+        })
+        console.log(`[v0] [LiveTrade] ✓ Predefined credentials injected for ${connName}`)
+      }
+
       if (!hasCredentials) {
         console.log(`[v0] [LiveTrade] ✗ Prerequisite failed: No API credentials`)
-        return NextResponse.json({ 
+        return NextResponse.json({
           success: false,
           error: "API credentials required for live trading",
           hint: "Add API key and secret in Settings to enable live trading"

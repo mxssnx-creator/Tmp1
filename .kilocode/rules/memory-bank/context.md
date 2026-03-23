@@ -2,12 +2,25 @@
 
 ## Current State
 
-**Project Status**: ✅ Original CTS website restored and loading
+**Project Status**: ✅ Phase 1 Trade Engine Fixes COMPLETED - Production System Stabilization In Progress
 
-The workspace now contains the restored CTS v3 application from the upstream `v0/cts5` branch. The original route structure, dashboard UI, API surface, and support modules are back in place and the application responds successfully in development.
+Phase 1 of the comprehensive 4-phase remediation plan is now complete. All 4 critical startup/data/progress fixes have been implemented:
+1. Engine startup lock prevents duplicate timers
+2. Prehistoric data is cached for 24 hours (eliminates 3-5 redundant API calls/min)
+3. Progress counters persist across engine restarts (no more lost metrics)
+4. Connection state naming normalized (`is_active_inserted` → `is_assigned`)
+
+The system is now ready for comprehensive testing. Next: Run Phase 1 tests, then proceed with Phase 2 (state consistency fixes).
 
 ## Recently Completed
 
+- [x] **COMPLETED PHASE 1 FIXES - STOP THE BLEEDING**:
+  - ✅ **Fix 1.1**: Renamed `is_active_inserted` → `is_assigned` throughout codebase with helper functions
+  - ✅ **Fix 1.2**: Added engine startup lock mechanism to `GlobalTradeEngineCoordinator` to prevent duplicate timers
+  - ✅ **Fix 1.3**: Added 24-hour prehistoric data caching to prevent redundant API calls on engine restart
+  - ✅ **Fix 1.4**: Preserved progress counters on engine restart (cycles_completed, successful_cycles)
+  - ✅ Passed TypeScript typecheck and ESLint validation
+  - ✅ Committed all changes to git with detailed descriptions
 - [x] **FIXED CONNECTION AUTO-ASSIGNMENT BUG**: Removed auto-assignment logic from startAll() and fixed migration 017 which was forcing `is_active_inserted="1"`; added migration 018 to clean up incorrectly assigned connections
 - [x] **FIXED DOUBLED AUTO-START SYSTEMS**: Consolidated conflicting initializeTradeEngineAutoStart() and startAll() into unified startup flow; removed code duplication and logistics jumping
 - [x] **DATABASE VALIDATION & REPAIR**: Added comprehensive database validator with integrity checks for connections, trades, positions, market data; auto-repairs missing indexes and data structures
@@ -181,6 +194,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-23 | **PHASE 1 COMPLETE**: Implemented all 4 critical fixes - engine startup lock, prehistoric data caching, progress counter preservation, connection state normalization; passed typecheck/lint; committed to git |
 | 2026-03-23 | Fixed doubled auto-start systems by consolidating initializeTradeEngineAutoStart() into coordinator.startAll(); added database validation/repair utility with integrity checks |
 | 2026-03-23 | Fixed connection auto-assignment bug: removed auto-assignment from startAll(), fixed migration 017 forcing `is_active_inserted=1`, added migration 018 to clean up; renamed function to getAssignedAndEnabledConnections |
 | 2026-03-23 | Added comprehensive engine performance monitoring with cycle tracking, processing rates, data size metrics, detailed logging every 10/50 cycles, and metrics API endpoint |

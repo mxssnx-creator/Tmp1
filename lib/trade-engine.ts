@@ -129,12 +129,41 @@ export class GlobalTradeEngineCoordinator {
       console.log("[v0] [Coordinator] Starting global trade engine...")
       
       // Import Redis functions
-      const { initRedis, getInsertedAndEnabledConnections } = await import("@/lib/redis-db")
+      const { initRedis, getInsertedAndEnabledConnections, getAllConnections, updateConnection } = await import("@/lib/redis-db")
       const { loadSettingsAsync } = await import("@/lib/settings-storage")
       
-      // Initialize Redis and get ONLY inserted + enabled connections
+      // Initialize Redis and get connections
       await initRedis()
-      const allConnections = await import("@/lib/redis-db").then(m => m.getAllConnections())
+      const allConnections = await getAllConnections()
+      
+      // AUTO-ENABLE: Find inserted connections with credentials that aren't dashboard-enabled
+      // This fixes the production issue where connections exist but dashboard_enabled=0
+      let autoEnabledCount = 0
+      for (const conn of allConnections) {
+        const isInserted = conn.is_inserted === "1" || conn.is_inserted === true
+        const isDashboardEnabled = conn.is_enabled_dashboard === "1" || conn.is_enabled_dashboard === true
+        const hasCredentials = (conn.api_key || conn.apiKey) && (conn.api_secret || conn.apiSecret)
+        const hasValidCredentials = hasCredentials && 
+          (conn.api_key || conn.apiKey || "").length > 5 && 
+          (conn.api_secret || conn.apiSecret || "").length > 5
+        
+        if (isInserted && hasValidCredentials && !isDashboardEnabled) {
+          console.log(`[v0] [Coordinator] Auto-enabling dashboard for ${conn.name || conn.id} (has credentials, inserted but not dashboard-enabled)`)
+          await updateConnection(conn.id, {
+            ...conn,
+            is_enabled_dashboard: "1",
+            is_active_inserted: "1",
+            updated_at: new Date().toISOString(),
+          })
+          autoEnabledCount++
+        }
+      }
+      
+      if (autoEnabledCount > 0) {
+        console.log(`[v0] [Coordinator] Auto-enabled ${autoEnabledCount} connections for processing`)
+      }
+      
+      // Now get inserted + enabled connections (including auto-enabled ones)
       const connections = await getInsertedAndEnabledConnections()
       
       console.log(`[v0] [Coordinator] Connection audit: total=${allConnections.length}, inserted+enabled=${connections.length}`)
@@ -142,7 +171,7 @@ export class GlobalTradeEngineCoordinator {
       // Show which connections would be processed
       if (connections.length > 0) {
         connections.slice(0, 5).forEach((c: any) => {
-          console.log(`  - ${c.name || c.id}: exchange=${c.exchange}, inserted=${c.is_inserted}, enabled=${c.is_enabled}`)
+          console.log(`  - ${c.name || c.id}: exchange=${c.exchange}, inserted=${c.is_inserted}, dashboard_enabled=${c.is_enabled_dashboard}`)
         })
       }
       
@@ -151,17 +180,20 @@ export class GlobalTradeEngineCoordinator {
         return
       }
       
-      // Only process connections that are inserted, enabled, AND have credentials
+      // Only process connections that have credentials
       const validConnections = connections.filter((c) => {
         const hasCredentials = (c.api_key || c.apiKey) && (c.api_secret || c.apiSecret)
-        return hasCredentials
+        const hasValidCredentials = hasCredentials && 
+          (c.api_key || c.apiKey || "").length > 5 && 
+          (c.api_secret || c.apiSecret || "").length > 5
+        return hasValidCredentials
       })
       
       console.log(`[v0] [Coordinator] Filtered to ${validConnections.length} connections with valid credentials`)
       
       if (validConnections.length === 0) {
-        console.log("[v0] [Coordinator] ⚠ No eligible connections to process. Waiting for user to insert and enable connections.")
-        console.log(`[v0] [Coordinator] Help: Use quick-start endpoint or manually add connections via Settings > Active`)
+        console.log("[v0] [Coordinator] ⚠ No eligible connections to process. No connections with valid credentials found.")
+        console.log(`[v0] [Coordinator] Help: Add connections via Settings > Active with valid API credentials`)
         this.isGloballyRunning = true // Mark as running, ready for connections
         return
       }

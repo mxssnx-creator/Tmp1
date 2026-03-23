@@ -8,6 +8,7 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Recently Completed
 
+- [x] **FIXED ENGINE AUTO-START**: Added auto-enable logic for dashboard-enabled flag when connections have valid credentials but dashboard_enabled=0 - this fixes production issue where engine couldn't start
 - [x] **FIXED LINT TOOLCHAIN COMPATIBILITY**: Updated ESLint to v9 to support flat config format and resolved lint bootstrap failures
 - [x] **COMPREHENSIVE ENGINE PROGRESSION LOGISTICS FIX**: Fixed engine progression timer continuity by adding missing startStrategyProcessor method, corrected timer assignments (indicationTimer vs strategyTimer), resolved TypeScript errors, and ensured continuous cycle processing across all processors
 - [x] **COMPREHENSIVE ENGINE PROGRESSION FIX**: Implemented complete engine progression pipeline with prehistoric data loading, realtime processing, and results emission
@@ -176,6 +177,7 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-23 | Fixed engine auto-start by auto-enabling dashboard flag for inserted connections with valid credentials, resolving production issue where engine showed dashboardEnabled=0 |
 | 2026-03-23 | Fixed lint toolchain compatibility by updating ESLint to v9 for flat config support; resolved lint bootstrap failures and achieved clean lint+typecheck pipeline |
 | 2026-03-23 | Fixed comprehensive engine progression logistics: resolved timer continuity issues, added missing startStrategyProcessor method, corrected timer assignments, and ensured continuous cycle processing with proper error logging and progression tracking |
 | 2026-03-23 | Completed logistics integrity pass: unified queue backlog/health/pressure metrics across logistics and structure surfaces, and corrected structure metrics API to return live workflow-backed system + trading logistics payloads |

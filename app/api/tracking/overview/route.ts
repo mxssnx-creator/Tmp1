@@ -2,22 +2,15 @@ import { NextResponse } from "next/server"
 import { getAllConnections, getConnectionPositions, getConnectionTrades, initRedis } from "@/lib/redis-db"
 import { ProgressionStateManager } from "@/lib/progression-state-manager"
 import { getProgressionLogs } from "@/lib/engine-progression-logs"
+import {
+  hasConnectionCredentials,
+  isConnectionDashboardEnabled,
+  isConnectionLiveTradeEnabled,
+  isOpenPosition,
+} from "@/lib/connection-state-utils"
 
 export const dynamic = "force-dynamic"
 
-function isTruthy(value: unknown): boolean {
-  return value === true || value === "1" || value === "true"
-}
-
-function hasCredentials(connection: any): boolean {
-  const apiKey = connection.api_key || connection.apiKey || ""
-  const apiSecret = connection.api_secret || connection.apiSecret || ""
-  return apiKey.length >= 10 && apiSecret.length >= 10
-}
-
-function isOpenPosition(position: any) {
-  return position.status === "open" || position.status === "active" || position.is_open === "1"
-}
 
 export async function GET() {
   try {
@@ -52,9 +45,9 @@ export async function GET() {
           winRate,
           progression,
           logs: logs.slice(0, 10),
-          hasCredentials: hasCredentials(connection),
-          dashboardEnabled: isTruthy(connection.is_enabled_dashboard),
-          liveTradeEnabled: isTruthy(connection.is_live_trade) || isTruthy(connection.live_trade_enabled),
+          hasCredentials: hasConnectionCredentials(connection, 10),
+          dashboardEnabled: isConnectionDashboardEnabled(connection),
+          liveTradeEnabled: isConnectionLiveTradeEnabled(connection),
           lastUpdate: progression.lastUpdate?.toISOString?.() || new Date().toISOString(),
         }
       }),

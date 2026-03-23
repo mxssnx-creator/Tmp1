@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server"
 import { getAllConnections, initRedis } from "@/lib/redis-db"
+import {
+  hasConnectionCredentials,
+  isConnectionDashboardEnabled,
+  isConnectionEligibleForEngine,
+  isConnectionInActivePanel,
+} from "@/lib/connection-state-utils"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -21,21 +27,10 @@ export async function GET() {
           (c.exchange || "").toLowerCase()
         )
       ).length,
-      withCredentials: connections.filter((c: any) =>
-        !!(c.api_key) && c.api_key.length > 10 && !!(c.api_secret) && c.api_secret.length > 10
-      ).length,
-      inActivePanel: connections.filter((c: any) =>
-        c.is_active_inserted === "1" || c.is_active_inserted === true
-      ).length,
-      dashboardEnabled: connections.filter((c: any) =>
-        c.is_enabled_dashboard === "1" || c.is_enabled_dashboard === true
-      ).length,
-      readyForProcessing: connections.filter((c: any) => {
-        const hasCredentials = !!(c.api_key) && c.api_key.length > 10 && !!(c.api_secret) && c.api_secret.length > 10
-        const isInActivePanel = c.is_active_inserted === "1" || c.is_active_inserted === true
-        const isDashboardEnabled = c.is_enabled_dashboard === "1" || c.is_enabled_dashboard === true
-        return hasCredentials && isInActivePanel && isDashboardEnabled
-      }).length,
+      withCredentials: connections.filter((c: any) => hasConnectionCredentials(c, 10)).length,
+      inActivePanel: connections.filter((c: any) => isConnectionInActivePanel(c)).length,
+      dashboardEnabled: connections.filter((c: any) => isConnectionDashboardEnabled(c)).length,
+      readyForProcessing: connections.filter((c: any) => isConnectionEligibleForEngine(c)).length,
     }
 
     return NextResponse.json({

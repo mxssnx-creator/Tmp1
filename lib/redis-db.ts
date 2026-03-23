@@ -118,6 +118,7 @@ export class InlineLocalRedis {
     this.data.sets.delete(key)
     this.data.lists.delete(key)
     this.data.sorted_sets.delete(key)
+    this.data.ttl?.delete(key)
   }
   
   /**
@@ -192,11 +193,16 @@ export class InlineLocalRedis {
     this.trackOperation()
     let count = 0
     for (const key of keys) {
-      if (this.data.strings.delete(key)) count++
-      else if (this.data.hashes.delete(key)) count++
-      else if (this.data.sets.delete(key)) count++
-      else if (this.data.lists.delete(key)) count++
-      else if (this.data.sorted_sets.delete(key)) count++
+      const exists = this.data.strings.has(key) ||
+        this.data.hashes.has(key) ||
+        this.data.sets.has(key) ||
+        this.data.lists.has(key) ||
+        this.data.sorted_sets.has(key)
+
+      if (exists) {
+        this.deleteKey(key)
+        count++
+      }
     }
     return count
   }
@@ -408,25 +414,24 @@ export class InlineLocalRedis {
       .replace(/\*/g, ".*")
       .replace(/\?/g, ".")
     const regex = new RegExp(`^${regexPattern}$`)
-    
-    const allKeys: string[] = []
-    // Collect keys from all data structures
-    for (const key of this.data.strings.keys()) {
-      if (regex.test(key)) allKeys.push(key)
+
+    const uniqueKeys = new Set<string>()
+    const keyCollections = [
+      this.data.strings.keys(),
+      this.data.hashes.keys(),
+      this.data.sets.keys(),
+      this.data.lists.keys(),
+      this.data.sorted_sets.keys(),
+    ]
+
+    for (const collection of keyCollections) {
+      for (const key of collection) {
+        if (this.isExpired(key)) continue
+        if (regex.test(key)) uniqueKeys.add(key)
+      }
     }
-    for (const key of this.data.hashes.keys()) {
-      if (regex.test(key)) allKeys.push(key)
-    }
-    for (const key of this.data.sets.keys()) {
-      if (regex.test(key)) allKeys.push(key)
-    }
-    for (const key of this.data.lists.keys()) {
-      if (regex.test(key)) allKeys.push(key)
-    }
-    for (const key of this.data.sorted_sets.keys()) {
-      if (regex.test(key)) allKeys.push(key)
-    }
-    return allKeys
+
+    return Array.from(uniqueKeys)
   }
 
   async zadd(key: string, score: number, member: string): Promise<number> {
@@ -745,9 +750,17 @@ export function getRedisRequestsPerSecond(): number {
   // Get the accurate requests per second from tracking
   const globalData = globalThis as unknown as { __redis_data?: RedisData }
   if (!globalData.__redis_data?.requestStats) return 0
-  
+
+  const now = Math.floor(Date.now() / 1000)
+  const stats = globalData.__redis_data.requestStats
+
+  // If there were no operations in the previous second window, report 0.
+  if (now - stats.lastSecond > 1) {
+    return 0
+  }
+
   // Return the operations from the last completed second
-  const rps = globalData.__redis_data.requestStats.operationsPerSecond
+  const rps = stats.operationsPerSecond
   return Math.max(0, rps)
 }
 

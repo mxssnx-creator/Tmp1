@@ -8,6 +8,14 @@ The workspace now contains the restored CTS v3 application from the upstream `v0
 
 ## Recently Completed
 
+- [x] Extended workflow hardening with shared utility usage in auto-start system enablement checks, and added dedicated main-connection enablement logistics/process documentation
+- [x] Consolidated system stats/version workflow integrity by making `system-stats-v2` delegate to v3 and aligning `/api/system/complete-workflow` analysis counters with shared connection-state predicates
+- [x] Reduced duplicated workflow/logistics logic by introducing shared connection-state utility helpers and central logistics payload builder used by queue/tracking/system-stats APIs for consistent processing semantics
+- [x] Hardened Redis in-memory infrastructure: deduplicated `KEYS` output across data structures, filtered expired keys during key scans, and fixed TTL cleanup on `DEL` to preserve key-index integrity
+- [x] Stabilized Redis throughput metrics to return 0 after idle windows (avoids stale non-zero RPS drift) and hardened auto-start monitor loop with non-overlapping interval cycles + `unref()` for non-blocking process behavior
+- [x] Hardened trade-engine auto-start fallback so connection monitoring still starts when initial connection reads fail or initialization throws
+- [x] Made trade-engine auto-start monitoring idempotent to prevent duplicate interval loops and auto-recover monitoring if initialization flag is set but timer is missing
+- [x] Added a full project recreation guide covering startup, Redis migrations, exchange/key model, auth/default login behavior, and menu/page structure
 - [x] Unified connection-log dialog/API to Redis-first progression+workflow sources with phase breakdown and bottom detail metadata; added quickstart status propagation across workflow snapshot/logistics and hardened truthy parsing in tracking/quickstart readiness
 - [x] Synced `pnpm-lock.yaml` with the current dependency graph to restore deterministic installs after prior package alignment changes
 - [x] Fixed workflow-logger.ts: storage/retrieval mismatch (was using client.set vs client.zrevrange - fixed to use lpush/lrange consistently)
@@ -135,6 +143,13 @@ Current focus is runtime correctness and operational workflow completeness for t
 
 | Date | Changes |
 |------|---------|
+| 2026-03-23 | Extended system/workflow completion: trade-engine auto-start now uses shared connection-state predicates for active/system-enabled/credential gating and added `docs/MAIN_CONNECTION_ENABLEMENT_WORKFLOW.md` with detailed post-enable processing + logistics coordination actions |
+| 2026-03-23 | Completed workflow/integrity consolidation pass: removed duplicate system-stats v2 logic by delegating to v3 and normalized complete-workflow readiness/credential counters through shared connection-state utilities |
+| 2026-03-23 | Merged duplicated workflow/logistics processing paths: added shared connection-state utility module and centralized logistics queue payload builder; updated dashboard workflow, tracking overview, and system-stats APIs to consume unified helpers |
+| 2026-03-23 | Hardened Redis infra and auto-start monitor reliability: fixed `DEL` TTL cleanup, deduped+expiry-filtered `KEYS` scans, prevented stale RPS carry-over after idle, and added non-overlapping + unref'd monitoring loop behavior |
+| 2026-03-23 | Added `docs/PROJECT_RECREATION_GUIDE.md` and README linkage with consolidated recreation documentation (startup flow, migrations, exchanges/keys, auth defaults, pages/menu structure, validation checklist) |
+| 2026-03-23 | Made trade-engine auto-start monitoring idempotent by guarding `startConnectionMonitoring()` against duplicate timers and rehydrating monitoring when initialization is marked done but timer is absent |
+| 2026-03-23 | Hardened `initializeTradeEngineAutoStart` failure paths to always start the background connection monitor, preventing missed auto-start recovery when initial connection reads error or return invalid payloads |
 | 2026-03-23 | Unified logs dialog/backend on Redis-first sources, added quickstart status visibility in logistics/workflow snapshot, and hardened tracking/quickstart readiness boolean+credential parsing |
 | 2026-03-23 | Synced `pnpm-lock.yaml` with current package manifests/runtime pins to keep installs reproducible and avoid lock drift |
 | 2026-03-23 | Fixed indication set stats/entries APIs to aggregate across per-config keys so dashboards/logs reflect real expanded config persistence |

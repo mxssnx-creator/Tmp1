@@ -18,7 +18,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { toast } from "sonner"
 import type { ExchangeConnection } from "@/lib/types"
 
-// Global Coordinator Status Component
+// Global Coordinator Status Component with optimized polling
 function GlobalCoordinatorStatus() {
   const [status, setStatus] = useState<{ running: boolean; paused: boolean; status: string } | null>(null)
 
@@ -39,7 +39,8 @@ function GlobalCoordinatorStatus() {
       }
     }
     loadStatus()
-    const interval = setInterval(loadStatus, 2000)
+    // Increased polling: 2000ms → 5000ms to reduce API load
+    const interval = setInterval(loadStatus, 5000)
     return () => clearInterval(interval)
   }, [])
 
@@ -154,6 +155,9 @@ export function Dashboard() {
     systemLoad: 0,
     databaseSize: 0,
   })
+  
+  // Track abort controller for cleanup
+  const abortControllerRef = React.useRef<AbortController | null>(null)
 
   // Filter ExchangeConnectionsActive by selected exchange
   const filteredConnections = useMemo(() => {
@@ -163,38 +167,24 @@ export function Dashboard() {
     return exchangeConnectionsActive.filter(conn => conn.exchange === selectedExchange)
   }, [exchangeConnectionsActive, selectedExchange])
 
-  useEffect(() => {
-    console.log("[v0] [Dashboard] Mounted")
-    // Don't await these - let them load in background
-    // This ensures the dashboard renders immediately
-    loadExchangeConnectionsActive().catch(err => {
-      console.warn("[v0] [Dashboard] Failed to load connections:", err)
-    })
-    loadStats()
-    
-    const interval = setInterval(() => {
-      loadStats()
-    }, 5000)
-    
-    return () => clearInterval(interval)
-  }, [])
-
-  // Reload stats when selected exchange changes
-  useEffect(() => {
-    console.log("[v0] [Dashboard] Exchange changed to:", selectedExchange)
-    loadStats()
-  }, [selectedExchange])
-
-  const loadStats = async () => {
+  const loadStats = React.useCallback(async () => {
     try {
+      // Cancel previous request if still in flight
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      
+      abortControllerRef.current = new AbortController()
+      const signal = abortControllerRef.current.signal
+      
       // Fetch both monitoring stats and system monitoring data
       const url = selectedExchange 
         ? `/api/monitoring/stats?exchange=${selectedExchange}`
         : "/api/monitoring/stats"
       
       const [statsRes, sysMonRes] = await Promise.all([
-        fetch(url),
-        fetch("/api/system/monitoring"),
+        fetch(url, { signal }),
+        fetch("/api/system/monitoring", { signal }),
       ])
       
       let data = { activeConnections: 0, totalPositions: 0, dailyPnL: 0, totalBalance: 0 }
@@ -218,9 +208,39 @@ export function Dashboard() {
         databaseSize: sysData.database?.keys || 0,
       })
     } catch (error) {
-      console.error("Failed to load stats:", error)
+      if ((error as Error).name !== 'AbortError') {
+        console.error("Failed to load stats:", error)
+      }
     }
-  }
+  }, [selectedExchange])
+
+  useEffect(() => {
+    console.log("[v0] [Dashboard] Mounted")
+    // Don't await these - let them load in background
+    // This ensures the dashboard renders immediately
+    loadExchangeConnectionsActive().catch(err => {
+      console.warn("[v0] [Dashboard] Failed to load connections:", err)
+    })
+    loadStats()
+    
+    // Increased polling interval to reduce API calls: 10s instead of 5s
+    const interval = setInterval(() => {
+      loadStats()
+    }, 10000)
+    
+    return () => {
+      clearInterval(interval)
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [loadStats])
+
+  // Reload stats when selected exchange changes
+  useEffect(() => {
+    console.log("[v0] [Dashboard] Exchange changed to:", selectedExchange)
+    loadStats()
+  }, [loadStats, selectedExchange])
 
   return (
     <div className="flex-1 space-y-6 p-6">

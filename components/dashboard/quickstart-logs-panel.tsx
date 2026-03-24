@@ -62,7 +62,8 @@ export function QuickstartLogsPanel({ connectionId, className = "" }: Quickstart
 
     // Auto-refresh if enabled
     if (autoRefresh && connectionId) {
-      const interval = setInterval(fetchLogs, 2000)
+      // Optimized: Increased polling from 2s to 5s for logs (reduces API pressure)
+      const interval = setInterval(fetchLogs, 5000)
       return () => clearInterval(interval)
     }
   }, [connectionId, autoRefresh])

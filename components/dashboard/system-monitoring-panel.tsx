@@ -97,7 +97,8 @@ export function SystemMonitoringPanel() {
 
   useEffect(() => {
     loadMonitoring()
-    const interval = setInterval(loadMonitoring, 2000)
+    // Optimized: Increased polling from 2s to 10s (system metrics don't need frequent updates)
+    const interval = setInterval(loadMonitoring, 10000)
     return () => clearInterval(interval)
   }, [])
 

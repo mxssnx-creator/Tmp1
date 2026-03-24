@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { AuthProvider } from "@/lib/auth-context"
 import { ExchangeProvider } from "@/lib/exchange-context"

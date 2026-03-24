@@ -1,21 +1,44 @@
 "use client"
 
-import dynamic from "next/dynamic"
+export const dynamic = "force-dynamic"
 
-const DashboardActiveConnectionsManager = dynamic(
-  () => import("@/components/dashboard/dashboard-active-connections-manager").then((mod) => mod.DashboardActiveConnectionsManager),
-  { loading: () => <div className="p-8 text-center">Loading dashboard...</div> }
-)
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 export default function HomePage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    // Redirect to the live-trading page which has the full CTS dashboard
+    router.replace("/live-trading")
+  }, [router])
+
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Trading Dashboard</h1>
-          <p className="text-muted-foreground">Manage your trading connections and positions</p>
-        </div>
-        <DashboardActiveConnectionsManager />
+    <div style={{ 
+      display: "flex", 
+      justifyContent: "center", 
+      alignItems: "center", 
+      minHeight: "100vh",
+      backgroundColor: "#f5f5f5"
+    }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{
+          width: "40px",
+          height: "40px",
+          border: "3px solid #e0e0e0",
+          borderTop: "3px solid #3b82f6",
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite",
+          margin: "0 auto 16px"
+        }} />
+        <h1 style={{ fontSize: "24px", fontWeight: "600", color: "#333" }}>
+          Loading CTS Dashboard...
+        </h1>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     </div>
   )

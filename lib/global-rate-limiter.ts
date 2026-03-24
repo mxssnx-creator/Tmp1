@@ -36,7 +36,7 @@ export class TokenBucketRateLimiter {
   private readonly maxTokens: number
   private readonly refillRatePerSec: number
   private readonly burst: number
-  private cleanupInterval: NodeJS.Timer | null = null
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(
     maxRequestsPerSecond: number = 100,

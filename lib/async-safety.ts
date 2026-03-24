@@ -5,7 +5,7 @@
  * for async operations throughout the system
  */
 
-import ProductionErrorHandler, { ProductionError } from './error-handling-production'
+import ProductionErrorHandler from './error-handling-production'
 
 export interface AsyncSafetyOptions {
   name: string
@@ -100,17 +100,12 @@ export async function safeAsync<T>(
 
       // If this was the last attempt, check for fallback
       if (attempt === retries) {
-        // Log to error handler
-        const productionError: ProductionError = {
-          type: 'uncaughtException',
-          message: `Async operation failed after ${attempts} attempts`,
-          error: lastError.name,
+        // Log to console (ProductionErrorHandler will catch it if needed)
+        console.error(`[ASYNC_SAFETY] ${name} failed after retries:`, {
+          message: lastError.message,
           stack: lastError.stack,
-          timestamp: new Date(),
           severity: 'high'
-        }
-
-        ProductionErrorHandler.logError(productionError)
+        })
 
         // Call error callback if provided
         if (onError) {

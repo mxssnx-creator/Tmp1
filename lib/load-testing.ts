@@ -5,7 +5,7 @@
  * Identifies bottlenecks and capacity limits
  */
 
-import { metricsCollector } from './metrics-collector'
+import { metricsCollector, MetricType } from './metrics-collector'
 import { dbMetrics } from './database-metrics'
 
 export interface LoadTestConfig {
@@ -52,25 +52,25 @@ export class LoadTester {
   private registerMetrics(): void {
     metricsCollector.registerMetric({
       name: 'load_test_total_requests',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Total requests in load test'
     })
 
     metricsCollector.registerMetric({
       name: 'load_test_failed_requests',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Failed requests in load test'
     })
 
     metricsCollector.registerMetric({
       name: 'load_test_duration_seconds',
-      type: 'histogram',
+      type: MetricType.HISTOGRAM,
       help: 'Load test duration'
     })
 
     metricsCollector.registerMetric({
       name: 'load_test_throughput',
-      type: 'gauge',
+      type: MetricType.GAUGE,
       help: 'Requests per second during load test'
     })
   }

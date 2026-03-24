@@ -5,7 +5,7 @@
  * Input validation, rate limiting, encryption, audit logging
  */
 
-import { metricsCollector } from './metrics-collector'
+import { metricsCollector, MetricType } from './metrics-collector'
 import crypto from 'crypto'
 
 export interface SecurityConfig {
@@ -56,25 +56,25 @@ export class SecurityManager {
   private registerMetrics(): void {
     metricsCollector.registerMetric({
       name: 'security_validation_failures',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Input validation failures'
     })
 
     metricsCollector.registerMetric({
       name: 'security_suspicious_activity',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Suspicious activity detected'
     })
 
     metricsCollector.registerMetric({
       name: 'security_audit_events',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Audit log events'
     })
 
     metricsCollector.registerMetric({
       name: 'security_failed_authentications',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Failed authentication attempts'
     })
   }

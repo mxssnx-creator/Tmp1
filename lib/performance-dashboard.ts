@@ -48,7 +48,7 @@ export interface DashboardMetrics {
 export class PerformanceDashboard {
   private metricsHistory: DashboardMetrics[] = []
   private maxHistorySize = 1440 // 24 hours @ 1-minute intervals
-  private updateInterval: NodeJS.Timer | null = null
+  private updateInterval: ReturnType<typeof setInterval> | null = null
 
   constructor() {
     console.log('[DASHBOARD] Performance dashboard initialized')

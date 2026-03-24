@@ -5,7 +5,7 @@
  * Provides detailed diagnostics for optimization
  */
 
-import { metricsCollector } from './metrics-collector'
+import { metricsCollector, MetricType } from './metrics-collector'
 
 export interface QueryMetrics {
   command: string
@@ -57,43 +57,43 @@ export class DatabaseMetricsCollector {
   private registerMetrics(): void {
     metricsCollector.registerMetric({
       name: 'redis_operations_total',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Total Redis operations'
     })
 
     metricsCollector.registerMetric({
       name: 'redis_operation_errors_total',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Total Redis operation errors'
     })
 
     metricsCollector.registerMetric({
       name: 'redis_operation_duration_milliseconds',
-      type: 'histogram',
+      type: MetricType.HISTOGRAM,
       help: 'Redis operation duration in milliseconds'
     })
 
     metricsCollector.registerMetric({
       name: 'redis_slow_queries_total',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Total slow queries detected'
     })
 
     metricsCollector.registerMetric({
       name: 'redis_connections_active',
-      type: 'gauge',
+      type: MetricType.GAUGE,
       help: 'Active Redis connections'
     })
 
     metricsCollector.registerMetric({
       name: 'redis_memory_used_bytes',
-      type: 'gauge',
+      type: MetricType.GAUGE,
       help: 'Redis memory usage in bytes'
     })
 
     metricsCollector.registerMetric({
       name: 'redis_keys_total',
-      type: 'gauge',
+      type: MetricType.GAUGE,
       help: 'Total keys in Redis'
     })
 

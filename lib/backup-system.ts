@@ -6,7 +6,7 @@
  */
 
 import { getRedisClient } from './redis-db'
-import { metricsCollector } from './metrics-collector'
+import { metricsCollector, MetricType } from './metrics-collector'
 import fs from 'fs'
 import path from 'path'
 
@@ -36,7 +36,7 @@ export interface BackupVerification {
 export class BackupSystem {
   private backupDir = '/tmp/redis-backups'
   private maxBackups = 7 // Keep 7 days
-  private backupSchedule: NodeJS.Timer | null = null
+  private backupSchedule: ReturnType<typeof setInterval> | null = null
   private backupMetadata: BackupMetadata[] = []
 
   constructor(backupDir: string = '/tmp/redis-backups') {
@@ -65,31 +65,31 @@ export class BackupSystem {
   private registerMetrics(): void {
     metricsCollector.registerMetric({
       name: 'backup_operations_total',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Total backup operations'
     })
 
     metricsCollector.registerMetric({
       name: 'backup_failures_total',
-      type: 'counter',
+      type: MetricType.COUNTER,
       help: 'Total backup failures'
     })
 
     metricsCollector.registerMetric({
       name: 'backup_duration_seconds',
-      type: 'histogram',
+      type: MetricType.HISTOGRAM,
       help: 'Backup operation duration'
     })
 
     metricsCollector.registerMetric({
       name: 'backup_size_bytes',
-      type: 'gauge',
+      type: MetricType.GAUGE,
       help: 'Latest backup size'
     })
 
     metricsCollector.registerMetric({
       name: 'backups_total',
-      type: 'gauge',
+      type: MetricType.GAUGE,
       help: 'Total backups stored'
     })
   }

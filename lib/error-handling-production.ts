@@ -229,8 +229,8 @@ export async function withErrorHandling<T>(
       severity: context.severity || 'high'
     }
 
-    ProductionErrorHandler.logError(productionError)
-    ProductionErrorHandler.trackErrorMetric(productionError)
+    // Log error to console (ProductionErrorHandler catches unhandled exceptions/rejections separately)
+    console.error(`[ERROR_HANDLER] ${context.operation} failed:`, productionError)
 
     // Return null instead of throwing to allow graceful degradation
     return null

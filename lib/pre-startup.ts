@@ -5,10 +5,34 @@
 
 import { initRedis, getAllConnections, saveMarketData, setSettings, getSettings, updateConnection, getRedisClient } from "@/lib/redis-db"
 import { runMigrations } from "@/lib/redis-migrations"
-import { initializeTradeEngineAutoStart } from "@/lib/trade-engine-auto-start"
 import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
-import { getDefaultSettings } from "@/lib/settings-storage"
-import { createExchangeConnector } from "@/lib/exchange-connectors"
+
+// Dynamic imports to avoid crypto/fs issues in serverless builds
+let createExchangeConnector: any
+let initializeTradeEngineAutoStart: any
+let getDefaultSettings: any
+
+async function getExchangeConnector() {
+  if (!createExchangeConnector) {
+    createExchangeConnector = (await import("@/lib/exchange-connectors")).createExchangeConnector
+  }
+  return createExchangeConnector
+}
+
+async function getSettingsStorage() {
+  if (!getDefaultSettings) {
+    const mod = await import("@/lib/settings-storage")
+    getDefaultSettings = mod.getDefaultSettings
+  }
+  return { getDefaultSettings }
+}
+
+async function getAutoStart() {
+  if (!initializeTradeEngineAutoStart) {
+    initializeTradeEngineAutoStart = (await import("@/lib/trade-engine-auto-start")).initializeTradeEngineAutoStart
+  }
+  return initializeTradeEngineAutoStart
+}
 
 // Use globalThis to survive module re-evaluation across Next.js compilations
 const globalStore = globalThis as any
@@ -87,7 +111,7 @@ async function seedPredefinedConnections() {
 async function initializeDefaultSettings() {
   console.log("[v0] [Seed] Initializing default settings...")
   try {
-    const defaults = getDefaultSettings()
+    const defaults = await getDefaultSettings()
     
     console.log("[v0] [Seed] Default settings keys:", Object.keys(defaults))
     console.log("[v0] [Seed] Saving to Redis with key 'app_settings'...")
@@ -140,7 +164,7 @@ export async function testAllExchangeConnections() {
     for (const connection of testable) {
       try {
         // Test directly using the exchange connector - no HTTP needed
-        const connector = await createExchangeConnector(connection.exchange, {
+        const connector = await (await getExchangeConnector())(connection.exchange, {
           apiKey: connection.api_key,
           apiSecret: connection.api_secret,
           apiType: connection.api_type || "live",

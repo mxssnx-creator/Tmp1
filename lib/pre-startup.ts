@@ -24,7 +24,7 @@ async function getSettingsStorage() {
     const mod = await import("@/lib/settings-storage")
     getDefaultSettings = mod.getDefaultSettings
   }
-  return { getDefaultSettings }
+  return getDefaultSettings
 }
 
 async function getAutoStart() {

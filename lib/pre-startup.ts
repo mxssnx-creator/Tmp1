@@ -12,6 +12,14 @@ let createExchangeConnector: any
 let initializeTradeEngineAutoStart: any
 let getDefaultSettings: any
 
+function shouldRunPreStartup(): boolean {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return false
+  if (process.env.NODE_ENV === "development") return false
+  if (process.env.NEXT_PHASE?.includes("phase-development-server")) return false
+  if (process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production") return false
+  return true
+}
+
 async function getExchangeConnector() {
   if (!createExchangeConnector) {
     createExchangeConnector = (await import("@/lib/exchange-connectors")).createExchangeConnector
@@ -102,6 +110,11 @@ async function seedMarketData() {
 }
 
 async function seedPredefinedConnections() {
+  if (process.env.NODE_ENV === "development") {
+    console.log("[v0] [Seed] Skipping predefined connection seeding in development")
+    return
+  }
+
   console.log("[v0] [Seed] Connections seeding DISABLED - only 4 user-created base connections are used")
   // Predefined connections are file-based templates only and should NOT be stored in Redis
   // The 4 user-created connections (BingX, Bybit, Pionex, OrangeX) are initialized in redis-db.ts
@@ -134,6 +147,11 @@ async function initializeDefaultSettings() {
 }
 
 export async function testAllExchangeConnections() {
+  if (process.env.NODE_ENV === "development") {
+    console.log("[v0] [Startup] Skipping connection tests in development")
+    return { tested: 0, passed: 0, failed: 0 }
+  }
+
   console.log("[v0] [Startup] Testing exchange connections (direct connector test, no HTTP)...")
   try {
     const allConnections = await getAllConnections()
@@ -242,6 +260,11 @@ export function startPeriodicConnectionTesting() {
  * engines can be activated without manual intervention.
  */
 async function autoStartGlobalEngine() {
+  if (process.env.NODE_ENV === "development") {
+    console.log("[v0] [Global Engine] Skipping auto-start in development")
+    return
+  }
+
   try {
     const client = getRedisClient()
     const globalState = await client.hgetall("trade_engine:global")
@@ -271,6 +294,11 @@ async function autoStartGlobalEngine() {
 }
 
 export async function runPreStartup() {
+  if (!shouldRunPreStartup()) {
+    console.log("[v0] Pre-startup skipped in this runtime")
+    return
+  }
+
   // Prevent double execution (Next.js calls register() for each compilation)
   if (globalStore.__cts_startup_guard.completed) {
     console.log("[v0] Pre-startup already completed, skipping duplicate call")

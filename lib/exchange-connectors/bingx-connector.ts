@@ -35,7 +35,7 @@ export class BingXConnector extends BaseExchangeConnector {
   private getSignature(params: Record<string, any>): string {
     const sortedKeys = Object.keys(params).sort()
     const queryString = sortedKeys.map(key => `${key}=${params[key]}`).join('&')
-    return crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+    return createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
   }
 
   private toStringParams(params: Record<string, any>): Record<string, string> {

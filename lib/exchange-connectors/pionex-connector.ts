@@ -49,7 +49,7 @@ export class PionexConnector extends BaseExchangeConnector {
       stringToSign += body
     }
 
-    return crypto.createHmac("sha256", this.credentials.apiSecret).update(stringToSign).digest("hex")
+    return createHmac("sha256", this.credentials.apiSecret).update(stringToSign).digest("hex")
   }
 
   async getBalance(): Promise<ExchangeConnectorResult> {

@@ -7,8 +7,13 @@ import { initRedis, getAllConnections, saveMarketData, setSettings, getSettings,
 import { runMigrations } from "@/lib/redis-migrations"
 import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
 import { getDefaultSettings } from "@/lib/settings-storage"
-import { createExchangeConnector } from "@/lib/exchange-connectors"
 import { validateDatabase, repairDatabase, logDatabaseStatus } from "@/lib/database-validator"
+
+// Dynamically import createExchangeConnector only when needed to avoid build-time module resolution issues
+async function getExchangeConnectorFactory() {
+  const { createExchangeConnector } = await import("@/lib/exchange-connectors")
+  return createExchangeConnector
+}
 
 // Use globalThis to survive module re-evaluation across Next.js compilations
 const globalStore = globalThis as any
@@ -136,6 +141,7 @@ export async function testAllExchangeConnections() {
     
     let passed = 0
     let failed = 0
+    const createExchangeConnector = await getExchangeConnectorFactory()
     
     for (const connection of testable) {
       try {

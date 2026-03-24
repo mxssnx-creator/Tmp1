@@ -56,7 +56,7 @@ export class BinanceConnector extends BaseExchangeConnector {
 
     try {
       const queryString = `timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       this.log("Fetching account balance...")
 
@@ -172,7 +172,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       }
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
       
       let endpoint = ""
       if (apiType === "spot") {
@@ -217,7 +217,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       }
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
       
       let endpoint = ""
       if (apiType === "spot") {
@@ -261,7 +261,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       }
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
       
       let endpoint = ""
       if (apiType === "spot") {
@@ -300,7 +300,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       if (symbol) params.symbol = symbol
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
       
       let endpoint = ""
       if (apiType === "spot") {
@@ -334,7 +334,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       if (symbol) params.symbol = symbol
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
       
       let endpoint = ""
       if (apiType === "spot") {
@@ -372,7 +372,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       if (symbol) params.symbol = symbol
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/fapi/v2/positionRisk?${queryString}&signature=${signature}`, {
         headers: { "X-MBX-APIKEY": this.credentials.apiKey },
@@ -408,7 +408,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       if (marginType) params.marginType = marginType === "cross" ? "CROSSED" : "ISOLATED"
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/fapi/v1/positionSide/dual?${queryString}&signature=${signature}`, {
         method: "POST",
@@ -468,7 +468,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       }
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/sapi/v1/capital/deposit/address?${queryString}&signature=${signature}`, {
         headers: { "X-MBX-APIKEY": this.credentials.apiKey },
@@ -507,7 +507,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       }
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/sapi/v1/capital/withdraw/apply?${queryString}&signature=${signature}`, {
         method: "POST",
@@ -544,7 +544,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       }
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/sapi/v1/capital/withdraw/history?${queryString}&signature=${signature}`, {
         headers: { "X-MBX-APIKEY": this.credentials.apiKey },
@@ -573,7 +573,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       }
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/fapi/v1/leverage?${queryString}&signature=${signature}`, {
         method: "POST",
@@ -609,7 +609,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       }
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/fapi/v1/marginType?${queryString}&signature=${signature}`, {
         method: "POST",
@@ -644,7 +644,7 @@ export class BinanceConnector extends BaseExchangeConnector {
       }
 
       const queryString = new URLSearchParams(params).toString()
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/fapi/v1/positionSide/dual?${queryString}&signature=${signature}`, {
         method: "POST",

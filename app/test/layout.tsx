@@ -1,5 +1,6 @@
 "use client"
 
+export const dynamic = "force-dynamic"
 import type React from "react"
 import { AuthProvider } from "@/lib/auth-context"
 import { ExchangeProvider } from "@/lib/exchange-context"
@@ -7,8 +8,6 @@ import { ConnectionStateProvider } from "@/lib/connection-state"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Toaster } from "sonner"
-
-export const dynamic = "force-dynamic"
 
 export default function Layout({
   children,

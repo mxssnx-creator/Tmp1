@@ -1,22 +1,33 @@
 import type React from "react"
-import type { Metadata } from "next"
-import "./globals.css"
+import { AuthProvider } from "@/lib/auth-context"
+import { ExchangeProvider } from "@/lib/exchange-context"
+import { ConnectionStateProvider } from "@/lib/connection-state"
+import { SidebarProvider } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
+import { Toaster } from "sonner"
 
-export const metadata: Metadata = {
-  title: "CTS v3 - Crypto Trading System",
-  description: "Advanced crypto trading system",
-}
+export const dynamic = "force-dynamic"
 
-export default function RootLayout({
+export default function Layout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning style={{ height: "100%" }}>
-      <body style={{ height: "100%", margin: "0", padding: "0", overflow: "auto", backgroundColor: "#fff" }}>
-        {children}
-      </body>
-    </html>
+    <AuthProvider>
+      <ExchangeProvider>
+        <ConnectionStateProvider>
+          <SidebarProvider>
+            <div className="flex h-screen overflow-hidden bg-background">
+              <AppSidebar />
+              <main className="flex-1 overflow-auto p-6">
+                {children}
+              </main>
+            </div>
+            <Toaster />
+          </SidebarProvider>
+        </ConnectionStateProvider>
+      </ExchangeProvider>
+    </AuthProvider>
   )
 }

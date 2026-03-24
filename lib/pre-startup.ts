@@ -111,7 +111,8 @@ async function seedPredefinedConnections() {
 async function initializeDefaultSettings() {
   console.log("[v0] [Seed] Initializing default settings...")
   try {
-    const defaults = await getDefaultSettings()
+    const getDefaultSettingsFn = await getSettingsStorage()
+    const defaults = getDefaultSettingsFn.getDefaultSettings()
     
     console.log("[v0] [Seed] Default settings keys:", Object.keys(defaults))
     console.log("[v0] [Seed] Saving to Redis with key 'app_settings'...")
@@ -313,8 +314,9 @@ export async function runPreStartup() {
     await autoStartGlobalEngine()
     console.log("[v0] [8/10] ✓ Global Trade Engine Coordinator running")
     
-    console.log("[v0] [9/10] Initializing Trade Engines for active connections...")
-    await initializeTradeEngineAutoStart()
+     console.log("[v0] [9/10] Initializing Trade Engines for active connections...")
+     const autoStartFn = await getAutoStart()
+     await autoStartFn()
     console.log("[v0] [9/10] ✓ Trade Engines initialized and auto-start activated")
     
     console.log("[v0] [10/10] Starting periodic connection monitoring...")

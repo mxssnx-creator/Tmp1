@@ -36,6 +36,7 @@ function getDefaultSettings(): Record<string, any> {
     strategyMainMaxPseudoPositionsLong: 1,
     strategyMainMaxPseudoPositionsShort: 1,
     // Database Size Limits
+    databaseLimitPerSecond: 10000, // 10k operations per second (0 = unlimited)
     databaseLimitPerMinute: 500000, // 500k operations per minute (0 = unlimited)
     databaseLimitPerDay: 0, // Unlimited per day (0 = unlimited)
   }

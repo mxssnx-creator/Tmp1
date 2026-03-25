@@ -40,6 +40,8 @@ export interface ComponentHealth {
  */
 export class GlobalTradeEngineCoordinator {
   private engineManagers: Map<string, TradeEngineManager> = new Map()
+  private startingEngines = new Set<string>()  // PHASE 1 FIX: Startup lock to prevent duplicate starts
+  private stoppingEngines = new Set<string>()  // PHASE 2 FIX: Stop lock to prevent race conditions
   private isGloballyRunning = false
   private isPaused = false
   private healthCheckTimer?: NodeJS.Timeout
@@ -89,37 +91,126 @@ export class GlobalTradeEngineCoordinator {
 
   /**
    * Start engine for a specific connection
+   * PHASE 1 FIX: Added startup lock to prevent duplicate engines
    */
   async startEngine(connectionId: string, config: EngineConfig): Promise<void> {
-    console.log(`[v0] Starting TradeEngine for connection: ${connectionId}`)
-
-    let manager = this.engineManagers.get(connectionId)
-
-    if (!manager) {
-      manager = await this.initializeEngine(connectionId, config)
+    // Step 1: Check if already starting
+    if (this.startingEngines.has(connectionId)) {
+      console.log(`[v0] [STARTUP LOCK] Engine already starting for ${connectionId}, skipping duplicate start request`)
+      return
     }
 
-    await manager.start(config)
-    console.log(`[v0] TradeEngine started for connection: ${connectionId}`)
+    // Step 2: Check if already running (check Redis state)
+    try {
+      const { getSettings } = await import("@/lib/redis-db")
+      const runningFlag = await getSettings(`engine_is_running:${connectionId}`)
+      if (runningFlag === "true" || runningFlag === true || runningFlag === "1") {
+        console.log(`[v0] [STARTUP LOCK] Engine already running for ${connectionId}, skipping...`)
+        return
+      }
+    } catch (e) {
+      console.log(`[v0] [STARTUP LOCK] Could not check running status: ${e}`)
+    }
+
+    // Step 3: Add to lock set
+    this.startingEngines.add(connectionId)
+    console.log(`[v0] [STARTUP LOCK] Added ${connectionId} to startup lock`)
+
+    try {
+      // Step 4: Initialize engine if needed
+      let manager = this.engineManagers.get(connectionId)
+      if (!manager) {
+        console.log(`[v0] Starting TradeEngine for connection: ${connectionId}`)
+        manager = await this.initializeEngine(connectionId, config)
+      } else {
+        console.log(`[v0] [STARTUP LOCK] Reusing existing engine manager for: ${connectionId}`)
+      }
+
+      // Step 5: Start the engine
+      await manager.start(config)
+      console.log(`[v0] [STARTUP LOCK] TradeEngine successfully started for connection: ${connectionId}`)
+    } finally {
+      // Step 6: Remove from lock set (always, even on error)
+      this.startingEngines.delete(connectionId)
+      console.log(`[v0] [STARTUP LOCK] Removed ${connectionId} from startup lock`)
+    }
   }
 
   /**
    * Stop engine for a specific connection
+   * PHASE 2 FIX: Added stop lock to prevent concurrent stop requests and race conditions
    */
   async stopEngine(connectionId: string): Promise<void> {
-    console.log(`[v0] Stopping TradeEngine for connection: ${connectionId}`)
-
-    const manager = this.engineManagers.get(connectionId)
-
-    if (!manager) {
-      console.log(`[v0] No engine found for connection: ${connectionId}`)
+    // Step 1: Check if already stopping
+    if (this.stoppingEngines.has(connectionId)) {
+      console.log(`[v0] [STOP LOCK] Engine already stopping for ${connectionId}, skipping duplicate stop request`)
       return
     }
 
-    await manager.stop()
-    this.engineManagers.delete(connectionId)
+    // Step 2: Add to stop lock set
+    this.stoppingEngines.add(connectionId)
+    console.log(`[v0] [STOP LOCK] Added ${connectionId} to stop lock`)
 
-    console.log(`[v0] TradeEngine stopped for connection: ${connectionId}`)
+    try {
+      console.log(`[v0] Stopping TradeEngine for connection: ${connectionId}`)
+
+      const manager = this.engineManagers.get(connectionId)
+
+      if (!manager) {
+        console.log(`[v0] No engine found for connection: ${connectionId}`)
+        return
+      }
+
+      await manager.stop()
+      this.engineManagers.delete(connectionId)
+
+      console.log(`[v0] ✓ TradeEngine stopped for connection: ${connectionId}`)
+    } finally {
+      // Step 3: Remove from stop lock set (always, even on error)
+      this.stoppingEngines.delete(connectionId)
+      console.log(`[v0] [STOP LOCK] Removed ${connectionId} from stop lock`)
+    }
+  }
+
+  /**
+   * Toggle engine state with proper synchronization
+   * PHASE 2 FIX: Ensures safe enable/disable by waiting for any ongoing state changes
+   */
+  async toggleEngine(connectionId: string, enabled: boolean, config?: EngineConfig): Promise<void> {
+    // Wait for any ongoing state changes to complete
+    const maxWaits = 100 // 5 seconds max
+    let waits = 0
+    while (
+      (this.startingEngines.has(connectionId) || this.stoppingEngines.has(connectionId)) &&
+      waits < maxWaits
+    ) {
+      await new Promise((r) => setTimeout(r, 50))
+      waits++
+    }
+
+    if (waits >= maxWaits) {
+      console.warn(
+        `[v0] [TOGGLE] Timeout waiting for engine state change for ${connectionId}, proceeding anyway`
+      )
+    }
+
+    if (enabled) {
+      if (config) {
+        await this.startEngine(connectionId, config)
+      } else {
+        console.warn(`[v0] [TOGGLE] Cannot start engine ${connectionId} - missing config`)
+      }
+    } else {
+      await this.stopEngine(connectionId)
+    }
+  }
+
+  /**
+   * Check if engine is currently running
+   */
+  isEngineRunning(connectionId: string): boolean {
+    const manager = this.engineManagers.get(connectionId)
+    return manager ? manager.isEngineRunning : false
   }
 
   /**
@@ -130,20 +221,29 @@ export class GlobalTradeEngineCoordinator {
       console.log("[v0] [Coordinator] Starting global trade engine...")
       
       // Import Redis functions
-      const { initRedis, getInsertedAndEnabledConnections } = await import("@/lib/redis-db")
+      const { initRedis, getAssignedAndEnabledConnections, getAllConnections } = await import("@/lib/redis-db")
       const { loadSettingsAsync } = await import("@/lib/settings-storage")
       
-      // Initialize Redis and get ONLY inserted + enabled connections
+      // Initialize Redis and get connections
       await initRedis()
-      const allConnections = await import("@/lib/redis-db").then(m => m.getAllConnections())
-      const connections = await getInsertedAndEnabledConnections()
+      const allConnections = await getAllConnections()
+      
+      // NOTE: Removed auto-enable logic
+      // Connections must be explicitly:
+      // 1. Created in base connections
+      // 2. Assigned to main connections via add-to-active flow
+      // 3. Enabled via dashboard toggle
+      // This ensures user control over which connections are processed
+      
+      // Get assigned + enabled connections (user must explicitly assign to main)
+      const connections = await getAssignedAndEnabledConnections()
       
       console.log(`[v0] [Coordinator] Connection audit: total=${allConnections.length}, inserted+enabled=${connections.length}`)
       
       // Show which connections would be processed
       if (connections.length > 0) {
         connections.slice(0, 5).forEach((c: any) => {
-          console.log(`  - ${c.name || c.id}: exchange=${c.exchange}, inserted=${c.is_inserted}, enabled=${c.is_enabled}`)
+          console.log(`  - ${c.name || c.id}: exchange=${c.exchange}, inserted=${c.is_inserted}, dashboard_enabled=${c.is_enabled_dashboard}`)
         })
       }
       
@@ -152,17 +252,20 @@ export class GlobalTradeEngineCoordinator {
         return
       }
       
-      // Only process connections that are inserted, enabled, AND have credentials
+      // Only process connections that have credentials
       const validConnections = connections.filter((c) => {
         const hasCredentials = (c.api_key || c.apiKey) && (c.api_secret || c.apiSecret)
-        return hasCredentials
+        const hasValidCredentials = hasCredentials && 
+          (c.api_key || c.apiKey || "").length > 5 && 
+          (c.api_secret || c.apiSecret || "").length > 5
+        return hasValidCredentials
       })
       
       console.log(`[v0] [Coordinator] Filtered to ${validConnections.length} connections with valid credentials`)
       
       if (validConnections.length === 0) {
-        console.log("[v0] [Coordinator] ⚠ No eligible connections to process. Waiting for user to insert and enable connections.")
-        console.log(`[v0] [Coordinator] Help: Use quick-start endpoint or manually add connections via Settings > Active`)
+        console.log("[v0] [Coordinator] ⚠ No eligible connections to process. No connections with valid credentials found.")
+        console.log(`[v0] [Coordinator] Help: Add connections via Settings > Active with valid API credentials`)
         this.isGloballyRunning = true // Mark as running, ready for connections
         return
       }
@@ -202,11 +305,11 @@ export class GlobalTradeEngineCoordinator {
     try {
       console.log("[v0] [Coordinator] === REFRESH ENGINES START ===")
       
-      const { initRedis, getInsertedAndEnabledConnections, getAllConnections } = await import("@/lib/redis-db")
+      const { initRedis, getAssignedAndEnabledConnections, getAllConnections } = await import("@/lib/redis-db")
       const { logProgressionEvent } = await import("@/lib/engine-progression-logs")
       
       await initRedis()
-      const enabledConnections = await getInsertedAndEnabledConnections()
+      const enabledConnections = await getAssignedAndEnabledConnections()
       const allConnections = await getAllConnections()
       
       const enabledIds = new Set(enabledConnections.map(c => c.id))

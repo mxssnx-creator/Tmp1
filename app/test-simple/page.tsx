@@ -1,6 +1,8 @@
 "use client"
 export const dynamic = "force-dynamic"
 
+
+export const dynamic = "force-dynamic"
 export default function TestPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">

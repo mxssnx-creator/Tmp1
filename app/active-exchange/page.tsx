@@ -9,6 +9,8 @@ import { AlertCircle, Waves } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useExchange } from "@/lib/exchange-context"
 
+export const dynamic = 'force-dynamic'
+
 export default function ActiveExchangePage() {
   const { activeConnections, selectedConnectionId, setSelectedConnectionId, loadActiveConnections, selectedConnection } = useExchange()
   const [loading, setLoading] = useState(true)

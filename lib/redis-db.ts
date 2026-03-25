@@ -882,7 +882,7 @@ export async function getEnabledConnections(): Promise<any[]> {
   return allConnections.filter((c: any) => isEnabledFlag(c.is_enabled))
 }
 
-export async function getInsertedAndEnabledConnections(): Promise<any[]> {
+export async function getAssignedAndEnabledConnections(): Promise<any[]> {
   const allConnections = await getAllConnections()
   // Return connections that are:
   // 1. Active-inserted into Active panel (is_active_inserted="1")

@@ -1,4 +1,4 @@
-import crypto from "crypto"
+import { createHmac } from "crypto"
 import { BaseExchangeConnector, type ExchangeConnectorResult } from "./base-connector"
 import { safeParseResponse } from "@/lib/safe-response-parser"
 
@@ -83,7 +83,7 @@ export class BybitConnector extends BaseExchangeConnector {
     try {
       const recvWindow = "5000"
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       this.log("Fetching account balance...")
       const accountType = this.getEffectiveAccountType()
@@ -179,7 +179,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/create?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -219,7 +219,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/cancel?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -252,7 +252,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const category = this.credentials.apiType === "spot" ? "spot" : "linear"
 
       const queryString = `api_key=${this.credentials.apiKey}&category=${category}&orderId=${orderId}&recv_window=${recvWindow}&symbol=${symbol}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/realtime?${queryString}&sign=${signature}`)
 
@@ -284,7 +284,7 @@ export class BybitConnector extends BaseExchangeConnector {
         queryString += `&symbol=${symbol}`
       }
 
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/realtime?${queryString}&sign=${signature}`)
 
@@ -316,7 +316,7 @@ export class BybitConnector extends BaseExchangeConnector {
         queryString += `&symbol=${symbol}`
       }
 
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/history?${queryString}&sign=${signature}`)
 
@@ -353,7 +353,7 @@ export class BybitConnector extends BaseExchangeConnector {
         queryString += `&symbol=${symbol}`
       }
 
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/list?${queryString}&sign=${signature}`)
 
@@ -402,7 +402,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/set-leverage?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -459,7 +459,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&coin=${coin}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/asset/deposit/query-address?${queryString}&sign=${signature}`)
 
@@ -496,7 +496,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/asset/withdraw/create?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -530,7 +530,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&limit=${limit}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/asset/transfer/query-inter-transfer-list?${queryString}&sign=${signature}`)
 
@@ -564,7 +564,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/set-leverage?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -602,7 +602,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/switch-mode?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -639,7 +639,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/switch-mode?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -689,6 +689,51 @@ export class BybitConnector extends BaseExchangeConnector {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       this.logError(`✗ Failed to fetch ticker: ${errorMsg}`)
+      return null
+    }
+  }
+
+  async getOHLCV(symbol: string, timeframe = "1m", limit = 250): Promise<Array<{timestamp: number; open: number; high: number; low: number; close: number; volume: number}> | null> {
+    try {
+      this.log(`Fetching OHLCV for ${symbol} (${timeframe}, ${limit} candles)`)
+
+      const baseUrl = this.getBaseUrl()
+      const category = this.credentials.apiType === "spot" ? "spot" : "linear"
+      
+      // Convert timeframe to Bybit interval format
+      const intervalMap: Record<string, string> = {
+        "1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30",
+        "1h": "60", "2h": "120", "4h": "240", "6h": "360", "12h": "720",
+        "1d": "D", "1w": "W", "1M": "M"
+      }
+      const interval = intervalMap[timeframe] || "1"
+
+      const response = await this.rateLimitedFetch(
+        `${baseUrl}/v5/market/kline?category=${category}&symbol=${symbol}&interval=${interval}&limit=${limit}`
+      )
+
+      const data = await response.json()
+
+      if (data.retCode !== 0 || !data.result?.list) {
+        this.logError(`✗ Failed to fetch OHLCV: ${data.retMsg || "Unknown error"}`)
+        return null
+      }
+
+      // Bybit returns: [timestamp, open, high, low, close, volume, turnover]
+      const candles = data.result.list.map((c: string[]) => ({
+        timestamp: Number.parseInt(c[0]),
+        open: Number.parseFloat(c[1]),
+        high: Number.parseFloat(c[2]),
+        low: Number.parseFloat(c[3]),
+        close: Number.parseFloat(c[4]),
+        volume: Number.parseFloat(c[5])
+      })).reverse() // Reverse to get chronological order
+
+      this.log(`✓ OHLCV fetched: ${candles.length} candles`)
+      return candles
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch OHLCV: ${errorMsg}`)
       return null
     }
   }

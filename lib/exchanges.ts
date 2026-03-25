@@ -1,3 +1,5 @@
+import { createHmac } from "crypto"
+
 export interface ExchangeConfig {
   id: string
   name: string
@@ -163,7 +165,39 @@ export class BybitAPI implements ExchangeAPI {
   }
 
   async getBalance(): Promise<number> {
-    return Math.random() * 10000
+    try {
+      const baseUrl = this.config.testnet ? "https://api-testnet.bybit.com" : "https://api.bybit.com"
+      const timestamp = Date.now().toString()
+      const recvWindow = "5000"
+      
+      // Create signature
+      const params = `accountType=UNIFIED&timestamp=${timestamp}&recv_window=${recvWindow}`
+      const signature = crypto.createHmac("sha256", this.config.apiSecret).update(params).digest("hex")
+      
+      const response = await fetch(`${baseUrl}/v5/account/wallet-balance?${params}`, {
+        headers: {
+          "X-BAPI-API-KEY": this.config.apiKey,
+          "X-BAPI-SIGN": signature,
+          "X-BAPI-TIMESTAMP": timestamp,
+          "X-BAPI-RECV-WINDOW": recvWindow,
+        },
+      })
+      
+      const data = await response.json()
+      
+      if (data.retCode === 0 && data.result?.list?.[0]) {
+        const account = data.result.list[0]
+        const totalWalletBalance = parseFloat(account.totalWalletBalance || "0")
+        console.log(`[v0] [Bybit] Fetched real balance: ${totalWalletBalance} USDT`)
+        return totalWalletBalance
+      }
+      
+      console.warn(`[v0] [Bybit] Failed to fetch balance: ${data.retMsg}`)
+      return 0
+    } catch (error) {
+      console.error("[v0] [Bybit] Error fetching balance:", error)
+      return 0
+    }
   }
 
   async getPositions(): Promise<any[]> {

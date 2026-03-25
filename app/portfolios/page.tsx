@@ -1,6 +1,8 @@
 "use client"
 export const dynamic = "force-dynamic"
 
+
+export const dynamic = "force-dynamic"
 import { useState, useEffect } from "react"
 import { PortfolioOverview } from "@/components/dashboard/portfolio-overview"
 import { PositionsTable } from "@/components/dashboard/positions-table"

@@ -4,6 +4,8 @@ import MarketDataMonitor from "@/components/realtime/market-data-monitor"
 import PositionMonitor from "@/components/realtime/position-monitor"
 import { useExchange } from "@/lib/exchange-context"
 
+export const dynamic = "force-dynamic"
+
 export default function RealtimePage() {
   const { selectedConnectionId } = useExchange()
   const connectionId = selectedConnectionId || "default-connection"

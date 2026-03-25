@@ -1,4 +1,4 @@
-import crypto from "crypto"
+import { createHmac } from "crypto"
 import { BaseExchangeConnector, type ExchangeConnectorResult } from "./base-connector"
 import { safeParseResponse } from "@/lib/safe-response-parser"
 
@@ -35,7 +35,7 @@ export class BingXConnector extends BaseExchangeConnector {
   private getSignature(params: Record<string, any>): string {
     const sortedKeys = Object.keys(params).sort()
     const queryString = sortedKeys.map(key => `${key}=${params[key]}`).join('&')
-    return crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+    return createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
   }
 
   private toStringParams(params: Record<string, any>): Record<string, string> {
@@ -801,11 +801,20 @@ export class BingXConnector extends BaseExchangeConnector {
       const baseUrl = this.getBaseUrl()
       const apiType = this.credentials.apiType || "perpetual_futures"
       
+      // Transform symbol format for BingX
+      let bingxSymbol = symbol
+      if (apiType !== "spot") {
+        // For perpetual/futures, ensure dash format: BTC-USDT
+        if (!symbol.includes('-')) {
+          bingxSymbol = symbol.replace('USDT', '-USDT').replace('USDC', '-USDC')
+        }
+      }
+      
       let endpoint = ""
       if (apiType === "spot") {
-        endpoint = `/openApi/spot/v1/ticker/price?symbol=${symbol}`
+        endpoint = `/openApi/spot/v1/ticker/price?symbol=${bingxSymbol}`
       } else {
-        endpoint = `/openApi/swap/v3/quote/price?symbol=${symbol}`
+        endpoint = `/openApi/swap/v3/quote/price?symbol=${bingxSymbol}`
       }
 
       const response = await this.rateLimitedFetch(`${baseUrl}${endpoint}`, {
@@ -828,6 +837,71 @@ export class BingXConnector extends BaseExchangeConnector {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       this.logError(`✗ Failed to fetch ticker: ${errorMsg}`)
+      return null
+    }
+  }
+
+  async getOHLCV(symbol: string, timeframe = "1m", limit = 250): Promise<Array<{timestamp: number; open: number; high: number; low: number; close: number; volume: number}> | null> {
+    try {
+      this.log(`Fetching OHLCV for ${symbol} (${timeframe}, ${limit} candles)`)
+
+      const baseUrl = this.getBaseUrl()
+      const apiType = this.credentials.apiType || "perpetual_futures"
+      
+      // Convert timeframe to BingX interval format
+      const intervalMap: Record<string, string> = {
+        "1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m",
+        "1h": "1h", "4h": "4h", "1d": "1d", "1w": "1w", "1M": "1M"
+      }
+      const interval = intervalMap[timeframe] || "1m"
+
+      // Transform symbol format for BingX
+      // BingX perpetual futures requires format: BTC-USDT (with dash)
+      // BingX spot requires format: BTCUSDT (no dash)
+      let bingxSymbol = symbol
+      if (apiType !== "spot") {
+        // For perpetual/futures, ensure dash format: BTC-USDT
+        if (!symbol.includes('-')) {
+          // Convert BTCUSDT → BTC-USDT
+          bingxSymbol = symbol.replace('USDT', '-USDT').replace('USDC', '-USDC')
+        }
+      }
+
+      let endpoint = ""
+      if (apiType === "spot") {
+        endpoint = `/openApi/spot/v2/market/kline?symbol=${bingxSymbol}&interval=${interval}&limit=${limit}`
+      } else {
+        endpoint = `/openApi/swap/v3/quote/klines?symbol=${bingxSymbol}&interval=${interval}&limit=${limit}`
+      }
+
+      const response = await this.rateLimitedFetch(`${baseUrl}${endpoint}`, {
+        headers: { "X-BX-APIKEY": this.credentials.apiKey },
+      })
+
+      const data = await response.json()
+
+      if (data.code !== 0 && data.code !== "0") {
+        this.logError(`✗ Failed to fetch OHLCV: ${data.msg || "Unknown error"}`)
+        return null
+      }
+
+      // BingX returns different formats for spot vs swap
+      const klines = Array.isArray(data.data) ? data.data : []
+      
+      const candles = klines.map((c: any) => ({
+        timestamp: Number.parseInt(c.time || c[0]),
+        open: Number.parseFloat(c.open || c[1]),
+        high: Number.parseFloat(c.high || c[2]),
+        low: Number.parseFloat(c.low || c[3]),
+        close: Number.parseFloat(c.close || c[4]),
+        volume: Number.parseFloat(c.volume || c[5])
+      }))
+
+      this.log(`✓ OHLCV fetched: ${candles.length} candles`)
+      return candles
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      this.logError(`✗ Failed to fetch OHLCV: ${errorMsg}`)
       return null
     }
   }

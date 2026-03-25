@@ -686,6 +686,14 @@ export async function saveMarketData(symbol: string, data: any): Promise<void> {
 
 export async function getMarketData(symbol: string): Promise<any | null> {
   const client = getClient()
+  
+  // Priority 1: Check hash format (used by market-data-loader.ts via hmset)
+  const hashData = await client.hgetall(`market_data:${symbol}`)
+  if (hashData && Object.keys(hashData).length > 0) {
+    return hashData
+  }
+  
+  // Priority 2: Check string format (fallback for older data)
   const value = await client.get(`market_data:${symbol}`)
   if (!value) return null
   try {

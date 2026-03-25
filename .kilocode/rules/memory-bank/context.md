@@ -18,6 +18,29 @@ The workspace contains a fully functional, battle-tested, production-ready CTS v
 
 ## Recently Completed
 
+### Database Limits Implementation (Commit 95ee02b - COMPLETED)
+- [x] **Per-Minute Operation Counter**: Implemented `trackDatabaseOperation()` in `redis-db.ts` with 60-second sliding window tracking in global memory
+  - Returns `{ current: count, limit: max_allowed, exceeded: boolean }` for real-time enforcement
+  - Automatically resets window when 60 seconds have passed
+  - No Redis overhead - uses in-memory tracker for efficient counting
+- [x] **Limit Enforcement in Write Operations**: Added checks to `RedisTrades.createTrade()` and `RedisPositions.createPosition()`
+  - Calls `shouldEnforceDatabaseLimit()` before each write
+  - Skips write and logs warning if limit exceeded
+  - Configurable via `databaseLimitPerMinute` setting (0 = unlimited)
+- [x] **Settings UI Slider**: Added database limit slider to SystemTab component
+  - Range: 0-3,000,000 operations per minute
+  - Step: 100,000 (100k increments)
+  - Default: 500,000 (500k/min)
+  - Displays "Unlimited" when set to 0
+  - Shows live limit display in info box when limit active
+- [x] **Settings Integration**: Added defaults and interface fields
+  - `databaseLimitPerMinute: 500000` (configurable per-minute limit)
+  - `databaseLimitPerDay: 0` (unlimited per day - reserved for future)
+- [x] **Quality Gates**: All tests passing
+  - TypeScript: ✓ No errors
+  - ESLint: ✓ No warnings
+  - Build: ✓ 160+ pages, 102 kB shared JS
+
 ### Comprehensive System Integrity Audit (30+ issues fixed across 23 files)
 - [x] **ENGINE STABILITY**: Added `isStarting` guard to prevent concurrent engine startup race conditions; fixed error path to clean up all leaked timers (indication/strategy/realtime/health/heartbeat); fixed realtime processor error handler updating wrong component health (strategies -> realtime); stored coordination metrics timer for proper cleanup in `stopAll()`; added cycle overlap guard and timer cleanup to `TradeEngineStateMachine`
 - [x] **DATABASE GROWTH PREVENTION**: Replaced unbounded SADD sets with INCR counters for indication/interval tracking; converted system/console logger from unbounded sets to bounded LPUSH+LTRIM lists (5000 max); added TTL to trade (30d) and position (30d) hashes; removed closed positions from index set + 7d TTL on closure; converted monitoring events and snapshots to bounded lists; added 24h TTL to prehistoric data keys; added `incr()` method to `InlineLocalRedis`

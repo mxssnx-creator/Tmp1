@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "@/app/globals.css"
+import { Providers } from "@/components/providers"
+import { ExchangeSelectorTop } from "@/components/exchange-selector-top"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -17,7 +19,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        {children}
+        <Providers>
+          <ExchangeSelectorTop />
+          <div className="pt-[120px]">
+            {children}
+          </div>
+        </Providers>
       </body>
     </html>
   )

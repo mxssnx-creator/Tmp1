@@ -18,6 +18,14 @@ The workspace contains a fully functional, battle-tested, production-ready CTS v
 
 ## Recently Completed
 
+### Comprehensive System Integrity Audit (30+ issues fixed across 23 files)
+- [x] **ENGINE STABILITY**: Added `isStarting` guard to prevent concurrent engine startup race conditions; fixed error path to clean up all leaked timers (indication/strategy/realtime/health/heartbeat); fixed realtime processor error handler updating wrong component health (strategies -> realtime); stored coordination metrics timer for proper cleanup in `stopAll()`; added cycle overlap guard and timer cleanup to `TradeEngineStateMachine`
+- [x] **DATABASE GROWTH PREVENTION**: Replaced unbounded SADD sets with INCR counters for indication/interval tracking; converted system/console logger from unbounded sets to bounded LPUSH+LTRIM lists (5000 max); added TTL to trade (30d) and position (30d) hashes; removed closed positions from index set + 7d TTL on closure; converted monitoring events and snapshots to bounded lists; added 24h TTL to prehistoric data keys; added `incr()` method to `InlineLocalRedis`
+- [x] **WORKFLOW INTEGRITY**: Fixed CRITICAL Redis hash/string mismatch: monitoring, progression, and toggle-dashboard routes now use `hgetall()` instead of `get()` for `trade_engine:global` (stored as HASH); fixed connection-manager boolean coercion (`is_enabled="0"` was truthy); fixed `updateConnection` accidentally disabling when `updates.enabled` is undefined; fixed data-cleanup-manager using `zrangebyscore` on JSON-stored data (silently failing)
+- [x] **UI FIXES**: Fixed memory leak in `startStatusPolling` (now uses `useRef` with cleanup on unmount); fixed auto-test `setTimeout` cleanup on component unmount; fixed broken `/trade-bots` navigation link -> `/presets`
+- [x] **BUILD**: Added TypeScript 6.0 `ignoreDeprecations` for `baseUrl`; all quality gates pass (typecheck, lint, build - 160+ pages, 102kB shared JS)
+
+
 ### Session 4: Real-Time Updates via Server-Sent Events (SSE) (Complete)
 - [x] **SERVER-SENT EVENTS (SSE) INFRASTRUCTURE**: Implemented complete SSE architecture for Next.js-compatible real-time updates
   - Created global event broadcaster service (`lib/event-broadcaster.ts`) with client connection management, message history, and statistics

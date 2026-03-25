@@ -32,6 +32,7 @@ class StructuredLogger {
   private logBuffer: EngineProgressLog[] = []
   private maxBufferSize = 1000
   private flushInterval = 10000 // 10 seconds
+  private flushTimer?: NodeJS.Timeout
 
   constructor(connectionId: string) {
     this.connectionId = connectionId
@@ -39,7 +40,19 @@ class StructuredLogger {
   }
 
   private startFlushTimer() {
-    setInterval(() => this.flushLogs(), this.flushInterval)
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer)
+    }
+    this.flushTimer = setInterval(() => this.flushLogs(), this.flushInterval)
+    this.flushTimer.unref?.() // Don't block process exit
+  }
+
+  destroy() {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer)
+      this.flushTimer = undefined
+    }
+    this.flushLogs() // Final flush
   }
 
   async logCycleStart(engine: string, cycle: number) {

@@ -27,13 +27,16 @@ export class SystemLogger {
       // Store log entry using lowercase hset (pass object directly)
       await client.hset(logKey, logEntry)
 
-      // Add to logs index set
-      await client.sadd("logs:all", logId)
+      // Use bounded lists (not unbounded sets) for log indexes with automatic trimming
+      await client.lpush("logs:all:list", logId)
+      await client.ltrim("logs:all:list", 0, 4999) // Keep max 5000 entries
+      await client.expire("logs:all:list", 604800) // 7 day TTL
 
-      // Add to category index
-      await client.sadd(`logs:${entry.category}`, logId)
+      await client.lpush(`logs:${entry.category}:list`, logId)
+      await client.ltrim(`logs:${entry.category}:list`, 0, 999) // Keep max 1000 per category
+      await client.expire(`logs:${entry.category}:list`, 604800)
 
-      // Set TTL for logs (7 days = 604800 seconds)
+      // Set TTL for individual log entries (7 days = 604800 seconds)
       await client.expire(logKey, 604800)
     } catch (error) {
       console.error("[SystemLogger] Failed to log to database:", error)
@@ -137,11 +140,18 @@ export class SystemLogger {
   ): Promise<LogEntry[]> {
     try {
       const client = getRedisClient()
-      const key = category ? `logs:${category}` : "logs:all"
-      const logIds = (await client.smembers(key)) || []
+      // Read from bounded lists (new format) with fallback to legacy sets
+      const listKey = category ? `logs:${category}:list` : "logs:all:list"
+      let logIds = await client.lrange(listKey, 0, limit - 1).catch(() => [] as string[])
+      
+      // Fallback to legacy set if list is empty (migration period)
+      if (!logIds || logIds.length === 0) {
+        const setKey = category ? `logs:${category}` : "logs:all"
+        logIds = (await client.smembers(setKey).catch(() => [] as string[])).slice(-limit)
+      }
 
       const logs: LogEntry[] = []
-      for (const logId of logIds.slice(-limit)) {
+      for (const logId of logIds) {
         const logData = await client.hgetall(logId)
         if (logData && Object.keys(logData).length > 0) {
           logs.push({
@@ -163,14 +173,21 @@ export class SystemLogger {
   static async clearLogs(category?: string): Promise<void> {
     try {
       const client = getRedisClient()
-      const key = category ? `logs:${category}` : "logs:all"
-      const logIds = (await client.smembers(key)) || []
+      // Clear both list (new) and set (legacy) indexes
+      const listKey = category ? `logs:${category}:list` : "logs:all:list"
+      const setKey = category ? `logs:${category}` : "logs:all"
+      
+      // Get IDs from both list and set
+      const listIds = await client.lrange(listKey, 0, -1).catch(() => [] as string[])
+      const setIds = await client.smembers(setKey).catch(() => [] as string[])
+      const allIds = [...new Set([...listIds, ...setIds])]
 
-      for (const logId of logIds) {
+      for (const logId of allIds) {
         await client.del(logId)
       }
 
-      await client.del(key)
+      await client.del(listKey)
+      await client.del(setKey)
       console.log(`[SystemLogger] Cleared logs for category: ${category || "all"}`)
     } catch (error) {
       console.error("[SystemLogger] Failed to clear logs:", error)

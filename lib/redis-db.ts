@@ -188,6 +188,18 @@ export class InlineLocalRedis {
     this.setKeyTTL(key, seconds)
   }
 
+  async incr(key: string): Promise<number> {
+    this.trackOperation()
+    if (this.isExpired(key)) {
+      this.data.strings.set(key, "1")
+      return 1
+    }
+    const current = parseInt(this.data.strings.get(key) || "0", 10)
+    const newValue = current + 1
+    this.data.strings.set(key, String(newValue))
+    return newValue
+  }
+
   async del(...keys: string[]): Promise<number> {
     this.trackOperation()
     let count = 0

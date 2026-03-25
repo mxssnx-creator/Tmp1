@@ -77,6 +77,7 @@ export const RedisTrades = {
     const client = getRedisClient()
     const key = `trade:${trade.id}`
     await client.hset(key, trade)
+    await client.expire(key, 2592000) // 30 day TTL for trade data
     await client.sadd(`trades:${connId}`, trade.id)
     await client.sadd("trades:all", trade.id)
     return trade
@@ -105,6 +106,7 @@ export const RedisPositions = {
     const client = getRedisClient()
     const key = `position:${pos.id}`
     await client.hset(key, pos)
+    await client.expire(key, 2592000) // 30 day TTL for position data
     await client.sadd(`positions:${connId}`, pos.id)
     await client.sadd("positions:all", pos.id)
     return pos
@@ -227,7 +229,9 @@ export const RedisMonitoring = {
       args.push(k, v)
     }
     await client.hmset(eventId, ...args)
-    await client.sadd("monitoring:events", eventId)
+    // Use bounded list instead of unbounded set for monitoring events
+    await client.lpush("monitoring:events:list", eventId)
+    await client.ltrim("monitoring:events:list", 0, 4999) // Keep max 5000 events
     await client.expire(eventId, 2592000) // 30 days
   },
 
@@ -258,13 +262,18 @@ export const RedisBackup = {
       created_at: new Date().toISOString(),
       status: "completed",
     })
-    await client.sadd("snapshots:all", snapshotId)
+    await client.lpush("snapshots:all:list", snapshotId)
+    await client.ltrim("snapshots:all:list", 0, 99) // Keep max 100 snapshots
     return snapshotId
   },
 
   async listSnapshots() {
     const client = getRedisClient()
-    const snapshotIds = (await client.smembers("snapshots:all")) || []
+    // Read from bounded list with fallback to legacy set
+    let snapshotIds = await client.lrange("snapshots:all:list", 0, -1).catch(() => [] as string[])
+    if (!snapshotIds || snapshotIds.length === 0) {
+      snapshotIds = await client.smembers("snapshots:all").catch(() => [] as string[])
+    }
     const snapshots = []
     for (const id of snapshotIds) {
       const snapshot = await client.hgetall(id)

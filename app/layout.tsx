@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+// @ts-expect-error CSS import not typed
 import "@/app/globals.css"
 import { Providers } from "@/components/providers"
 import { ExchangeSelectorTop } from "@/components/exchange-selector-top"

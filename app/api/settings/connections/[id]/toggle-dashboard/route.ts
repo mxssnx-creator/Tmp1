@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { initRedis, getConnection, updateConnection, setSettings, getSettings, getAllConnections, 
   getConnectionState, buildMainConnectionEnableUpdate, buildMainConnectionDisableUpdate,
-  isConnectionReadyForEngine } from "@/lib/redis-db"
+  isConnectionReadyForEngine, getRedisClient } from "@/lib/redis-db"
 import { toggleConnectionLimiter } from "@/lib/connection-rate-limiter"
 import { logProgressionEvent } from "@/lib/engine-progression-logs"
 import { isTruthyFlag, parseBooleanInput, toRedisFlag } from "@/lib/boolean-utils"
@@ -151,19 +151,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             })
         }
         
-        // Update global engine state to show running
-        const globalState = await getSettings("trade_engine:global") || {}
+        // Update global engine state to show running (stored as Redis HASH)
+        const toggleClient = getRedisClient()
+        const globalState: Record<string, string> = await toggleClient.hgetall("trade_engine:global").catch(() => ({})) || {}
         const allConnections = await getAllConnections()
         // Use clean helper function for counting main-enabled connections
         const activeDashboardCount = allConnections.filter((c: any) => 
           c.id === resolvedId || isConnectionReadyForEngine(c)
         ).length
-        await setSettings("trade_engine:global", {
+        await toggleClient.hset("trade_engine:global", {
           ...globalState,
           status: "running",
           started_at: globalState.started_at || new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          active_connections: activeDashboardCount,
+          active_connections: String(activeDashboardCount),
         })
         
         // DIRECTLY START THE ENGINE - don't rely on coordinator polling
@@ -224,17 +225,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           updated_at: new Date().toISOString(),
         })
         
-        // Update global engine state
-        const globalState = await getSettings("trade_engine:global") || {}
-        const allConnections = await getAllConnections()
+        // Update global engine state (stored as Redis HASH)
+        const disableClient = getRedisClient()
+        const disableGlobalState = await disableClient.hgetall("trade_engine:global").catch(() => ({})) || {}
+        const allConnsForDisable = await getAllConnections()
         // Use clean helper function - exclude current connection
-        const activeCount = allConnections.filter((c: any) => 
+        const activeCount = allConnsForDisable.filter((c: any) => 
           c.id !== resolvedId && isConnectionReadyForEngine(c)
         ).length
-        await setSettings("trade_engine:global", {
-          ...globalState,
+        await disableClient.hset("trade_engine:global", {
+          ...disableGlobalState,
           updated_at: new Date().toISOString(),
-          active_connections: activeCount,
+          active_connections: String(activeCount),
           status: activeCount > 0 ? "running" : "idle",
         })
         

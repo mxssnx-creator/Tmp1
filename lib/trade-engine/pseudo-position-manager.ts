@@ -278,6 +278,11 @@ export class PseudoPositionManager {
         close_reason: reason,
         realized_pnl: String(pnl),
       })
+      
+      // Remove closed position from index set to prevent unbounded growth
+      await client.srem(this.positionsSetKey(), positionId)
+      // Set TTL on the closed position hash so it auto-cleans (7 days)
+      await client.expire(this.positionKey(positionId), 604800)
 
       console.log(`[v0] Closed position ${positionId}: ${reason} (PnL: ${pnl.toFixed(4)})`)
 

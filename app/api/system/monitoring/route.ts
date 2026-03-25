@@ -100,12 +100,11 @@ export async function GET() {
       } catch { /* ignore */ }
     }
     
-    // Check global engine state
+    // Check global engine state (stored as Redis HASH via hset, not a string)
     let redisEngineRunning = false
     try {
-      const globalEngineStr = await client.get("trade_engine:global")
-      if (globalEngineStr) {
-        const globalEngine = JSON.parse(globalEngineStr)
+      const globalEngine = await client.hgetall("trade_engine:global")
+      if (globalEngine && Object.keys(globalEngine).length > 0) {
         redisEngineRunning = globalEngine.status === "running"
       }
     } catch { /* ignore */ }

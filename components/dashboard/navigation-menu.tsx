@@ -25,8 +25,8 @@ const menuItems = [
     description: "Monitor active positions and trading activity",
   },
   {
-    title: "Trade Bots",
-    href: "/trade-bots",
+    title: "Presets & Bots",
+    href: "/presets",
     icon: "Bot",
     description: "Automated trading with preset-based strategies",
   },

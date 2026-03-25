@@ -1,46 +1,37 @@
-import Link from "next/link"
-
 export default function HomePage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-8">
-      <div className="max-w-2xl text-center">
-        <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "#0f172a",
+      color: "#fff",
+      fontFamily: "Arial, sans-serif",
+      padding: "20px"
+    }}>
+      <div style={{ textAlign: "center", maxWidth: "600px" }}>
+        <h1 style={{ fontSize: "48px", fontWeight: "bold", marginBottom: "20px" }}>
           CTS v3.2 Dashboard
         </h1>
-        <p className="text-xl text-gray-300 mb-8">
+        <p style={{ fontSize: "18px", marginBottom: "30px", color: "#cbd5e1" }}>
           Crypto Trading System - Professional Multi-Strategy Platform
         </p>
-        
-        <div className="bg-slate-700/50 rounded-lg p-8 mb-8 border border-slate-600">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-slate-800/50 p-4 rounded border border-slate-600">
-              <div className="text-3xl font-bold text-green-400">49,494</div>
-              <div className="text-sm text-gray-400">Live Strategies</div>
-            </div>
-            <div className="bg-slate-800/50 p-4 rounded border border-slate-600">
-              <div className="text-3xl font-bold text-blue-400">127</div>
-              <div className="text-sm text-gray-400">Active Connections</div>
-            </div>
-            <div className="bg-slate-800/50 p-4 rounded border border-slate-600">
-              <div className="text-3xl font-bold text-yellow-400">Live</div>
-              <div className="text-sm text-gray-400">Trading Status</div>
-            </div>
-          </div>
-          
-          <div className="text-sm text-gray-400 space-y-1">
-            <p>✓ Real-time market data streaming</p>
-            <p>✓ Multi-exchange support (BingX, Binance, OKX)</p>
-            <p>✓ Advanced indication engine active</p>
-            <p>✓ Full orchestration ready</p>
-          </div>
-        </div>
-
-        <Link
+        <a
           href="/live-trading"
-          className="inline-block bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-3 px-8 rounded-lg transition-all"
+          style={{
+            display: "inline-block",
+            backgroundColor: "#0ea5e9",
+            color: "#fff",
+            padding: "12px 32px",
+            borderRadius: "8px",
+            textDecoration: "none",
+            fontWeight: "bold",
+            marginTop: "20px"
+          }}
         >
           Launch Dashboard
-        </Link>
+        </a>
       </div>
     </div>
   )

@@ -10,6 +10,7 @@ import { DashboardActiveConnectionsManager } from "./dashboard-active-connection
 import { IntervalsStrategiesOverview } from "./intervals-strategies-overview"
 import { StatisticsOverviewV2 } from "./statistics-overview-v2"
 import { SystemMonitoringPanel } from "./system-monitoring-panel"
+import { ProcessingProgressPanel } from "./processing-progress-panel"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -273,6 +274,15 @@ export function Dashboard() {
       <ErrorBoundary name="Global Trade Engine Controls">
         <GlobalTradeEngineControls />
       </ErrorBoundary>
+
+      {/* Processing Progress Panel - Shows phase progress and metrics */}
+      {selectedExchange && (
+        <ErrorBoundary name="Processing Progress">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ProcessingProgressPanel connectionId={selectedExchange} />
+          </div>
+        </ErrorBoundary>
+      )}
 
       {/* Main Connections (Active Connections) - With global engine guard, progression tracking, sticky state */}
       <ErrorBoundary name="Main Connections">

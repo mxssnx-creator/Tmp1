@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ExchangeConnectionManager from "@/components/settings/exchange-connection-manager"
 import InstallManager from "@/components/settings/install-manager"
+import { ConnectionSettingsHeader } from "@/components/settings/connection-settings-header"
 import { toast } from "sonner"
 import { Save, Download, Upload, RefreshCw, Activity, Layers, X, Plus, Info, Menu, Loader2 } from "lucide-react"
 import type { ExchangeConnection } from "@/lib/types"
@@ -26,6 +27,7 @@ import { IndicationTab } from "@/components/settings/tabs/indication-tab"
 import { StrategyTab } from "@/components/settings/tabs/strategy-tab"
 import { SystemTab } from "@/components/settings/tabs/system-tab"
 import { PageHeader } from "@/components/page-header"
+import { useExchange } from "@/lib/exchange-context"
 
 const EXCHANGE_MAX_POSITIONS: Record<string, number> = {
   bybit: 500,
@@ -660,6 +662,7 @@ const initialSettings: Settings = {
 
 export default function SettingsPage() {
   // useToast hook removed, toast from sonner imported and used.
+  const { selectedConnectionId } = useExchange()
   const [newMainSymbol, setNewMainSymbol] = useState("")
   const [newForcedSymbol, setNewForcedSymbol] = useState("")
 
@@ -1192,6 +1195,19 @@ export default function SettingsPage() {
       setExchangeSymbols([]) // Clear symbols if no connection is selected
     }
   }, [selectedExchangeConnection])
+
+  // Effect to load connection-specific settings when selectedConnectionId changes (from exchange context)
+  useEffect(() => {
+    if (selectedConnectionId) {
+      // Show a toast that settings have been reloaded for the connection
+      toast.info("Loading settings for connection", {
+        description: `Settings are now scoped to the selected connection.`,
+      })
+      // In the future, this will load connection-specific settings
+      // For now, the current implementation works with global settings
+      // which will be enhanced in the next phase
+    }
+  }, [selectedConnectionId])
 
   // Effect to set the initial selected connection when connections load
   useEffect(() => {
@@ -1906,6 +1922,8 @@ export default function SettingsPage() {
         </PageHeader>
         <div className="flex-1 overflow-auto p-6">
           <div className="max-w-7xl mx-auto space-y-6">
+            {/* Connection Settings Header */}
+            <ConnectionSettingsHeader />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-5">

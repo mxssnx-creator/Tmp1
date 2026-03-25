@@ -21,6 +21,7 @@ import {
   MessageSquare,
 } from "lucide-react"
 import type { JSX } from "react/jsx-runtime"
+import { useExchange } from "@/lib/exchange-context"
 import { TradeEngineStatus } from "@/components/monitoring/trade-engine-status"
 import { MonitoringAlerts } from "@/components/monitoring/monitoring-alerts"
 import { BackupManager } from "@/components/monitoring/backup-manager"
@@ -47,6 +48,7 @@ interface SystemStatus {
 }
 
 export default function MonitoringPage() {
+  const { selectedConnectionId, activeConnections } = useExchange()
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [systemStates, setSystemStates] = useState<SystemStatus[]>([])
   const [logFilter, setLogFilter] = useState<LogLevel | "all">("all")
@@ -65,7 +67,9 @@ export default function MonitoringPage() {
   const loadSystemStates = async () => {
     setIsLoadingSystem(true)
     try {
-      const response = await fetch("/api/monitoring/system")
+      // Include connection ID in monitoring request for scoped data
+      const connectionParam = selectedConnectionId ? `?connectionId=${selectedConnectionId}` : ""
+      const response = await fetch(`/api/monitoring/system${connectionParam}`)
       if (response.ok) {
         const data = await response.json()
         const states: SystemStatus[] = [

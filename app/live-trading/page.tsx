@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PositionRowCompact } from "@/components/live-trading/position-row-compact"
 import { Activity, TrendingUp, TrendingDown, RefreshCw, Play, Pause, AlertCircle, BarChart3 } from "lucide-react"
 import { toast } from "@/lib/simple-toast"
 import { useExchange } from "@/lib/exchange-context"
+import { usePositionUpdates } from "@/lib/use-websocket"
 
 interface Position {
   id: string
@@ -24,61 +25,96 @@ interface Position {
   status: "open" | "closing" | "closed"
 }
 
-// Generate mock positions for demo
-function generateMockPositions(count: number = 20): Position[] {
-  const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "ADAUSDT"]
-  const now = Date.now()
-
-  return Array.from({ length: count }, (_, i) => {
-    const symbol = symbols[i % symbols.length]
-    const entryPrice = 40000 + Math.random() * 20000
-    const currentPrice = entryPrice * (1 + (Math.random() - 0.5) * 0.05)
-    const quantity = 0.1 + Math.random() * 1
-    const leverage = Math.floor(1 + Math.random() * 20)
-    const pnl = (currentPrice - entryPrice) * quantity * leverage
-    const pnlPercent = ((currentPrice - entryPrice) / entryPrice) * 100
-
-    return {
-      id: `pos-${i}`,
-      symbol,
-      side: Math.random() > 0.5 ? "LONG" : "SHORT",
-      entryPrice,
-      currentPrice,
-      quantity,
-      leverage,
-      unrealizedPnl: pnl,
-      unrealizedPnlPercent: pnlPercent,
-      takeProfitPrice: entryPrice * 1.05,
-      stopLossPrice: entryPrice * 0.95,
-      createdAt: new Date(now - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
-      status: "open",
-    }
-  })
-}
-
 export default function LiveTradingPage() {
-  const { selectedExchange } = useExchange()
+  const { selectedConnectionId } = useExchange()
   const [positions, setPositions] = useState<Position[]>([])
+  const [isDemo, setIsDemo] = useState(false)
   const [isEngineRunning, setIsEngineRunning] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [sortBy, setSortBy] = useState<"pnl" | "entry" | "time">("pnl")
   const [filterSide, setFilterSide] = useState<"all" | "long" | "short">("all")
 
-  // Load positions on mount
+  // Load positions on mount and when connection changes
   useEffect(() => {
-    setIsLoading(true)
-    try {
-      const mockPositions = generateMockPositions(25)
-      setPositions(mockPositions)
-    } catch (error) {
-      console.error("Failed to load positions:", error)
-      toast.error("Failed to load positions")
-    } finally {
-      setIsLoading(false)
-    }
-  }, [selectedExchange])
+    const loadPositions = async () => {
+      setIsLoading(true)
+      try {
+        // Determine which connection to use (fallback to demo if none selected)
+        const connectionToUse = selectedConnectionId || "demo-mode"
 
-  // Simulate real-time price updates
+        const response = await fetch(`/api/data/positions?connectionId=${encodeURIComponent(connectionToUse)}`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch positions: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        if (data.success) {
+          setPositions(data.data || [])
+          setIsDemo(data.isDemo)
+        } else {
+          throw new Error(data.error || "Unknown error")
+        }
+      } catch (error) {
+        console.error("[Live Trading] Failed to load:", error)
+        toast.error("Failed to load positions")
+        setPositions([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadPositions()
+  }, [selectedConnectionId])
+
+  // Handle real-time position updates via SSE
+  const handlePositionUpdate = useCallback((update: any) => {
+    setPositions((prev) => {
+      // Find existing position and update it, or add new one
+      const existingIndex = prev.findIndex((p) => p.id === update.id)
+      if (existingIndex >= 0) {
+        // Update existing position
+        const updated = [...prev]
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          currentPrice: update.currentPrice,
+          unrealizedPnl: update.unrealizedPnl,
+          unrealizedPnlPercent: update.unrealizedPnlPercent,
+          status: update.status || updated[existingIndex].status,
+        }
+        return updated
+      } else {
+        // Add new position if not in demo mode
+        if (!isDemo) {
+          return [
+            ...prev,
+            {
+              id: update.id,
+              symbol: update.symbol,
+              side: 'LONG',
+              entryPrice: update.currentPrice,
+              currentPrice: update.currentPrice,
+              quantity: 1,
+              leverage: 1,
+              unrealizedPnl: 0,
+              unrealizedPnlPercent: 0,
+              createdAt: new Date().toISOString(),
+              status: update.status || 'open',
+            },
+          ]
+        }
+        return prev
+      }
+    })
+  }, [isDemo])
+
+  // Subscribe to position updates via SSE
+  useEffect(() => {
+    if (!selectedConnectionId || selectedConnectionId === 'demo-mode') return
+    
+    usePositionUpdates(selectedConnectionId, handlePositionUpdate)
+  }, [selectedConnectionId, handlePositionUpdate])
+
+  // Simulate real-time price updates (fallback for demo mode)
   useEffect(() => {
     if (!isEngineRunning) return
 

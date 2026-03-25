@@ -6,6 +6,7 @@
 
 import { getRedisClient, getSettings, setSettings, createPosition as redisCreatePosition } from "@/lib/redis-db"
 import { VolumeCalculator } from "@/lib/volume-calculator"
+import { emitPositionUpdate } from "@/lib/broadcast-helpers"
 
 function nanoid(len = 12): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -163,6 +164,16 @@ export class PseudoPositionManager {
       this.invalidateCache()
       await this.updateActivePositionsCount()
 
+      // Broadcast position creation to connected clients
+      emitPositionUpdate(this.connectionId, {
+        id,
+        symbol: params.symbol,
+        currentPrice: params.entryPrice,
+        unrealizedPnl: 0,
+        unrealizedPnlPercent: 0,
+        status: 'open',
+      })
+
       return id
     } catch (error) {
       console.error("[v0] Failed to create pseudo position:", error)
@@ -206,9 +217,37 @@ export class PseudoPositionManager {
     try {
       const client = getRedisClient()
 
+      // Get position data before updating to calculate PnL
+      const position = await this.readPosition(positionId)
+      if (!position) return
+
       await client.hset(this.positionKey(positionId), {
         current_price: String(currentPrice),
         updated_at: new Date().toISOString(),
+      })
+
+      // Calculate unrealized PnL
+      const entryPrice = parseFloat(position.entry_price || '0')
+      const quantity = parseFloat(position.quantity || '0')
+      const side = position.side || 'long'
+
+      let unrealizedPnl = 0
+      if (side === 'long') {
+        unrealizedPnl = (currentPrice - entryPrice) * quantity
+      } else {
+        unrealizedPnl = (entryPrice - currentPrice) * quantity
+      }
+
+      const unrealizedPnlPercent = entryPrice > 0 ? (unrealizedPnl / (entryPrice * quantity)) * 100 : 0
+
+      // Broadcast position update to connected clients
+      emitPositionUpdate(this.connectionId, {
+        id: positionId,
+        symbol: position.symbol,
+        currentPrice,
+        unrealizedPnl,
+        unrealizedPnlPercent,
+        status: 'open',
       })
     } catch (error) {
       console.error(`[v0] Failed to update position ${positionId}:`, error)
@@ -244,6 +283,16 @@ export class PseudoPositionManager {
 
       this.invalidateCache()
       await this.updateActivePositionsCount()
+
+      // Broadcast position closure to connected clients
+      emitPositionUpdate(this.connectionId, {
+        id: positionId,
+        symbol: position.symbol,
+        currentPrice,
+        unrealizedPnl: pnl,
+        unrealizedPnlPercent: entryPrice > 0 ? (pnl / (entryPrice * quantity)) * 100 : 0,
+        status: 'closed',
+      })
     } catch (error) {
       console.error(`[v0] Failed to close position ${positionId}:`, error)
     }

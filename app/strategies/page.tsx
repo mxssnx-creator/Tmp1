@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,7 @@ import type { StrategyResult } from "@/lib/strategies"
 import { Activity, TrendingUp, BarChart3, Settings, RefreshCw, Target, Download } from "lucide-react"
 import { toast } from "@/lib/simple-toast"
 import { useExchange } from "@/lib/exchange-context"
+import { useStrategyUpdates } from "@/lib/use-websocket"
 
 // Define advanced filter type
 interface AdvancedFilters {
@@ -48,73 +49,72 @@ const initialAdvancedFilters: AdvancedFilters = {
 }
 
 export default function StrategiesPage() {
-  const { selectedExchange } = useExchange()
+  const { selectedConnectionId } = useExchange()
   const [strategies, setStrategies] = useState<StrategyResult[]>([])
-  const [hasRealConnections, setHasRealConnections] = useState(false)
+  const [isDemo, setIsDemo] = useState(false)
   const [filters, setFilters] = useState<AdvancedFilters>(initialAdvancedFilters)
   const [sortBy, setSortBy] = useState<"profit" | "trades" | "active">("profit")
   const [isLoading, setIsLoading] = useState(true)
 
-  // Load strategies on component mount and when exchange changes
+  // Load strategies on component mount and when connection changes
   useEffect(() => {
     const loadStrategies = async () => {
       setIsLoading(true)
       try {
-        const url = selectedExchange 
-          ? `/api/settings/connections?exchange=${selectedExchange}`
-          : "/api/settings/connections"
-        
-        const connectionsResponse = await fetch(url)
-        if (connectionsResponse.ok) {
-          const connectionsData = await connectionsResponse.json()
-          const enabledConnections = connectionsData.connections?.filter((c: any) => c.is_enabled) || []
-          setHasRealConnections(enabledConnections.length > 0)
+        // Determine which connection to use (fallback to demo if none selected)
+        const connectionToUse = selectedConnectionId || "demo-mode"
+
+        const response = await fetch(`/api/data/strategies?connectionId=${encodeURIComponent(connectionToUse)}`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch strategies: ${response.statusText}`)
         }
 
-        const settingsResponse = await fetch("/api/settings")
-        const settingsData = await settingsResponse.json()
-
-        const strategyEngine = new StrategyEngine()
-
-        if (!hasRealConnections) {
-          // Generate mock strategies
-          const mockPseudoPositions = Array.from({ length: 150 }, (_, i) => ({
-            id: `pseudo-${i}`,
-            connection_id: "mock-connection",
-            symbol: "BTCUSDT",
-            indication_type: "direction" as const,
-            takeprofit_factor: 8 + Math.random() * 10,
-            stoploss_ratio: 0.5 + Math.random() * 1.5,
-            trailing_enabled: Math.random() > 0.5,
-            trail_start: 0.3 + Math.random() * 0.7,
-            trail_stop: 0.1 + Math.random() * 0.2,
-            entry_price: 45000 + Math.random() * 5000,
-            current_price: 45000 + Math.random() * 5000,
-            profit_factor: (Math.random() - 0.3) * 2,
-            position_cost: 0.001,
-            status: "active" as const,
-            created_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-            updated_at: new Date().toISOString(),
-          }))
-
-          const generatedStrategies = strategyEngine.generateAllStrategies(
-            mockPseudoPositions,
-            Number.parseFloat(settingsData.blockAdjustmentRatio || "1"),
-            settingsData.blockAutoDisableEnabled === "true",
-            Number.parseInt(settingsData.blockAutoDisableComparisonWindow || "50"),
-          )
-          setStrategies(generatedStrategies)
+        const data = await response.json()
+        if (data.success) {
+          setStrategies(data.data || [])
+          setIsDemo(data.isDemo)
+        } else {
+          throw new Error(data.error || "Unknown error")
         }
       } catch (error) {
         console.error("[Strategies] Failed to load:", error)
         toast.error("Failed to load strategies")
+        setStrategies([])
       } finally {
         setIsLoading(false)
       }
     }
 
     loadStrategies()
-  }, [selectedExchange])
+  }, [selectedConnectionId])
+
+  // Handle real-time strategy updates via SSE
+  const handleStrategyUpdate = useCallback((update: any) => {
+    setStrategies((prev) => {
+      // Update strategies that match the symbol
+      return prev.map((s) => {
+        // Check if this is the strategy being updated
+        if (s.name === update.symbol) {
+          return {
+            ...s,
+            avg_profit_factor: update.profit_factor || s.avg_profit_factor,
+            stats: {
+              ...s.stats,
+              win_rate: update.win_rate || s.stats.win_rate,
+            },
+          }
+        }
+        return s
+      })
+    })
+  }, [])
+
+  // Subscribe to strategy updates via SSE
+  useEffect(() => {
+    if (!selectedConnectionId || selectedConnectionId === 'demo-mode') return
+    
+    useStrategyUpdates(selectedConnectionId, handleStrategyUpdate)
+  }, [selectedConnectionId, handleStrategyUpdate])
 
   // Apply advanced filters with memoization for performance
   const filteredAndSortedStrategies = useMemo(() => {
@@ -191,11 +191,11 @@ export default function StrategiesPage() {
   return (
     <div className="space-y-4 p-4">
       {/* Warning banner */}
-      {!hasRealConnections && (
+      {isDemo && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded p-3">
           <div className="flex items-center gap-2 text-sm">
             <Activity className="h-4 w-4 text-amber-400 flex-shrink-0" />
-            <span className="text-amber-200">Using mock data - enable an exchange connection in Settings to see real strategies</span>
+            <span className="text-amber-200">Using demo data - switch to a real exchange connection to see live strategies</span>
           </div>
         </div>
       )}

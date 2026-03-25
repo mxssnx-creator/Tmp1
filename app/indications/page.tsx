@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { IndicationRowCompact } from "@/components/indications/indication-row-compact"
@@ -8,6 +8,7 @@ import { IndicationFiltersAdvanced } from "@/components/indications/indication-f
 import { Activity, TrendingUp, Zap, RefreshCw, Download, BarChart3 } from "lucide-react"
 import { toast } from "@/lib/simple-toast"
 import { useExchange } from "@/lib/exchange-context"
+import { useIndicationUpdates } from "@/lib/use-websocket"
 
 interface Indication {
   id: string
@@ -52,54 +53,87 @@ const initialFilters: AdvancedFiltersInd = {
   sortBy: "confidence",
 }
 
-// Generate mock indications data
-function generateMockIndications(): Indication[] {
-  const symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "AAPL", "EURUSD", "XAUUSD"]
-  const types = ["Momentum", "Volatility", "Trend", "Mean Reversion", "Volume"]
-  const directions: ("UP" | "DOWN" | "NEUTRAL")[] = ["UP", "DOWN", "NEUTRAL"]
-
-  return Array.from({ length: 200 }, (_, i) => {
-    const now = new Date()
-    const minutesAgo = Math.floor(Math.random() * 60)
-    const timestamp = new Date(now.getTime() - minutesAgo * 60000).toISOString()
-
-    return {
-      id: `ind-${i}`,
-      symbol: symbols[Math.floor(Math.random() * symbols.length)],
-      indicationType: types[Math.floor(Math.random() * types.length)],
-      direction: directions[Math.floor(Math.random() * directions.length)],
-      confidence: 30 + Math.random() * 70,
-      strength: Math.random() * 100,
-      timestamp,
-      enabled: Math.random() > 0.3,
-      metadata: {
-        rsiValue: 30 + Math.random() * 40,
-        macdValue: (Math.random() - 0.5) * 0.01,
-        volatility: 15 + Math.random() * 30,
-      },
-    }
-  })
-}
-
 export default function IndicationsPage() {
-  const { selectedExchange } = useExchange()
+  const { selectedConnectionId } = useExchange()
   const [indications, setIndications] = useState<Indication[]>([])
+  const [isDemo, setIsDemo] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [filters, setFilters] = useState<AdvancedFiltersInd>(initialFilters)
 
-  // Load indications on mount
+  // Load indications on mount and when connection changes
   useEffect(() => {
-    setIsLoading(true)
-    try {
-      const mockIndications = generateMockIndications()
-      setIndications(mockIndications)
-    } catch (error) {
-      console.error("Failed to load indications:", error)
-      toast.error("Failed to load indications")
-    } finally {
-      setIsLoading(false)
+    const loadIndications = async () => {
+      setIsLoading(true)
+      try {
+        // Determine which connection to use (fallback to demo if none selected)
+        const connectionToUse = selectedConnectionId || "demo-mode"
+
+        const response = await fetch(`/api/data/indications?connectionId=${encodeURIComponent(connectionToUse)}`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch indications: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        if (data.success) {
+          setIndications(data.data || [])
+          setIsDemo(data.isDemo)
+        } else {
+          throw new Error(data.error || "Unknown error")
+        }
+      } catch (error) {
+        console.error("[Indications] Failed to load:", error)
+        toast.error("Failed to load indications")
+        setIndications([])
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [selectedExchange])
+
+    loadIndications()
+  }, [selectedConnectionId])
+
+  // Handle real-time indication updates via SSE
+  const handleIndicationUpdate = useCallback((update: any) => {
+    setIndications((prev) => {
+      // Check if indication already exists
+      const existingIndex = prev.findIndex((i) => i.id === update.id)
+      if (existingIndex >= 0) {
+        // Update existing indication
+        const updated = [...prev]
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          direction: update.direction || updated[existingIndex].direction,
+          confidence: update.confidence || updated[existingIndex].confidence,
+          strength: update.strength || updated[existingIndex].strength,
+          timestamp: update.timestamp || new Date().toISOString(),
+        }
+        return updated
+      } else {
+        // Add new indication if not in demo mode
+        if (!isDemo) {
+          const newIndication: Indication = {
+            id: update.id,
+            symbol: update.symbol,
+            indicationType: 'auto',
+            direction: update.direction || 'NEUTRAL',
+            confidence: update.confidence || 0,
+            strength: update.strength || 0,
+            timestamp: update.timestamp || new Date().toISOString(),
+            enabled: true,
+          }
+          return [newIndication, ...prev]
+        }
+        return prev
+      }
+    })
+  }, [isDemo])
+
+  // Subscribe to indication updates via SSE
+  useEffect(() => {
+    if (!selectedConnectionId || selectedConnectionId === 'demo-mode') return
+    
+    useIndicationUpdates(selectedConnectionId, handleIndicationUpdate)
+  }, [selectedConnectionId, handleIndicationUpdate])
 
   // Apply filters and sorting with memoization
   const filteredAndSortedIndications = useMemo(() => {

@@ -57,7 +57,7 @@ export default function HomePage() {
           Crypto Trading System - Professional Multi-Strategy Platform
         </p>
         <a
-          href="/"
+          href="/live-trading"
           style={{
             display: "inline-block",
             backgroundColor: "#0ea5e9",

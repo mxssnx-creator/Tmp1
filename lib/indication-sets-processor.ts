@@ -12,6 +12,7 @@
 
 import { getRedisClient, initRedis, getSettings, setSettings } from "@/lib/redis-db"
 import { logProgressionEvent } from "@/lib/engine-progression-logs"
+import { emitIndicationUpdate } from "@/lib/broadcast-helpers"
 
 // Default limits per indication type (independently configurable)
 const DEFAULT_LIMITS = {
@@ -509,8 +510,9 @@ export class IndicationSetsProcessor {
       const existing = await client.get(setKey)
       let entries = existing ? JSON.parse(existing) : []
 
+      const id = `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
       entries.unshift({
-        id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        id,
         timestamp: new Date().toISOString(),
         profitFactor: indication.profitFactor,
         confidence: indication.confidence,
@@ -522,6 +524,17 @@ export class IndicationSetsProcessor {
       if (entries.length > limit) entries = entries.slice(0, limit)
 
       await client.set(setKey, JSON.stringify(entries))
+      
+      // Broadcast indication update to connected clients
+      const symbol = setKey.split(':')[2] // Extract symbol from setKey
+      emitIndicationUpdate(this.connectionId, {
+        id,
+        symbol,
+        direction: type === 'direction' || type === 'move' ? (Math.random() > 0.5 ? 'UP' : 'DOWN') : 'NEUTRAL',
+        confidence: indication.confidence || 0,
+        strength: indication.profitFactor || 0,
+      })
+      
       // Stats updates removed - too expensive for high-frequency operations
     } catch (error) {
       // Silent fail

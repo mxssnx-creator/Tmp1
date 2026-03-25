@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -134,16 +134,18 @@ export function ConnectionCard({
 
   const [logs, setLogs] = useState<Array<{ timestamp: string; level: string; message: string }>>([])
 
-  // Auto-test on mount if not tested
+  // Auto-test on mount if not tested (with proper cleanup)
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
     if (!autoTested && !connection.last_test_status && connection.is_enabled) {
       console.log("[v0] Auto-testing connection:", connection.name)
       setAutoTested(true)
       // Delay auto-test by 2 seconds to avoid overwhelming the API
-      setTimeout(() => {
+      timer = setTimeout(() => {
         handleTestConnection()
       }, 2000)
     }
+    return () => { if (timer) clearTimeout(timer) }
   }, [connection.id])
 
   const addLog = (level: string, message: string) => {
@@ -528,8 +530,15 @@ export function ConnectionCard({
     }
   }
 
+  // Use ref for status polling to prevent memory leaks
+  const statusPollingRef = useRef<NodeJS.Timeout | null>(null)
+
   const startStatusPolling = () => {
-    const interval = setInterval(async () => {
+    // Clear any existing polling first
+    if (statusPollingRef.current) {
+      clearInterval(statusPollingRef.current)
+    }
+    statusPollingRef.current = setInterval(async () => {
       if (!selectedPresetType) return
 
       try {
@@ -544,17 +553,26 @@ export function ConnectionCard({
         console.error("[v0] Error fetching engine status:", error)
       }
     }, 2000)
-    ;(window as any).presetEngineStatusInterval = interval
   }
 
   const stopStatusPolling = () => {
-    if ((window as any).presetEngineStatusInterval) {
-      clearInterval((window as any).presetEngineStatusInterval)
-      ;(window as any).presetEngineStatusInterval = null
+    if (statusPollingRef.current) {
+      clearInterval(statusPollingRef.current)
+      statusPollingRef.current = null
     }
     setTestingProgress(0)
     setEngineStatus(null)
   }
+  
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (statusPollingRef.current) {
+        clearInterval(statusPollingRef.current)
+        statusPollingRef.current = null
+      }
+    }
+  }, [])
 
   const updateVolumeFactor = async (type: "live" | "preset", value: number) => {
     try {

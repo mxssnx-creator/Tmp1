@@ -73,10 +73,12 @@ async function captureLog(level: "info" | "warn" | "error", args: any[]) {
       metadata: "",
     }
 
-    // Store in Redis
+    // Store in Redis with bounded lists (not unbounded sets) to prevent endless growth
     await client.hset(logId, logEntry)
-    await client.sadd("logs:all", logId)
-    await client.sadd(`logs:${category}`, logId)
+    await client.lpush("logs:all:list", logId)
+    await client.ltrim("logs:all:list", 0, 4999) // Keep max 5000
+    await client.lpush(`logs:${category}:list`, logId)
+    await client.ltrim(`logs:${category}:list`, 0, 999) // Keep max 1000 per category
     await client.expire(logId, 604800) // 7 days TTL
   } catch (error) {
     // Silently fail to avoid infinite loops

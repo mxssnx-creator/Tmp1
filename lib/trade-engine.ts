@@ -45,6 +45,7 @@ export class GlobalTradeEngineCoordinator {
   private isGloballyRunning = false
   private isPaused = false
   private healthCheckTimer?: NodeJS.Timeout
+  private coordinationMetricsTimer?: NodeJS.Timeout
   private coordinationMetrics: {
     totalSymbolsProcessed: number
     totalCycles: number
@@ -416,6 +417,11 @@ export class GlobalTradeEngineCoordinator {
 
     if (this.healthCheckTimer) {
       clearInterval(this.healthCheckTimer)
+      this.healthCheckTimer = undefined
+    }
+    if (this.coordinationMetricsTimer) {
+      clearInterval(this.coordinationMetricsTimer)
+      this.coordinationMetricsTimer = undefined
     }
 
     for (const [connectionId, manager] of this.engineManagers.entries()) {
@@ -702,9 +708,12 @@ export class GlobalTradeEngineCoordinator {
   }
 
   private startCoordinationMetricsTracking(): void {
+    if (this.coordinationMetricsTimer) {
+      clearInterval(this.coordinationMetricsTimer)
+    }
     const metricsInterval = 60000 // Update every 60 seconds
 
-    setInterval(async () => {
+    this.coordinationMetricsTimer = setInterval(async () => {
       try {
         const allStatus = await this.getAllEnginesStatus()
 

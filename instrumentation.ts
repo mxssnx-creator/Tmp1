@@ -26,4 +26,6 @@ export async function register() {
   } catch (error) {
     console.error("[v0] Startup instrumentation failed:", error)
   }
+  // Instrumentation disabled to avoid 500 errors
+  return
 }

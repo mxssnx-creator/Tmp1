@@ -52,11 +52,12 @@ export class RedisPersistenceManager {
   }
 
   static startPeriodicSnapshots(redisStore: Map<string, any>, intervalMs: number = 240000): void {
-    setInterval(() => {
+    const timer = setInterval(() => {
       const size = redisStore.size
       if (size > 0) {
         console.log(`[v0] [Persistence] In-memory store active: ${size} keys`)
       }
     }, intervalMs)
+    timer.unref?.() // Don't block process exit
   }
 }

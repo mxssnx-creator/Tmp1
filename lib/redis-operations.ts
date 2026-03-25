@@ -1,4 +1,30 @@
 import { getRedisClient } from "./redis-db"
+import { loadSettings } from "./settings-storage"
+
+/**
+ * Helper: Check if database operation limit has been exceeded
+ * Returns true if limit is enforced and exceeded, false otherwise
+ */
+async function shouldEnforceDatabaseLimit(): Promise<boolean> {
+  const settings = loadSettings()
+  const limit = settings.databaseLimitPerMinute
+  
+  // If limit is 0 (unlimited), never enforce
+  if (limit === 0) return false
+  
+  const client = getRedisClient()
+  const status = await client.trackDatabaseOperation(limit)
+  
+  // Log warning when limit exceeded
+  if (status.exceeded) {
+    console.warn(
+      `[v0] [Database] Per-minute limit exceeded: ${status.current}/${status.limit} operations`,
+    )
+    return true
+  }
+  
+  return false
+}
 
 // ========== Connections ==========
 export const RedisConnections = {
@@ -74,6 +100,12 @@ export const RedisConnections = {
 // ========== Trades ==========
 export const RedisTrades = {
   async createTrade(connId: string, trade: any) {
+    // Check database limit before creating trade
+    if (await shouldEnforceDatabaseLimit()) {
+      console.warn(`[v0] [RedisTrades] Skipping trade creation due to per-minute database limit`)
+      return null
+    }
+
     const client = getRedisClient()
     const key = `trade:${trade.id}`
     await client.hset(key, trade)
@@ -103,6 +135,12 @@ export const RedisTrades = {
 // ========== Positions ==========
 export const RedisPositions = {
   async createPosition(connId: string, pos: any) {
+    // Check database limit before creating position
+    if (await shouldEnforceDatabaseLimit()) {
+      console.warn(`[v0] [RedisPositions] Skipping position creation due to per-minute database limit`)
+      return null
+    }
+
     const client = getRedisClient()
     const key = `position:${pos.id}`
     await client.hset(key, pos)

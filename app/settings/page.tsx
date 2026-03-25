@@ -106,10 +106,12 @@ interface Settings {
   logsLevel: string
   logsCategory: string
   logsLimit: number
-  enableSystemMonitoring: boolean
-  metricsRetentionDays: number
-  mainEngineEnabled: boolean
-  presetEngineEnabled: boolean
+   enableSystemMonitoring: boolean
+   metricsRetentionDays: number
+   mainEngineEnabled: boolean
+   presetEngineEnabled: boolean
+   databaseLimitPerMinute: number
+   databaseLimitPerDay: number
   maxPositionsPerExchange: Record<string, number>
   mainSymbols: string[]
   forcedSymbols: string[]
@@ -442,10 +444,14 @@ const initialSettings: Settings = {
   enableSystemMonitoring: true,
   metricsRetentionDays: 30,
 
-  mainEngineEnabled: true,
-  presetEngineEnabled: true,
+   mainEngineEnabled: true,
+   presetEngineEnabled: true,
 
-  mainSymbols: ["BTC", "ETH", "BNB", "XRP", "ADA", "SOL"],
+   // Database Limits
+   databaseLimitPerMinute: 500000, // 500k operations per minute (0 = unlimited)
+   databaseLimitPerDay: 0, // Unlimited per day (0 = unlimited)
+
+   mainSymbols: ["BTC", "ETH", "BNB", "XRP", "ADA", "SOL"],
   forcedSymbols: ["XRP", "BCH"],
 
   useMainSymbols: false,

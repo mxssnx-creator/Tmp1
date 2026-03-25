@@ -35,6 +35,9 @@ function getDefaultSettings(): Record<string, any> {
     // This prevents over-leveraging and ensures controlled position sizing
     strategyMainMaxPseudoPositionsLong: 1,
     strategyMainMaxPseudoPositionsShort: 1,
+    // Database Size Limits
+    databaseLimitPerMinute: 500000, // 500k operations per minute (0 = unlimited)
+    databaseLimitPerDay: 0, // Unlimited per day (0 = unlimited)
   }
 }
 

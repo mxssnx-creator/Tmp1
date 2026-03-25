@@ -1,33 +1,27 @@
-import type React from "react"
-import { AuthProvider } from "@/lib/auth-context"
-import { ExchangeProvider } from "@/lib/exchange-context"
-import { ConnectionStateProvider } from "@/lib/connection-state"
-import { SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/app-sidebar"
-import { Toaster } from "sonner"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import { Providers } from "@/components/providers"
+import "@/app/globals.css"
+
+const inter = Inter({ subsets: ["latin"] })
+
+export const metadata: Metadata = {
+  title: "CTS v3.2 Dashboard",
+  description: "Crypto Trading System Dashboard",
+}
 
 export const dynamic = "force-dynamic"
 
-export default function Layout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <AuthProvider>
-      <ExchangeProvider>
-        <ConnectionStateProvider>
-          <SidebarProvider>
-            <div className="flex h-screen overflow-hidden bg-background">
-              <AppSidebar />
-              <main className="flex-1 overflow-auto p-6">
-                {children}
-              </main>
-            </div>
-            <Toaster />
-          </SidebarProvider>
-        </ConnectionStateProvider>
-      </ExchangeProvider>
-    </AuthProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
   )
 }

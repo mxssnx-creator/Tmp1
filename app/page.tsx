@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic"
+"use client"
 
 export default function HomePage() {
   return (
@@ -15,7 +15,7 @@ export default function HomePage() {
       padding: "20px"
     }}>
       <h1 style={{ fontSize: "32px", fontWeight: "bold", margin: "0 0 16px 0" }}>
-        CTS v3.2 Dashboard
+        CTS v3.2 Dashboard - FIXED v6
       </h1>
       <p style={{ fontSize: "16px", color: "#666", margin: "0 0 8px 0" }}>
         Crypto Trading System - Live

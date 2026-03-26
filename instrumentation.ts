@@ -19,7 +19,19 @@ export async function register() {
     console.error("[ERROR_INTEGRATION] Failed to initialize error handling integration:", error)
   }
 
-  // Pre-startup bootstrap disabled here to avoid bundling
-  // server-only exchange connector modules in instrumentation.
+  // Run migrations and initialize database
+  try {
+    console.log("[STARTUP] Initializing database and running migrations...")
+    const { initRedis } = await import("@/lib/redis-db")
+    const { runMigrations } = await import("@/lib/redis-migrations")
+    
+    await initRedis()
+    await runMigrations()
+    console.log("[STARTUP] ✓ Migrations completed successfully")
+  } catch (error) {
+    console.error("[STARTUP] Failed to run migrations:", error)
+    // Don't fail startup on migration errors, but log them
+  }
+
   return
 }

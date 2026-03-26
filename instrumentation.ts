@@ -19,19 +19,8 @@ export async function register() {
     console.error("[ERROR_INTEGRATION] Failed to initialize error handling integration:", error)
   }
 
-  // Run migrations and initialize database
-  try {
-    console.log("[STARTUP] Initializing database and running migrations...")
-    const { initRedis } = await import("@/lib/redis-db")
-    const { runMigrations } = await import("@/lib/redis-migrations")
-    
-    await initRedis()
-    await runMigrations()
-    console.log("[STARTUP] ✓ Migrations completed successfully")
-  } catch (error) {
-    console.error("[STARTUP] Failed to run migrations:", error)
-    // Don't fail startup on migration errors, but log them
-  }
-
+  // NOTE: Migrations moved to first-request handler to avoid runtime errors
+  // on platforms that don't support instrumentation well (like Vercel)
+  
   return
 }

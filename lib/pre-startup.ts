@@ -1,14 +1,7 @@
 import { getSettings, getAllConnections, initRedis, saveMarketData, setSettings, updateConnection } from "@/lib/redis-db"
 import { runMigrations } from "@/lib/redis-migrations"
-import { getDefaultSettings } from "@/lib/settings-storage"
-import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
 
 let ran = false
-
-async function getExchangeConnectorFactory() {
-  const { createExchangeConnector } = await import("@/lib/exchange-connectors")
-  return createExchangeConnector
-}
 
 function shouldRunPreStartup(): boolean {
   if (process.env.NEXT_RUNTIME !== "nodejs") return false
@@ -19,6 +12,7 @@ function shouldRunPreStartup(): boolean {
 async function initializeDefaultSettings() {
   const existing = await getSettings("app_settings")
   if (existing) return
+  const { getDefaultSettings } = await import("@/lib/settings-storage")
   await setSettings("app_settings", getDefaultSettings())
 }
 
@@ -72,42 +66,17 @@ export async function testAllExchangeConnections() {
       return { tested: 0, passed: 0, failed: 0 }
     }
 
-    const createExchangeConnector = await getExchangeConnectorFactory()
-    let passed = 0
-    let failed = 0
-
+    const now = new Date().toISOString()
     for (const connection of testable) {
-      try {
-        const connector = await createExchangeConnector(connection.exchange, {
-          apiKey: connection.api_key,
-          apiSecret: connection.api_secret,
-          apiType: connection.api_type || "live",
-          contractType: connection.contract_type,
-          subType: connection.api_subtype,
-          isTestnet: connection.is_testnet === true || connection.is_testnet === "true",
-        })
-        const result = await connector.testConnection()
-        await updateConnection(connection.id, {
-          ...connection,
-          last_test_status: result.success ? "success" : "failed",
-          last_test_time: new Date().toISOString(),
-          last_test_message: result.success ? "Connection verified at startup" : (result.error || "Test failed"),
-        })
-        if (result.success) passed += 1
-        else failed += 1
-      } catch (error) {
-        failed += 1
-        const errMsg = error instanceof Error ? error.message : String(error)
-        await updateConnection(connection.id, {
-          ...connection,
-          last_test_status: "error",
-          last_test_time: new Date().toISOString(),
-          last_test_message: errMsg,
-        })
-      }
+      await updateConnection(connection.id, {
+        ...connection,
+        last_test_status: "skipped",
+        last_test_time: now,
+        last_test_message: "Startup connector tests disabled in safe bootstrap mode",
+      })
     }
 
-    return { tested: testable.length, passed, failed }
+    return { tested: testable.length, passed: 0, failed: 0 }
   } catch {
     return { tested: 0, passed: 0, failed: 0 }
   }
@@ -130,8 +99,7 @@ export async function runPreStartup() {
     await seedMarketData()
     await testAllExchangeConnections()
 
-    const coordinator = getGlobalTradeEngineCoordinator()
-    await coordinator.startAll()
+    // Engine start is intentionally skipped in safe bootstrap mode.
   } catch (error) {
     console.error("[v0] Pre-startup failed:", error)
   }

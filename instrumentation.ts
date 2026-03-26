@@ -19,13 +19,7 @@ export async function register() {
     console.error("[ERROR_INTEGRATION] Failed to initialize error handling integration:", error)
   }
 
-  // Then run pre-startup sequence
-  try {
-    const { runPreStartup } = await import("@/lib/pre-startup")
-    await runPreStartup()
-  } catch (error) {
-    console.error("[v0] Startup instrumentation failed:", error)
-  }
-  // Instrumentation disabled to avoid 500 errors
+  // Pre-startup bootstrap disabled here to avoid bundling
+  // server-only exchange connector modules in instrumentation.
   return
 }

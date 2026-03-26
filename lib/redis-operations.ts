@@ -1,28 +1,49 @@
 import { getRedisClient } from "./redis-db"
 import { loadSettings } from "./settings-storage"
 
+const dbOpsSecondWindow = {
+  timestampMs: 0,
+  count: 0,
+}
+
 /**
  * Helper: Check if database operation limit has been exceeded
  * Returns true if limit is enforced and exceeded, false otherwise
  */
 async function shouldEnforceDatabaseLimit(): Promise<boolean> {
   const settings = loadSettings()
-  const limit = settings.databaseLimitPerMinute
-  
-  // If limit is 0 (unlimited), never enforce
-  if (limit === 0) return false
-  
-  const client = getRedisClient()
-  const status = await client.trackDatabaseOperation(limit)
-  
-  // Log warning when limit exceeded
-  if (status.exceeded) {
-    console.warn(
-      `[v0] [Database] Per-minute limit exceeded: ${status.current}/${status.limit} operations`,
-    )
-    return true
+  const perSecondLimit = Number(settings.databaseLimitPerSecond ?? 0)
+  const perMinuteLimit = Number(settings.databaseLimitPerMinute ?? 0)
+
+  // Per-second limiter (in-memory, sliding by second)
+  if (perSecondLimit > 0) {
+    const now = Date.now()
+    if (now - dbOpsSecondWindow.timestampMs >= 1000) {
+      dbOpsSecondWindow.timestampMs = now
+      dbOpsSecondWindow.count = 0
+    }
+
+    dbOpsSecondWindow.count += 1
+    if (dbOpsSecondWindow.count > perSecondLimit) {
+      console.warn(
+        `[v0] [Database] Per-second limit exceeded: ${dbOpsSecondWindow.count}/${perSecondLimit} operations`,
+      )
+      return true
+    }
   }
-  
+
+  // Per-minute limiter (Redis-backed tracker)
+  if (perMinuteLimit > 0) {
+    const client = getRedisClient()
+    const status = await client.trackDatabaseOperation(perMinuteLimit)
+    if (status.exceeded) {
+      console.warn(
+        `[v0] [Database] Per-minute limit exceeded: ${status.current}/${status.limit} operations`,
+      )
+      return true
+    }
+  }
+
   return false
 }
 

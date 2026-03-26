@@ -111,6 +111,7 @@ interface Settings {
    metricsRetentionDays: number
    mainEngineEnabled: boolean
    presetEngineEnabled: boolean
+   databaseLimitPerSecond: number
    databaseLimitPerMinute: number
    databaseLimitPerDay: number
   maxPositionsPerExchange: Record<string, number>
@@ -449,6 +450,7 @@ const initialSettings: Settings = {
    presetEngineEnabled: true,
 
    // Database Limits
+   databaseLimitPerSecond: 10000, // 10k operations per second (0 = unlimited)
    databaseLimitPerMinute: 500000, // 500k operations per minute (0 = unlimited)
    databaseLimitPerDay: 0, // Unlimited per day (0 = unlimited)
 

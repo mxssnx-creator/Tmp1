@@ -197,23 +197,23 @@ export default function IndicationsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border border-slate-600 border-t-cyan-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading indications...</p>
-        </div>
-      </div>
+     <div className="flex items-center justify-center min-h-screen">
+         <div className="text-center">
+           <div className="animate-spin rounded-full h-8 w-8 border border-slate-400 border-t-cyan-600 mx-auto mb-4"></div>
+           <p className="text-muted-foreground">Loading indications...</p>
+         </div>
+       </div>
     )
   }
 
   return (
     <div className="space-y-4 p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Indications</h1>
-          <p className="text-xs text-slate-400 mt-1">Trading signals with confidence and strength metrics</p>
-        </div>
+       {/* Header */}
+       <div className="flex items-center justify-between">
+         <div>
+           <h1 className="text-2xl font-bold">Indications</h1>
+           <p className="text-xs text-muted-foreground mt-1">Trading signals with confidence and strength metrics</p>
+         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="h-8 text-xs">
             <RefreshCw className="h-3 w-3 mr-1" />
@@ -226,28 +226,28 @@ export default function IndicationsPage() {
         </div>
       </div>
 
-      {/* Stats cards - compact */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-        {[
-          { icon: BarChart3, label: "Total", value: stats.total, color: "text-blue-400" },
-          { icon: Activity, label: "Enabled", value: stats.enabled, color: "text-green-400" },
-          { icon: TrendingUp, label: "Bullish", value: stats.upSignals, color: "text-orange-400" },
-          { icon: Zap, label: "High Conf", value: stats.highConfidence, color: "text-yellow-400" },
-          { icon: Activity, label: "Avg Conf", value: stats.avgConfidence.toFixed(1) + "%", color: "text-cyan-400" },
-        ].map((stat) => (
-          <Card key={stat.label} className="border-slate-700/50 bg-slate-900/30">
-            <CardContent className="p-2">
-              <div className="flex items-center gap-2">
-                <stat.icon className={`h-3 w-3 ${stat.color}`} />
-                <div className="min-w-0">
-                  <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
-                  <div className="text-xs text-slate-500">{stat.label}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+       {/* Stats cards - compact */}
+       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+         {[
+           { icon: BarChart3, label: "Total", value: stats.total, color: "text-blue-600" },
+           { icon: Activity, label: "Enabled", value: stats.enabled, color: "text-green-600" },
+           { icon: TrendingUp, label: "Bullish", value: stats.upSignals, color: "text-orange-600" },
+           { icon: Zap, label: "High Conf", value: stats.highConfidence, color: "text-yellow-600" },
+           { icon: Activity, label: "Avg Conf", value: stats.avgConfidence.toFixed(1) + "%", color: "text-cyan-600" },
+         ].map((stat) => (
+           <Card key={stat.label} className="border-border bg-slate-50">
+             <CardContent className="p-2">
+               <div className="flex items-center gap-2">
+                 <stat.icon className={`h-3 w-3 ${stat.color}`} />
+                 <div className="min-w-0">
+                   <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
+                   <div className="text-xs text-muted-foreground">{stat.label}</div>
+                 </div>
+               </div>
+             </CardContent>
+           </Card>
+         ))}
+       </div>
 
       {/* Main content - filters and results */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -256,14 +256,14 @@ export default function IndicationsPage() {
           <IndicationFiltersAdvanced filters={filters} onFiltersChange={setFilters} />
         </div>
 
-        {/* Results */}
-        <div className="lg:col-span-4 space-y-3">
-          {/* Results header */}
-          <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-900/30 rounded border border-slate-700/50">
-            <div className="text-slate-400">
-              Showing <span className="font-semibold text-cyan-400">{filteredAndSortedIndications.length}</span> of <span className="font-semibold">{indications.length}</span> indications
-            </div>
-            <div className="text-slate-500">
+         {/* Results */}
+         <div className="lg:col-span-4 space-y-3">
+           {/* Results header */}
+           <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-50 rounded border border-border">
+             <div className="text-muted-foreground">
+               Showing <span className="font-semibold text-cyan-600">{filteredAndSortedIndications.length}</span> of <span className="font-semibold">{indications.length}</span> indications
+             </div>
+             <div className="text-muted-foreground">
               {filters.sortBy === "recent" && "Sorted by: Most Recent"}
               {filters.sortBy === "confidence" && "Sorted by: Confidence"}
               {filters.sortBy === "strength" && "Sorted by: Strength"}
@@ -286,9 +286,9 @@ export default function IndicationsPage() {
                   index={index}
                 />
               ))
-            ) : (
-              <div className="text-center py-12 text-slate-500">
-                <div className="text-sm mb-2">No indications match your filters</div>
+             ) : (
+               <div className="text-center py-12 text-muted-foreground">
+                 <div className="text-sm mb-2">No indications match your filters</div>
                 <Button variant="outline" size="sm" onClick={() => setFilters(initialFilters)} className="text-xs h-7">
                   Reset Filters
                 </Button>

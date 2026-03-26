@@ -179,16 +179,16 @@ export default function StrategiesPage() {
     return { total, active, valid, profitable, avgProfitFactor }
   }, [strategies])
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border b-2 border-slate-600 border-t-cyan-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading strategies...</p>
-        </div>
-      </div>
-    )
-  }
+   if (isLoading) {
+     return (
+       <div className="flex items-center justify-center min-h-screen">
+         <div className="text-center">
+           <div className="animate-spin rounded-full h-8 w-8 border b-2 border-slate-400 border-t-cyan-600 mx-auto mb-4"></div>
+           <p className="text-muted-foreground">Loading strategies...</p>
+         </div>
+       </div>
+     )
+   }
 
   return (
     <div className="space-y-4 p-4">
@@ -202,12 +202,12 @@ export default function StrategiesPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Strategies</h1>
-          <p className="text-xs text-slate-400 mt-1">Advanced filtering, coordination analysis, and performance metrics</p>
-        </div>
+       {/* Header */}
+       <div className="flex items-center justify-between">
+         <div>
+           <h1 className="text-2xl font-bold">Strategies</h1>
+           <p className="text-xs text-muted-foreground mt-1">Advanced filtering, coordination analysis, and performance metrics</p>
+         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="h-8 text-xs">
             <RefreshCw className="h-3 w-3 mr-1" />
@@ -220,28 +220,28 @@ export default function StrategiesPage() {
         </div>
       </div>
 
-      {/* Stats cards - compact */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-        {[
-          { icon: BarChart3, label: "Total", value: stats.total, color: "text-blue-400" },
-          { icon: Activity, label: "Active", value: stats.active, color: "text-green-400" },
-          { icon: Target, label: "Valid", value: stats.valid, color: "text-purple-400" },
-          { icon: TrendingUp, label: "Profitable", value: stats.profitable, color: "text-orange-400" },
-          { icon: Settings, label: "Avg PF", value: stats.avgProfitFactor.toFixed(2), color: "text-cyan-400" },
-        ].map((stat) => (
-          <Card key={stat.label} className="border-slate-700/50 bg-slate-900/30">
-            <CardContent className="p-2">
-              <div className="flex items-center gap-2">
-                <stat.icon className={`h-3 w-3 ${stat.color}`} />
-                <div className="min-w-0">
-                  <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
-                  <div className="text-xs text-slate-500">{stat.label}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+       {/* Stats cards - compact */}
+       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+         {[
+           { icon: BarChart3, label: "Total", value: stats.total, color: "text-blue-600" },
+           { icon: Activity, label: "Active", value: stats.active, color: "text-green-600" },
+           { icon: Target, label: "Valid", value: stats.valid, color: "text-purple-600" },
+           { icon: TrendingUp, label: "Profitable", value: stats.profitable, color: "text-orange-600" },
+           { icon: Settings, label: "Avg PF", value: stats.avgProfitFactor.toFixed(2), color: "text-cyan-600" },
+         ].map((stat) => (
+           <Card key={stat.label} className="border-border bg-slate-50">
+             <CardContent className="p-2">
+               <div className="flex items-center gap-2">
+                 <stat.icon className={`h-3 w-3 ${stat.color}`} />
+                 <div className="min-w-0">
+                   <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
+                   <div className="text-xs text-muted-foreground">{stat.label}</div>
+                 </div>
+               </div>
+             </CardContent>
+           </Card>
+         ))}
+       </div>
 
       {/* Main content - filters and results */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -250,13 +250,13 @@ export default function StrategiesPage() {
           <StrategyFiltersAdvanced filters={filters} onFiltersChange={setFilters} />
         </div>
 
-        {/* Results */}
-        <div className="lg:col-span-4 space-y-3">
-          {/* Results header */}
-          <div className="flex items-center justify-between text-xs">
-            <div className="text-slate-400">
-              Showing <span className="font-semibold text-cyan-400">{filteredAndSortedStrategies.length}</span> of <span className="font-semibold">{strategies.length}</span> strategies
-            </div>
+         {/* Results */}
+         <div className="lg:col-span-4 space-y-3">
+           {/* Results header */}
+           <div className="flex items-center justify-between text-xs">
+             <div className="text-muted-foreground">
+               Showing <span className="font-semibold text-cyan-600">{filteredAndSortedStrategies.length}</span> of <span className="font-semibold">{strategies.length}</span> strategies
+             </div>
             <div className="flex gap-2">
               <Button
                 variant={sortBy === "profit" ? "default" : "outline"}

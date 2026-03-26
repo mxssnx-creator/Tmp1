@@ -96,8 +96,8 @@ export default function MonitoringAdvancedPage() {
     return (
       <div className="p-6">
         <h1 className="text-3xl font-bold mb-4">Advanced Monitoring</h1>
-        <Card className="bg-slate-900 border-slate-700">
-          <CardContent className="p-6 text-slate-400">Loading monitoring data...</CardContent>
+        <Card className="bg-white border-border">
+          <CardContent className="p-6 text-muted-foreground">Loading monitoring data...</CardContent>
         </Card>
       </div>
     )
@@ -108,21 +108,21 @@ export default function MonitoringAdvancedPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold mb-1">Advanced Monitoring Dashboard</h1>
-        <p className="text-slate-400">Real-time system health and performance metrics</p>
+        <p className="text-muted-foreground">Real-time system health and performance metrics</p>
       </div>
 
       {/* System Status Overview */}
       {systemHealth && (
-        <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+        <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-300 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
               <Server className="w-4 h-4" />
               System Health
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Overall Status</span>
+              <span className="text-muted-foreground">Overall Status</span>
               <Badge
                 className={`${
                   systemHealth.status === 'healthy'
@@ -138,37 +138,37 @@ export default function MonitoringAdvancedPage() {
 
             <div className="grid grid-cols-3 gap-4 pt-2">
               <div>
-                <div className="text-xs text-slate-500 mb-1">SSE Status</div>
+                <div className="text-xs text-muted-foreground mb-1">SSE Status</div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-slate-300">{systemHealth.sse.enabled ? 'Enabled' : 'Disabled'}</span>
+                  <span className="text-sm text-slate-600">{systemHealth.sse.enabled ? 'Enabled' : 'Disabled'}</span>
                 </div>
               </div>
               <div>
-                <div className="text-xs text-slate-500 mb-1">Broadcaster</div>
+                <div className="text-xs text-muted-foreground mb-1">Broadcaster</div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-slate-300">{systemHealth.broadcaster.active ? 'Active' : 'Inactive'}</span>
+                  <span className="text-sm text-slate-600">{systemHealth.broadcaster.active ? 'Active' : 'Inactive'}</span>
                 </div>
               </div>
               <div>
-                <div className="text-xs text-slate-500 mb-1">Protocol</div>
-                <span className="text-sm text-slate-300">{systemHealth.sse.protocol}</span>
+                <div className="text-xs text-muted-foreground mb-1">Protocol</div>
+                <span className="text-sm text-slate-600">{systemHealth.sse.protocol}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-700">
+            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border">
               <div>
-                <div className="text-xs text-slate-500 mb-1">Active Connections</div>
+                <div className="text-xs text-muted-foreground mb-1">Active Connections</div>
                 <div className="text-2xl font-bold text-blue-400">{systemHealth.broadcaster.totalConnections}</div>
               </div>
               <div>
-                <div className="text-xs text-slate-500 mb-1">Connected Clients</div>
+                <div className="text-xs text-muted-foreground mb-1">Connected Clients</div>
                 <div className="text-2xl font-bold text-green-400">{systemHealth.broadcaster.totalClients}</div>
               </div>
             </div>
 
-            <div className="text-xs text-slate-500 pt-2">
+            <div className="text-xs text-muted-foreground pt-2">
               Heartbeat interval: {systemHealth.sse.heartbeat}
             </div>
           </CardContent>
@@ -177,29 +177,29 @@ export default function MonitoringAdvancedPage() {
 
       {/* Broadcaster Statistics */}
       {broadcasterStats && (
-        <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+        <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-300 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
               <Activity className="w-4 h-4" />
               Broadcaster Statistics
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-slate-700/50 p-3 rounded">
-                <div className="text-xs text-slate-400 mb-1">Total Connections</div>
+              <div className="bg-slate-100/50 p-3 rounded">
+                <div className="text-xs text-muted-foreground mb-1">Total Connections</div>
                 <div className="text-2xl font-bold text-blue-400">{broadcasterStats.totalConnections}</div>
               </div>
-              <div className="bg-slate-700/50 p-3 rounded">
-                <div className="text-xs text-slate-400 mb-1">Total Clients</div>
+              <div className="bg-slate-100/50 p-3 rounded">
+                <div className="text-xs text-muted-foreground mb-1">Total Clients</div>
                 <div className="text-2xl font-bold text-green-400">{broadcasterStats.totalClients}</div>
               </div>
-              <div className="bg-slate-700/50 p-3 rounded">
-                <div className="text-xs text-slate-400 mb-1">Message History</div>
+              <div className="bg-slate-100/50 p-3 rounded">
+                <div className="text-xs text-muted-foreground mb-1">Message History</div>
                 <div className="text-2xl font-bold text-purple-400">{broadcasterStats.historySize}</div>
               </div>
-              <div className="bg-slate-700/50 p-3 rounded">
-                <div className="text-xs text-slate-400 mb-1">Avg Clients/Conn</div>
+              <div className="bg-slate-100/50 p-3 rounded">
+                <div className="text-xs text-muted-foreground mb-1">Avg Clients/Conn</div>
                 <div className="text-2xl font-bold text-yellow-400">
                   {(broadcasterStats.totalClients / Math.max(broadcasterStats.totalConnections, 1)).toFixed(1)}
                 </div>
@@ -207,13 +207,13 @@ export default function MonitoringAdvancedPage() {
             </div>
 
             {Object.entries(broadcasterStats.connectionStats).length > 0 && (
-              <div className="pt-3 border-t border-slate-700">
-                <div className="text-xs text-slate-400 mb-2 font-medium">Connections</div>
+              <div className="pt-3 border-t border-border">
+                <div className="text-xs text-muted-foreground mb-2 font-medium">Connections</div>
                 <div className="space-y-1">
                   {Object.entries(broadcasterStats.connectionStats).map(([conn, clients]) => (
                     <div key={conn} className="flex justify-between text-xs">
-                      <span className="text-slate-300">{conn}</span>
-                      <Badge variant="outline" className="bg-slate-700 text-slate-200">
+                      <span className="text-slate-600">{conn}</span>
+                      <Badge variant="outline" className="bg-slate-100 text-slate-700">
                         {clients} clients
                       </Badge>
                     </div>
@@ -228,16 +228,16 @@ export default function MonitoringAdvancedPage() {
       {/* Processing Metrics */}
       {processingMetrics && (
         <Tabs defaultValue="phases" className="space-y-4">
-          <TabsList className="bg-slate-800 border-slate-700">
+          <TabsList className="bg-slate-50 border-border">
             <TabsTrigger value="phases">Phases</TabsTrigger>
             <TabsTrigger value="metrics">Metrics</TabsTrigger>
             <TabsTrigger value="evaluations">Evaluations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="phases">
-            <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+            <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-300">Processing Phases</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-600">Processing Phases</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {['prehistoric', 'realtime', 'indication', 'strategy'].map((phase) => {
@@ -245,9 +245,9 @@ export default function MonitoringAdvancedPage() {
                   if (!phaseData) return null
 
                   return (
-                    <div key={phase} className="bg-slate-700/30 p-3 rounded space-y-2">
+                    <div key={phase} className="bg-slate-100/30 p-3 rounded space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-slate-200 capitalize">{phase}</span>
+                        <span className="font-medium text-slate-700 capitalize">{phase}</span>
                         <Badge
                           className={`${
                             phaseData.status === 'completed'
@@ -256,28 +256,28 @@ export default function MonitoringAdvancedPage() {
                                 ? 'bg-blue-900 text-blue-200'
                                 : phaseData.status === 'error'
                                   ? 'bg-red-900 text-red-200'
-                                  : 'bg-slate-700 text-slate-300'
+                                  : 'bg-slate-100 text-slate-600'
                           }`}
                         >
                           {phaseData.status}
                         </Badge>
                       </div>
 
-                      <div className="w-full bg-slate-700 rounded h-2 overflow-hidden">
+                      <div className="w-full bg-slate-100 rounded h-2 overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
                           style={{ width: `${Math.min(phaseData.progress, 100)}%` }}
                         />
                       </div>
 
-                      <div className="flex justify-between text-xs text-slate-400">
+                      <div className="flex justify-between text-xs text-muted-foreground">
                         <span>
                           {phaseData.itemsProcessed} / {phaseData.itemsTotal}
                         </span>
                         <span>{Math.round(phaseData.progress)}%</span>
                       </div>
 
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-muted-foreground">
                         Cycles: {phaseData.cycleCount} | Duration: {(phaseData.duration / 1000).toFixed(1)}s
                       </div>
                     </div>
@@ -288,42 +288,42 @@ export default function MonitoringAdvancedPage() {
           </TabsContent>
 
           <TabsContent value="metrics">
-            <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+            <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-300">Performance Metrics</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-600">Performance Metrics</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="bg-slate-700/50 p-3 rounded">
-                    <div className="text-xs text-slate-400 mb-1">Avg Cycle Duration</div>
+                  <div className="bg-slate-100/50 p-3 rounded">
+                    <div className="text-xs text-muted-foreground mb-1">Avg Cycle Duration</div>
                     <div className="text-xl font-bold text-blue-400">
                       {processingMetrics.current?.performanceMetrics?.avgCycleDuration?.toFixed(0) || 0}ms
                     </div>
                   </div>
-                  <div className="bg-slate-700/50 p-3 rounded">
-                    <div className="text-xs text-slate-400 mb-1">Total Processing Time</div>
+                  <div className="bg-slate-100/50 p-3 rounded">
+                    <div className="text-xs text-muted-foreground mb-1">Total Processing Time</div>
                     <div className="text-xl font-bold text-green-400">
                       {((processingMetrics.current?.performanceMetrics?.totalProcessingTime || 0) / 1000).toFixed(1)}s
                     </div>
                   </div>
-                  <div className="bg-slate-700/50 p-3 rounded">
-                    <div className="text-xs text-slate-400 mb-1">Active Positions</div>
+                  <div className="bg-slate-100/50 p-3 rounded">
+                    <div className="text-xs text-muted-foreground mb-1">Active Positions</div>
                     <div className="text-xl font-bold text-yellow-400">
                       {processingMetrics.current?.pseudoPositions?.currentActive || 0}
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-700 grid grid-cols-2 gap-4 text-xs">
+                <div className="pt-3 border-t border-border grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="text-slate-400">Positions Created:</span>
-                    <div className="text-slate-200 font-medium">
+                    <span className="text-muted-foreground">Positions Created:</span>
+                    <div className="text-slate-700 font-medium">
                       {processingMetrics.current?.pseudoPositions?.totalCreated || 0}
                     </div>
                   </div>
                   <div>
-                    <span className="text-slate-400">Positions Evaluated:</span>
-                    <div className="text-slate-200 font-medium">
+                    <span className="text-muted-foreground">Positions Evaluated:</span>
+                    <div className="text-slate-700 font-medium">
                       {processingMetrics.current?.pseudoPositions?.totalEvaluated || 0}
                     </div>
                   </div>
@@ -333,18 +333,18 @@ export default function MonitoringAdvancedPage() {
           </TabsContent>
 
           <TabsContent value="evaluations">
-            <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+            <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-300">Evaluation Counts</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-600">Evaluation Counts</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {Object.entries(processingMetrics.current?.evaluationCounts || {})
                     .filter(([_, count]) => (count as number) > 0)
                     .map(([type, count]) => (
-                      <div key={type} className="flex justify-between items-center p-2 bg-slate-700/30 rounded">
-                        <span className="text-sm text-slate-300 capitalize">{type}</span>
-                        <Badge variant="outline" className="bg-slate-700 text-slate-200">
+                      <div key={type} className="flex justify-between items-center p-2 bg-slate-100/30 rounded">
+                        <span className="text-sm text-slate-600 capitalize">{type}</span>
+                        <Badge variant="outline" className="bg-slate-100 text-slate-700">
                           {count as number}
                         </Badge>
                       </div>
@@ -357,7 +357,7 @@ export default function MonitoringAdvancedPage() {
       )}
 
       {/* Last Updated */}
-      <div className="text-xs text-slate-500 text-center">
+      <div className="text-xs text-muted-foreground text-center">
         Last updated: {new Date().toLocaleTimeString()}
       </div>
     </div>

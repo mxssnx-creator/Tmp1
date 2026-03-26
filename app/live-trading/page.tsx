@@ -179,25 +179,25 @@ export default function LiveTradingPage() {
     return { total, longs, shorts, totalPnl, profitablePositions, totalCapital }
   }, [positions])
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border border-slate-600 border-t-cyan-400 mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading positions...</p>
-        </div>
-      </div>
-    )
-  }
+   if (isLoading) {
+     return (
+       <div className="flex items-center justify-center min-h-screen">
+         <div className="text-center">
+           <div className="animate-spin rounded-full h-8 w-8 border border-slate-400 border-t-cyan-600 mx-auto mb-4"></div>
+           <p className="text-muted-foreground">Loading positions...</p>
+         </div>
+       </div>
+     )
+   }
 
   return (
     <div className="space-y-4 p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Live Trading</h1>
-          <p className="text-xs text-slate-400 mt-1">Real-time position monitoring and management</p>
-        </div>
+       {/* Header */}
+       <div className="flex items-center justify-between">
+         <div>
+           <h1 className="text-2xl font-bold">Live Trading</h1>
+           <p className="text-xs text-muted-foreground mt-1">Real-time position monitoring and management</p>
+         </div>
         <div className="flex gap-2">
           <Button
             variant={isEngineRunning ? "default" : "outline"}
@@ -234,35 +234,35 @@ export default function LiveTradingPage() {
         </div>
       )}
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-        {[
-          { icon: BarChart3, label: "Open", value: stats.total, color: "text-blue-400" },
-          { icon: TrendingUp, label: "Long", value: stats.longs, color: "text-green-400" },
-          { icon: TrendingDown, label: "Short", value: stats.shorts, color: "text-red-400" },
-          { icon: Activity, label: "Profitable", value: stats.profitablePositions, color: "text-yellow-400" },
-          { icon: AlertCircle, label: "Total PnL", value: stats.totalPnl.toFixed(2) + " USDT", color: stats.totalPnl >= 0 ? "text-green-400" : "text-red-400" },
-          { icon: BarChart3, label: "Capital", value: "$" + (stats.totalCapital / 1000).toFixed(0) + "k", color: "text-cyan-400" },
-        ].map((stat) => (
-          <Card key={stat.label} className="border-slate-700/50 bg-slate-900/30">
-            <CardContent className="p-2">
-              <div className="flex items-center gap-2">
-                <stat.icon className={`h-3 w-3 ${stat.color}`} />
-                <div className="min-w-0">
-                  <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
-                  <div className="text-xs text-slate-500">{stat.label}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+       {/* Stats cards */}
+       <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+         {[
+           { icon: BarChart3, label: "Open", value: stats.total, color: "text-blue-600" },
+           { icon: TrendingUp, label: "Long", value: stats.longs, color: "text-green-600" },
+           { icon: TrendingDown, label: "Short", value: stats.shorts, color: "text-red-600" },
+           { icon: Activity, label: "Profitable", value: stats.profitablePositions, color: "text-yellow-600" },
+           { icon: AlertCircle, label: "Total PnL", value: stats.totalPnl.toFixed(2) + " USDT", color: stats.totalPnl >= 0 ? "text-green-600" : "text-red-600" },
+           { icon: BarChart3, label: "Capital", value: "$" + (stats.totalCapital / 1000).toFixed(0) + "k", color: "text-cyan-600" },
+         ].map((stat) => (
+           <Card key={stat.label} className="border-border bg-slate-50">
+             <CardContent className="p-2">
+               <div className="flex items-center gap-2">
+                 <stat.icon className={`h-3 w-3 ${stat.color}`} />
+                 <div className="min-w-0">
+                   <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
+                   <div className="text-xs text-muted-foreground">{stat.label}</div>
+                 </div>
+               </div>
+             </CardContent>
+           </Card>
+         ))}
+       </div>
 
-      {/* Filters and controls */}
-      <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-900/30 rounded border border-slate-700/50">
-        <div className="text-slate-400">
-          Showing <span className="font-semibold text-cyan-400">{filteredAndSortedPositions.length}</span> positions
-        </div>
+       {/* Filters and controls */}
+       <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-50 rounded border border-border">
+         <div className="text-muted-foreground">
+           Showing <span className="font-semibold text-cyan-600">{filteredAndSortedPositions.length}</span> positions
+         </div>
         <div className="flex gap-2">
           <div className="flex gap-1">
             <Button
@@ -290,7 +290,7 @@ export default function LiveTradingPage() {
               Short
             </Button>
           </div>
-          <div className="border-l border-slate-700 pl-2 flex gap-1">
+          <div className="border-l border-border pl-2 flex gap-1">
             <Button
               variant={sortBy === "pnl" ? "default" : "outline"}
               size="sm"
@@ -336,11 +336,11 @@ export default function LiveTradingPage() {
               index={index}
             />
           ))
-        ) : (
-          <div className="text-center py-12 text-slate-500">
-            <div className="text-sm">No positions found</div>
-          </div>
-        )}
+         ) : (
+           <div className="text-center py-12 text-muted-foreground">
+             <div className="text-sm">No positions found</div>
+           </div>
+         )}
       </div>
     </div>
   )

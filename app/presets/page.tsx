@@ -106,12 +106,12 @@ export default function PresetsPage() {
 
   return (
     <div className="space-y-4 p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Trading Presets</h1>
-          <p className="text-xs text-slate-400 mt-1">Pre-configured strategy templates</p>
-        </div>
+       {/* Header */}
+       <div className="flex items-center justify-between">
+         <div>
+           <h1 className="text-2xl font-bold">Trading Presets</h1>
+           <p className="text-xs text-muted-foreground mt-1">Pre-configured strategy templates</p>
+         </div>
         <div className="flex gap-2">
           <Button size="sm" className="h-8 text-xs">
             <Plus className="h-3 w-3 mr-1" />
@@ -124,25 +124,25 @@ export default function PresetsPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        {[
-          { label: "Total", value: stats.total, color: "text-blue-400" },
-          { label: "Enabled", value: stats.enabled, color: "text-green-400" },
-          { label: "Avg Profit", value: stats.avgProfit.toFixed(2) + "%", color: stats.avgProfit > 0 ? "text-green-400" : "text-red-400" },
-          { label: "Avg WR", value: stats.avgWinRate.toFixed(0) + "%", color: "text-cyan-400" },
-        ].map((stat) => (
-          <Card key={stat.label} className="border-slate-700/50 bg-slate-900/30">
-            <CardContent className="p-2">
-              <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
-              <div className="text-xs text-slate-500">{stat.label}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+       {/* Stats */}
+       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+         {[
+           { label: "Total", value: stats.total, color: "text-blue-600" },
+           { label: "Enabled", value: stats.enabled, color: "text-green-600" },
+           { label: "Avg Profit", value: stats.avgProfit.toFixed(2) + "%", color: stats.avgProfit > 0 ? "text-green-600" : "text-red-600" },
+           { label: "Avg WR", value: stats.avgWinRate.toFixed(0) + "%", color: "text-cyan-600" },
+         ].map((stat) => (
+           <Card key={stat.label} className="border-border bg-slate-50">
+             <CardContent className="p-2">
+               <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
+               <div className="text-xs text-muted-foreground">{stat.label}</div>
+             </CardContent>
+           </Card>
+         ))}
+       </div>
 
-      {/* Filters */}
-      <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-900/30 rounded border border-slate-700/50">
+       {/* Filters */}
+       <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-50 rounded border border-border">
         <div className="flex gap-1">
           <Button
             variant={filterType === null ? "default" : "outline"}

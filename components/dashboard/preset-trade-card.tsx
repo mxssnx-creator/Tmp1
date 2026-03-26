@@ -25,7 +25,7 @@ import {
   BarChart3,
   ChevronDown,
   Settings2,
-  Switch as SwitchIcon,
+  ArrowRightLeft,
 } from "lucide-react"
 
 interface Preset {

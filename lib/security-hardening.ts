@@ -6,7 +6,7 @@
  */
 
 import { metricsCollector, MetricType } from './metrics-collector'
-import { createHmac, randomBytes } from 'crypto'
+import * as crypto from 'crypto'
 
 export interface SecurityConfig {
   enableValidation: boolean

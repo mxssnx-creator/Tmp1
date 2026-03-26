@@ -1,4 +1,4 @@
-import { createHmac } from "crypto"
+import * as crypto from "crypto"
 import { BaseExchangeConnector, type ExchangeConnectorResult } from "./base-connector"
 import { safeParseResponse } from "@/lib/safe-response-parser"
 
@@ -49,7 +49,7 @@ export class PionexConnector extends BaseExchangeConnector {
       stringToSign += body
     }
 
-    return createHmac("sha256", this.credentials.apiSecret).update(stringToSign).digest("hex")
+    return crypto.createHmac("sha256", this.credentials.apiSecret).update(stringToSign).digest("hex")
   }
 
   async getBalance(): Promise<ExchangeConnectorResult> {

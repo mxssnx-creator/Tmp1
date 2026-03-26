@@ -1,4 +1,4 @@
-import { createHmac } from "crypto"
+import * as crypto from "crypto"
 import { BaseExchangeConnector, type ExchangeConnectorResult } from "./base-connector"
 import { safeParseResponse } from "@/lib/safe-response-parser"
 
@@ -37,7 +37,7 @@ export class OrangeXConnector extends BaseExchangeConnector {
 
     try {
       const queryString = `timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
 
       this.log("Fetching account balance...")
 
@@ -88,7 +88,7 @@ export class OrangeXConnector extends BaseExchangeConnector {
   }
 
   private generateSignature(queryString: string): string {
-    return createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+    return crypto.createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
   }
 
   async placeOrder(

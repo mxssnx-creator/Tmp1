@@ -1,4 +1,4 @@
-import { createHmac } from "crypto"
+import * as crypto from "crypto"
 
 export interface ExchangeConfig {
   id: string

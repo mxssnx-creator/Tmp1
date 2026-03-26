@@ -136,6 +136,18 @@ The workspace contains a fully functional, battle-tested, production-ready CTS v
 
 ## Recently Completed
 
+### Session 6: Theme Styling & Migrations Setup (In Progress - COMMITS 5e00132, 3a2bd31)
+- [x] **Fixed Theme Default to Light**: Changed `defaultTheme` from "dark" to "light" in `components/providers.tsx` to use white/light theme by default
+- [x] **Fixed TypeScript Crypto Import Issues**: Updated all Node.js crypto imports to use `import * as crypto` pattern for proper TypeScript resolution:
+  - Updated security-hardening.ts to use crypto.randomBytes, crypto.createCipheriv, crypto.createDecipheriv, crypto.createHash
+  - Updated all exchange connectors (binance, bingx, bybit, okx, orangex, pionex) to use crypto.createHmac
+  - Updated preset-coordination-engine.ts to use crypto.createHash
+  - Fixed Switch icon import (doesn't exist in lucide-react) - replaced with ArrowRightLeft
+- [x] **Enabled Migrations at Server Startup**: Modified `instrumentation.ts` to call `initRedis()` and `runMigrations()` during server boot
+  - Migrations now run automatically when server starts, ensuring database schema is initialized
+  - Proper logging of startup progress and graceful error handling
+  - Build passes successfully (160+ pages, 102 kB shared JS)
+
 ### Session 5: Content Refresh & UI Integration (Commit fa7f628 - COMPLETED)
 - [x] **Fixed Variable Shadowing Bug**: Corrected `indication-processor.ts` line 209-227 where `marketData` variable was redeclared with `const` instead of reassigned with `let`
 - [x] **Common Indications Settings API Complete**: Enhanced `/api/settings/indications/common` route with:

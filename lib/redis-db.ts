@@ -541,6 +541,7 @@ export class InlineLocalRedis {
 let redisInstance: InlineLocalRedis | null = null
 let isConnected = false
 let connectionsInitialized = false
+let migrationsRan = false
 
 export async function initRedis(): Promise<void> {
   if (isConnected) return
@@ -556,6 +557,20 @@ export async function initRedis(): Promise<void> {
   const pong = await redisInstance.ping()
   if (pong === "PONG") {
     console.log("[v0] [Redis] Connection test successful")
+  }
+
+  // Run migrations on first connection (lazy initialization)
+  if (!migrationsRan) {
+    try {
+      migrationsRan = true
+      console.log("[v0] [Redis] Running migrations...")
+      const { runMigrations } = await import("@/lib/redis-migrations")
+      await runMigrations()
+      console.log("[v0] [Redis] ✓ Migrations completed")
+    } catch (error) {
+      console.error("[v0] [Redis] Migration error (continuing anyway):", error)
+      migrationsRan = true // Prevent retry loop
+    }
   }
 
   // NOTE: Do NOT initialize user-created connections here

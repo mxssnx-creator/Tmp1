@@ -2,7 +2,6 @@
 export const dynamic = "force-dynamic"
 
 
-export const dynamic = "force-dynamic"
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { PortfolioMetrics } from "@/components/dashboard/portfolio-metrics"

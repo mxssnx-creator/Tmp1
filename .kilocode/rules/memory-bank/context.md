@@ -520,5 +520,6 @@ Current focus is runtime correctness and operational workflow completeness for t
 | 2026-03-18 | Added visible content to home page (Welcome message), app works on port 3001 |
 | 2026-03-16 | Comprehensive project review: all configs correct, build/lint/typecheck pass, preview uses sandbox port 3000 |
 | 2026-03-26 | Resolved runtime 500 path by disabling pre-startup instrumentation import chain, simplified `app/page.tsx` to server redirect (`/live-trading`), restored per-second DB limit default+settings wiring, and fixed duplicate import/export regressions in live/strategies/indications/presets and indications-settings pages so key routes return 200/307 in dev checks. |
+| 2026-03-26 | Restored original independent dashboard main page routing by removing `app/page.tsx` override so `/` resolves to `app/(dashboard)/page.tsx` again; verified `/`, `/live-trading`, and `/settings` all return 200 with dashboard layout and sidebar intact. |
 | 2026-03-16 | Verified build, typecheck, lint pass; committed tsconfig.json mandatory updates |
 | Initial | Template created with base setup |

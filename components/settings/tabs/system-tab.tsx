@@ -97,9 +97,73 @@ export function SystemTab({ settings, handleSettingChange }: SystemTabProps) {
               </div>
             </div>
 
-            <div className="space-y-4 border-t pt-4">
-              <h3 className="text-lg font-semibold">Indication Timeout</h3>
-              <p className="text-xs text-muted-foreground">Time to wait for valid indication evaluation (100ms - 3000ms)</p>
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="text-lg font-semibold">Database Operation Limits</h3>
+                <p className="text-xs text-muted-foreground">
+                  Control maximum database write operations to prevent unbounded growth
+                </p>
+
+                <div className="space-y-4">
+                  {/* Per Second Limit */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Operations per Second</Label>
+                      <span className="text-sm font-semibold">
+                        {settings.databaseLimitPerSecond === 0
+                          ? "Unlimited"
+                          : `${(settings.databaseLimitPerSecond / 1000).toFixed(1)}k`}
+                      </span>
+                    </div>
+                    <Slider
+                      value={[settings.databaseLimitPerSecond ?? 10000]}
+                      onValueChange={(v) => handleSettingChange("databaseLimitPerSecond", v[0])}
+                      min={0}
+                      max={100000}
+                      step={1000}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Set to 0 for unlimited, or choose a per-second limit (1k - 100k). Default: 10k ops/sec.
+                    </p>
+                    {settings.databaseLimitPerSecond > 0 && (
+                      <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-900">
+                        <strong>Current Limit:</strong> {(settings.databaseLimitPerSecond / 1000).toFixed(1)}k operations/sec
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Per Minute Limit */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Operations per Minute</Label>
+                      <span className="text-sm font-semibold">
+                        {settings.databaseLimitPerMinute === 0
+                          ? "Unlimited"
+                          : `${(settings.databaseLimitPerMinute / 1000).toFixed(0)}k`}
+                      </span>
+                    </div>
+                    <Slider
+                      value={[settings.databaseLimitPerMinute ?? 500000]}
+                      onValueChange={(v) => handleSettingChange("databaseLimitPerMinute", v[0])}
+                      min={0}
+                      max={3000000}
+                      step={100000}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Set to 0 for unlimited operations, or choose a limit (100k - 3M per minute).
+                      Default: 500k. Applies to trades, positions, and other write operations.
+                    </p>
+                    {settings.databaseLimitPerMinute > 0 && (
+                      <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
+                        <strong>Current Limit:</strong> {(settings.databaseLimitPerMinute / 1000).toFixed(0)}k operations/min
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+             <div className="space-y-4 border-t pt-4">
+               <h3 className="text-lg font-semibold">Indication Timeout</h3>
+               <p className="text-xs text-muted-foreground">Time to wait for valid indication evaluation (100ms - 3000ms)</p>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">

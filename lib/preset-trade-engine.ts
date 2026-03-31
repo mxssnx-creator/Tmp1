@@ -609,74 +609,114 @@ export class PresetTradeEngine {
    * Updated to include ParabolicSAR with proper settings
    */
   private async getCommonIndicators(): Promise<IndicatorConfig[]> {
-    const settings = await this.getSettings()
-
     const indicators: IndicatorConfig[] = []
 
-    // RSI
-    if (settings.rsiEnabled !== "false") {
-      indicators.push({
-        type: "rsi" as const,
-        params: {
-          period: Number(settings.rsiPeriod) || 14,
-          oversold: Number(settings.rsiOversold) || 30,
-          overbought: Number(settings.rsiOverbought) || 70,
-        },
+    try {
+      // Fetch common indications from API
+      const response = await fetch(`http://localhost:3001/api/settings/indications/common?t=${Date.now()}`, {
+        headers: { "Content-Type": "application/json" },
       })
+      
+      if (!response.ok) throw new Error("Failed to fetch common indications")
+      
+      const data = await response.json()
+      const commonSettings = data.settings || {}
+
+      // RSI
+      if (commonSettings.rsi?.enabled) {
+        const period = commonSettings.rsi.period
+        indicators.push({
+          type: "rsi" as const,
+          params: {
+            period: period?.from || 14,
+            oversold: commonSettings.rsi.oversold?.from || 30,
+            overbought: commonSettings.rsi.overbought?.from || 70,
+          },
+        })
+      }
+
+      // MACD
+      if (commonSettings.macd?.enabled) {
+        indicators.push({
+          type: "macd" as const,
+          params: {
+            fastPeriod: commonSettings.macd.fastPeriod?.from || 12,
+            slowPeriod: commonSettings.macd.slowPeriod?.from || 26,
+            signalPeriod: commonSettings.macd.signalPeriod?.from || 9,
+          },
+        })
+      }
+
+      // Bollinger Bands
+      if (commonSettings.bollinger?.enabled) {
+        indicators.push({
+          type: "bollinger" as const,
+          params: {
+            period: commonSettings.bollinger.period?.from || 20,
+            stdDev: commonSettings.bollinger.stdDev?.from || 2,
+          },
+        })
+      }
+
+      // EMA
+      if (commonSettings.ema?.enabled) {
+        indicators.push({
+          type: "ema" as const,
+          params: {
+            period: commonSettings.ema.period?.from || 12,
+          },
+        })
+      }
+
+      // SMA
+      if (commonSettings.sma?.enabled) {
+        indicators.push({
+          type: "sma" as const,
+          params: {
+            period: commonSettings.sma.period?.from || 20,
+          },
+        })
+      }
+
+      // Stochastic
+      if (commonSettings.stochastic?.enabled) {
+        indicators.push({
+          type: "stochastic" as const,
+          params: {
+            kPeriod: commonSettings.stochastic.kPeriod?.from || 14,
+            dPeriod: commonSettings.stochastic.dPeriod?.from || 3,
+            overbought: commonSettings.stochastic.overbought?.from || 80,
+            oversold: commonSettings.stochastic.oversold?.from || 20,
+          },
+        })
+      }
+
+      // Parabolic SAR
+      if (commonSettings.parabolicSAR?.enabled) {
+        indicators.push({
+          type: "sar" as const,
+          params: {
+            acceleration: commonSettings.parabolicSAR.acceleration?.from || 0.02,
+            maximum: commonSettings.parabolicSAR.maximum?.from || 0.2,
+          },
+        })
+      }
+
+      // ADX
+      if (commonSettings.adx?.enabled) {
+        indicators.push({
+          type: "adx" as const,
+          params: {
+            period: commonSettings.adx.period?.from || 14,
+            threshold: commonSettings.adx.threshold?.from || 25,
+          },
+        })
+      }
+    } catch (error) {
+      console.error("[v0] Failed to fetch common indications, using defaults:", error)
     }
 
-    // MACD
-    if (settings.macdEnabled !== "false") {
-      indicators.push({
-        type: "macd" as const,
-        params: {
-          fastPeriod: Number(settings.macdFastPeriod) || 12,
-          slowPeriod: Number(settings.macdSlowPeriod) || 26,
-          signalPeriod: Number(settings.macdSignalPeriod) || 9,
-        },
-      })
-    }
-
-    // Bollinger Bands
-    if (settings.bollingerEnabled !== "false") {
-      indicators.push({
-        type: "bollinger" as const,
-        params: {
-          period: Number(settings.bollingerPeriod) || 20,
-          stdDev: Number(settings.bollingerStdDev) || 2,
-        },
-      })
-    }
-
-    // Parabolic SAR
-    if (settings.parabolicSAREnabled !== "false") {
-      indicators.push({
-        type: "sar" as const,
-        params: {
-          acceleration: Number(settings.parabolicSARAcceleration) || 0.02,
-          maximum: Number(settings.parabolicSARMaximum) || 0.2,
-        },
-      })
-    }
-
-    // ADX
-    if (settings.adxEnabled !== "false") {
-      indicators.push({
-        type: "adx" as const,
-        params: {
-          period: Number(settings.adxPeriod) || 14,
-          threshold: Number(settings.adxThreshold) || 25,
-        },
-      })
-    }
-
-    // ATR (for volatility-based stops)
-    if (settings.atrEnabled !== "false") {
-      // ATR is used for position sizing, not direct signals
-      // But we can include it for volatility analysis
-    }
-
-    // Default if none enabled
+    // Default if none enabled or fetch failed
     if (indicators.length === 0) {
       return [
         { type: "rsi", params: { period: 14, oversold: 30, overbought: 70 } },

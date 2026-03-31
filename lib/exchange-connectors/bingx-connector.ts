@@ -1,6 +1,11 @@
-import { createHmac } from "crypto"
 import { BaseExchangeConnector, type ExchangeConnectorResult } from "./base-connector"
 import { safeParseResponse } from "@/lib/safe-response-parser"
+
+// Helper function to create HMAC signatures
+function createSignature(message: string, secret: string): string {
+  const crypto = require("crypto")
+  return crypto.createHmac("sha256", secret).update(message).digest("hex")
+}
 
 /**
  * BingX Exchange Connector
@@ -35,7 +40,7 @@ export class BingXConnector extends BaseExchangeConnector {
   private getSignature(params: Record<string, any>): string {
     const sortedKeys = Object.keys(params).sort()
     const queryString = sortedKeys.map(key => `${key}=${params[key]}`).join('&')
-    return createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+    return createSignature(queryString, this.credentials.apiSecret)
   }
 
   private toStringParams(params: Record<string, any>): Record<string, string> {

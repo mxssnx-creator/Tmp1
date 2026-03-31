@@ -1,4 +1,30 @@
 import { getRedisClient } from "./redis-db"
+import { loadSettings } from "./settings-storage"
+
+/**
+ * Helper: Check if database operation limit has been exceeded
+ * Returns true if limit is enforced and exceeded, false otherwise
+ */
+async function shouldEnforceDatabaseLimit(): Promise<boolean> {
+  const settings = loadSettings()
+  const limit = settings.databaseLimitPerMinute
+  
+  // If limit is 0 (unlimited), never enforce
+  if (limit === 0) return false
+  
+  const client = getRedisClient()
+  const status = await client.trackDatabaseOperation(limit)
+  
+  // Log warning when limit exceeded
+  if (status.exceeded) {
+    console.warn(
+      `[v0] [Database] Per-minute limit exceeded: ${status.current}/${status.limit} operations`,
+    )
+    return true
+  }
+  
+  return false
+}
 
 // ========== Connections ==========
 export const RedisConnections = {
@@ -74,9 +100,16 @@ export const RedisConnections = {
 // ========== Trades ==========
 export const RedisTrades = {
   async createTrade(connId: string, trade: any) {
+    // Check database limit before creating trade
+    if (await shouldEnforceDatabaseLimit()) {
+      console.warn(`[v0] [RedisTrades] Skipping trade creation due to per-minute database limit`)
+      return null
+    }
+
     const client = getRedisClient()
     const key = `trade:${trade.id}`
     await client.hset(key, trade)
+    await client.expire(key, 2592000) // 30 day TTL for trade data
     await client.sadd(`trades:${connId}`, trade.id)
     await client.sadd("trades:all", trade.id)
     return trade
@@ -102,9 +135,16 @@ export const RedisTrades = {
 // ========== Positions ==========
 export const RedisPositions = {
   async createPosition(connId: string, pos: any) {
+    // Check database limit before creating position
+    if (await shouldEnforceDatabaseLimit()) {
+      console.warn(`[v0] [RedisPositions] Skipping position creation due to per-minute database limit`)
+      return null
+    }
+
     const client = getRedisClient()
     const key = `position:${pos.id}`
     await client.hset(key, pos)
+    await client.expire(key, 2592000) // 30 day TTL for position data
     await client.sadd(`positions:${connId}`, pos.id)
     await client.sadd("positions:all", pos.id)
     return pos
@@ -227,7 +267,9 @@ export const RedisMonitoring = {
       args.push(k, v)
     }
     await client.hmset(eventId, ...args)
-    await client.sadd("monitoring:events", eventId)
+    // Use bounded list instead of unbounded set for monitoring events
+    await client.lpush("monitoring:events:list", eventId)
+    await client.ltrim("monitoring:events:list", 0, 4999) // Keep max 5000 events
     await client.expire(eventId, 2592000) // 30 days
   },
 
@@ -258,13 +300,18 @@ export const RedisBackup = {
       created_at: new Date().toISOString(),
       status: "completed",
     })
-    await client.sadd("snapshots:all", snapshotId)
+    await client.lpush("snapshots:all:list", snapshotId)
+    await client.ltrim("snapshots:all:list", 0, 99) // Keep max 100 snapshots
     return snapshotId
   },
 
   async listSnapshots() {
     const client = getRedisClient()
-    const snapshotIds = (await client.smembers("snapshots:all")) || []
+    // Read from bounded list with fallback to legacy set
+    let snapshotIds = await client.lrange("snapshots:all:list", 0, -1).catch(() => [] as string[])
+    if (!snapshotIds || snapshotIds.length === 0) {
+      snapshotIds = await client.smembers("snapshots:all").catch(() => [] as string[])
+    }
     const snapshots = []
     for (const id of snapshotIds) {
       const snapshot = await client.hgetall(id)

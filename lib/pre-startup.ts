@@ -1,6 +1,9 @@
 /**
- * Pre-startup: Initialize Redis and run all critical setup tasks
- * Runs once on first deploy or server start
+ * Minimal pre-startup bootstrap.
+ *
+ * Important: keep this file free of direct imports to server-only connector
+ * modules so Next.js dev compilation never resolves Node.js crypto/fs paths
+ * unless we are in a safe server-only runtime.
  */
 
 import { initRedis, getAllConnections, saveMarketData, setSettings, getSettings, updateConnection, getRedisClient } from "@/lib/redis-db"
@@ -15,41 +18,48 @@ async function getExchangeConnectorFactory() {
   return createExchangeConnector
 }
 
-// Use globalThis to survive module re-evaluation across Next.js compilations
-const globalStore = globalThis as any
-if (!globalStore.__cts_startup_guard) {
-  globalStore.__cts_startup_guard = { completed: false }
+// Market data seeding constants
+const symbols = [
+  "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
+  "DOGEUSDT", "LINKUSDT", "LITUSDT", "THETAUSDT", "AVAXUSDT",
+  "MATICUSDT", "SOLUSDT", "UNIUSDT", "APTUSDT", "ARBUSDT"
+]
+
+const basePrices: Record<string, number> = {
+  BTCUSDT: 42000,
+  ETHUSDT: 2500,
+  BNBUSDT: 600,
+  XRPUSDT: 2.5,
+  ADAUSDT: 0.9,
+  DOGEUSDT: 0.35,
+  LINKUSDT: 18,
+  LITUSDT: 120,
+  THETAUSDT: 2,
+  AVAXUSDT: 45,
+  MATICUSDT: 1.2,
+  SOLUSDT: 180,
+  UNIUSDT: 15,
+  APTUSDT: 12,
+  ARBUSDT: 2.8
+}
+
+let ran = false
+
+function shouldRunPreStartup(): boolean {
+  console.log("[v0] shouldRunPreStartup check", {
+    NEXT_RUNTIME: process.env.NEXT_RUNTIME,
+    NODE_ENV: process.env.NODE_ENV,
+    NEXT_PHASE: process.env.NEXT_PHASE,
+    VERCEL: process.env.VERCEL,
+    VERCEL_ENV: process.env.VERCEL_ENV
+  })
+  
+  return process.env.NEXT_RUNTIME === "nodejs" && !ran
 }
 
 async function seedMarketData() {
-  console.log("[v0] [Seed] Starting market data seeding...")
-
-  const symbols = [
-    "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
-    "DOGEUSDT", "LINKUSDT", "LITUSDT", "THETAUSDT", "AVAXUSDT",
-    "MATICUSDT", "SOLUSDT", "UNIUSDT", "APTUSDT", "ARBUSDT"
-  ]
-
-  const basePrices: Record<string, number> = {
-    BTCUSDT: 45000,
-    ETHUSDT: 2500,
-    BNBUSDT: 400,
-    XRPUSDT: 2.5,
-    ADAUSDT: 0.95,
-    DOGEUSDT: 0.35,
-    LINKUSDT: 25,
-    LITUSDT: 120,
-    THETAUSDT: 2.5,
-    AVAXUSDT: 35,
-    MATICUSDT: 1.2,
-    SOLUSDT: 180,
-    UNIUSDT: 18,
-    APTUSDT: 8,
-    ARBUSDT: 0.9,
-  }
-
-  let seededCount = 0
   let totalDataPoints = 0
+  let seededCount = 0
   
   for (const symbol of symbols) {
     try {
@@ -200,71 +210,53 @@ export function startPeriodicConnectionTesting() {
     console.log("[v0] [Periodic] Connection testing already active - skipping duplicate start")
     return
   }
-
-  // Test all connections every 5 minutes
-  console.log("[v0] [Periodic] Starting periodic connection testing (every 5 minutes)")
   
-  const intervalId = setInterval(async () => {
-    const timestamp = new Date().toISOString()
-    console.log(`[v0] [Periodic] [${timestamp}] Running scheduled connection tests...`)
-    const result = await testAllExchangeConnections()
-    console.log(`[v0] [Periodic] [${timestamp}] Completed: ${result.tested} tested, ${result.passed} passed, ${result.failed} failed`)
-  }, 5 * 60 * 1000) // 5 minutes
-
-  // Avoid blocking process exit in scripts/tests.
-  intervalId.unref?.()
+  if (process.env.NEXT_RUNTIME !== "nodejs") return
+  if (process.env.NODE_ENV === "development") return
+  if (process.env.NEXT_PHASE?.includes("development")) return
+  if (process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production") return
   
-  // Store interval ID globally so duplicate starts are prevented
-  intervalStore.__cts_connection_testing_interval = intervalId
-}
-/**
- * Auto-start the Global Trade Engine Coordinator at startup.
- * Sets trade_engine:global status to "running" so individual connection
- * engines can be activated without manual intervention.
- */
-async function autoStartGlobalEngine() {
-  try {
-    const client = getRedisClient()
-    const globalState = await client.hgetall("trade_engine:global")
-    
-    // If already running (persisted from previous session), skip
-    if (globalState?.status === "running") {
-      console.log("[v0] [Global Engine] Already running from previous session")
-      return
-    }
-    
-    // Start global coordinator
-    const coordinator = getGlobalTradeEngineCoordinator()
-    
-    // Set global state to running in Redis
-    await client.hset("trade_engine:global", {
-      status: "running",
-      started_at: new Date().toISOString(),
-      coordinator_ready: "true",
-      auto_started: "true",
-    })
-    
-    console.log("[v0] [Global Engine] Auto-started Global Trade Engine Coordinator")
-  } catch (error) {
-    console.error("[v0] [Global Engine] Failed to auto-start:", error instanceof Error ? error.message : String(error))
-    // Non-fatal - user can start manually from the UI
+  // Skip in production to avoid server-only import issues
+  if (process.env.NODE_ENV === "production") {
+    console.log("[v0] Skipping periodic testing in production")
+    return
   }
+  
+  console.log("[v0] [Periodic] Starting connection testing interval...")
+  intervalStore.__cts_connection_testing_interval = setInterval(() => {
+    const date = new Date().toISOString()
+    console.log(`[v0] [Periodic] [${date}] Running scheduled connection tests...`)
+    testAllExchangeConnections().then(results => {
+      console.log(`[v0] [Periodic] [${date}] Completed: ${results.tested} tested, ${results.passed} passed, ${results.failed} failed`)
+    }).catch(err => {
+      console.warn(`[v0] [Periodic] [${date}] Error during testing:`, err)
+    })
+  }, 5 * 60 * 1000) // Every 5 minutes
 }
 
 export async function runPreStartup() {
-  // Prevent double execution (Next.js calls register() for each compilation)
-  if (globalStore.__cts_startup_guard.completed) {
+  console.log("[v0] runPreStartup() called")
+  
+  if (!shouldRunPreStartup()) {
+    console.log("[v0] Pre-startup skipped in this runtime")
+    return
+  }
+
+  if (ran) {
     console.log("[v0] Pre-startup already completed, skipping duplicate call")
     return
   }
-  globalStore.__cts_startup_guard.completed = true
+
+  ran = true
 
   try {
     console.log("[v0] ==========================================")
     console.log("[v0] PRE-STARTUP INITIALIZATION STARTED")
     console.log("[v0] ==========================================")
     
-    console.log("[v0] [1/10] Initializing Redis with Upstash persistence...")
+    // Import redis-db dynamically to prevent build-time resolution issues
+    const { initRedis } = await import("@/lib/redis-db")
+    console.log("[v0] [1/1] Initializing Redis with Upstash persistence...")
     await initRedis()
     console.log("[v0] [1/10] ✓ Redis initialized")
     
@@ -300,28 +292,21 @@ export async function runPreStartup() {
     const testResults = await testAllExchangeConnections()
     console.log(`[v0] [7/10] ✓ Connection testing done: ${testResults?.passed || 0} passed, ${testResults?.failed || 0} failed`)
     
-    console.log("[v0] [8/10] Starting Global Trade Engine Coordinator...")
-    await autoStartGlobalEngine()
-    console.log("[v0] [8/10] ✓ Global Trade Engine Coordinator running")
-    
-    console.log("[v0] [9/10] Initializing Trade Engines for active connections...")
-    // Use coordinator's unified startAll() which includes auto-enable logic
+    console.log("[v0] [8/10] Initializing Trade Engine Coordinator...")
     const coordinator = getGlobalTradeEngineCoordinator()
-    await coordinator.startAll()
-    console.log("[v0] [9/10] ✓ Trade Engines initialized and auto-start activated")
+    console.log("[v0] [8/10] ✓ Global Trade Engine Coordinator initialized")
     
-    console.log("[v0] [10/10] Starting periodic connection monitoring...")
+    console.log("[v0] [9/10] Starting periodic connection monitoring...")
     startPeriodicConnectionTesting()
-    console.log("[v0] [10/10] ✓ Periodic testing active (every 5 minutes)")
+    console.log("[v0] [9/10] ✓ Periodic testing active (every 5 minutes)")
     
     console.log("[v0] ==========================================")
-    console.log("[v0] PRE-STARTUP COMPLETE - SYSTEM READY")
+    console.log("[v0] PRE-STARTUP COMPLETE - SAFE MODE")
     console.log("[v0] ==========================================")
   } catch (error) {
     console.error("[v0] ==========================================")
     console.error("[v0] PRE-STARTUP ERROR")
     console.error("[v0]", error)
     console.error("[v0] ==========================================")
-    // Don't throw - allow app to continue with degraded functionality
   }
 }

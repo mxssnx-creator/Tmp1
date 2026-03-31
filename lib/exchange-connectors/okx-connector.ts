@@ -1,5 +1,10 @@
-import { createHmac } from "crypto"
 import { BaseExchangeConnector, type ExchangeConnectorResult } from "./base-connector"
+
+// Helper function to create HMAC signatures
+function createSignature(message: string, secret: string): string {
+  const crypto = require("crypto")
+  return crypto.createHmac("sha256", secret).update(message).digest("base64")
+}
 
 export class OKXConnector extends BaseExchangeConnector {
   private getBaseUrl(): string {
@@ -59,7 +64,7 @@ export class OKXConnector extends BaseExchangeConnector {
       const requestPath = "/api/v5/account/balance"
       const body = ""
       const prehash = timestamp + method + requestPath + body
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       this.log("Fetching account balance...")
       console.log(`[v0] [OKX] API Type: ${apiType}`)
@@ -144,7 +149,7 @@ export class OKXConnector extends BaseExchangeConnector {
 
       const bodyStr = JSON.stringify(body)
       const prehash = timestamp + method + requestPath + bodyStr
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         method: "POST",
@@ -190,7 +195,7 @@ export class OKXConnector extends BaseExchangeConnector {
 
       const bodyStr = JSON.stringify(body)
       const prehash = timestamp + method + requestPath + bodyStr
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         method: "POST",
@@ -229,7 +234,7 @@ export class OKXConnector extends BaseExchangeConnector {
       const requestPath = `/api/v5/trade/order?instId=${symbol}&ordId=${orderId}`
       const body = ""
       const prehash = timestamp + method + requestPath + body
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         headers: {
@@ -267,7 +272,7 @@ export class OKXConnector extends BaseExchangeConnector {
       }
       const body = ""
       const prehash = timestamp + method + requestPath + body
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         headers: {
@@ -305,7 +310,7 @@ export class OKXConnector extends BaseExchangeConnector {
       }
       const body = ""
       const prehash = timestamp + method + requestPath + body
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         headers: {
@@ -343,7 +348,7 @@ export class OKXConnector extends BaseExchangeConnector {
       }
       const body = ""
       const prehash = timestamp + method + requestPath + body
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         headers: {
@@ -397,7 +402,7 @@ export class OKXConnector extends BaseExchangeConnector {
 
       const bodyStr = JSON.stringify(body)
       const prehash = timestamp + method + requestPath + bodyStr
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         method: "POST",
@@ -461,7 +466,7 @@ export class OKXConnector extends BaseExchangeConnector {
       const requestPath = `/api/v5/asset/deposit-address?ccy=${coin}`
       const body = ""
       const prehash = timestamp + method + requestPath + body
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         headers: {
@@ -507,7 +512,7 @@ export class OKXConnector extends BaseExchangeConnector {
 
       const bodyStr = JSON.stringify(body)
       const prehash = timestamp + method + requestPath + bodyStr
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         method: "POST",
@@ -548,7 +553,7 @@ export class OKXConnector extends BaseExchangeConnector {
       const requestPath = `/api/v5/asset/withdrawal-history?limit=${limit}`
       const body = ""
       const prehash = timestamp + method + requestPath + body
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         headers: {
@@ -589,7 +594,7 @@ export class OKXConnector extends BaseExchangeConnector {
 
       const bodyStr = JSON.stringify(body)
       const prehash = timestamp + method + requestPath + bodyStr
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         method: "POST",
@@ -634,7 +639,7 @@ export class OKXConnector extends BaseExchangeConnector {
 
       const bodyStr = JSON.stringify(body)
       const prehash = timestamp + method + requestPath + bodyStr
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         method: "POST",
@@ -678,7 +683,7 @@ export class OKXConnector extends BaseExchangeConnector {
 
       const bodyStr = JSON.stringify(body)
       const prehash = timestamp + method + requestPath + bodyStr
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         method: "POST",
@@ -717,7 +722,7 @@ export class OKXConnector extends BaseExchangeConnector {
       const requestPath = `/api/v5/market/ticker?instId=${symbol}`
       const body = ""
       const prehash = timestamp + method + requestPath + body
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         headers: {
@@ -767,7 +772,7 @@ export class OKXConnector extends BaseExchangeConnector {
       const requestPath = `/api/v5/market/candles?instId=${symbol}&bar=${bar}&limit=${limit}`
       const body = ""
       const prehash = timestamp + method + requestPath + body
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(prehash).digest("base64")
+      const signature = createSignature(prehash, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}${requestPath}`, {
         headers: {

@@ -1,6 +1,11 @@
-import { createHmac } from "crypto"
 import { BaseExchangeConnector, type ExchangeConnectorResult } from "./base-connector"
 import { safeParseResponse } from "@/lib/safe-response-parser"
+
+// Helper function to create HMAC signatures
+function createSignature(message: string, secret: string): string {
+  const crypto = require("crypto")
+  return crypto.createHmac("sha256", secret).update(message).digest("hex")
+}
 
 export class OrangeXConnector extends BaseExchangeConnector {
   private getBaseUrl(): string {
@@ -37,7 +42,7 @@ export class OrangeXConnector extends BaseExchangeConnector {
 
     try {
       const queryString = `timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       this.log("Fetching account balance...")
 

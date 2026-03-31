@@ -1,6 +1,11 @@
-import { createHmac } from "crypto"
 import { BaseExchangeConnector, type ExchangeConnectorResult } from "./base-connector"
 import { safeParseResponse } from "@/lib/safe-response-parser"
+
+// Helper function to create HMAC signatures
+function createSignature(message: string, secret: string): string {
+  const crypto = require("crypto")
+  return crypto.createHmac("sha256", secret).update(message).digest("hex")
+}
 
 export class PionexConnector extends BaseExchangeConnector {
   private getBaseUrl(): string {
@@ -49,7 +54,7 @@ export class PionexConnector extends BaseExchangeConnector {
       stringToSign += body
     }
 
-    return createHmac("sha256", this.credentials.apiSecret).update(stringToSign).digest("hex")
+    return createSignature(stringToSign, this.credentials.apiSecret)
   }
 
   async getBalance(): Promise<ExchangeConnectorResult> {

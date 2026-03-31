@@ -126,26 +126,44 @@ export class DataCleanupManager {
         }
       }
 
-      // Clean old coordination logs
+      // Clean old coordination logs (stored as JSON string arrays via SET, not sorted sets)
       const coordLogKeys = await client.keys("coord_logs:*")
       for (const key of coordLogKeys) {
-        const oldLogIds = await client.zrangebyscore(key, 0, positionCutoff)
-        for (const logId of oldLogIds) {
-          const connId = key.replace("coord_logs:", "")
-          await client.del(`coord_log:${connId}:${logId}`)
-        }
-        await client.zremrangebyscore(key, 0, positionCutoff)
+        try {
+          const raw = await client.get(key)
+          if (raw) {
+            const logs = JSON.parse(raw)
+            if (Array.isArray(logs)) {
+              const filtered = logs.filter((log: any) => {
+                const ts = new Date(log.timestamp || log.created_at || 0).getTime()
+                return ts > positionCutoff
+              })
+              if (filtered.length < logs.length) {
+                await client.set(key, JSON.stringify(filtered))
+              }
+            }
+          }
+        } catch { /* ignore parse errors - skip this key */ }
       }
 
-      // Clean old volume calculation logs
+      // Clean old volume calculation logs (stored as JSON string arrays via SET, not sorted sets)
       const volumeLogKeys = await client.keys("volume_calcs:*")
       for (const key of volumeLogKeys) {
-        const oldIds = await client.zrangebyscore(key, 0, positionCutoff)
-        for (const logId of oldIds) {
-          const connId = key.replace("volume_calcs:", "")
-          await client.del(`volume_calc:${connId}:${logId}`)
-        }
-        await client.zremrangebyscore(key, 0, positionCutoff)
+        try {
+          const raw = await client.get(key)
+          if (raw) {
+            const logs = JSON.parse(raw)
+            if (Array.isArray(logs)) {
+              const filtered = logs.filter((log: any) => {
+                const ts = new Date(log.timestamp || log.created_at || 0).getTime()
+                return ts > positionCutoff
+              })
+              if (filtered.length < logs.length) {
+                await client.set(key, JSON.stringify(filtered))
+              }
+            }
+          }
+        } catch { /* ignore parse errors - skip this key */ }
       }
 
       console.log(`[v0] Cleanup complete: archived ${archivedPositions} positions, cleaned ${cleanedMarketData} market data records`)

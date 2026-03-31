@@ -32,11 +32,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const client = getRedisClient()
     const engineState = await getSettings(`trade_engine_state:${connectionId}`)
     
-    // Also check global state
+    // Also check global state (stored as Redis HASH via hset, not a string)
     let globalState: any = {}
     try {
-      const globalStateStr = await client.get("trade_engine:global")
-      globalState = globalStateStr ? JSON.parse(globalStateStr) : {}
+      const globalStateData = await client.hgetall("trade_engine:global")
+      globalState = globalStateData && Object.keys(globalStateData).length > 0 ? globalStateData : {}
     } catch {
       globalState = {}
     }

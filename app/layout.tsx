@@ -1,11 +1,17 @@
-import type React from "react"
 import type { Metadata } from "next"
-import "./globals.css"
+import { Inter } from "next/font/google"
+// @ts-expect-error CSS import not typed
+import "@/app/globals.css"
+import { Providers } from "@/components/providers"
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "CTS v3 - Crypto Trading System",
-  description: "Advanced crypto trading system",
+  title: "CTS v3.2 Dashboard",
+  description: "Crypto Trading System Dashboard",
 }
+
+export const dynamic = "force-dynamic"
 
 export default function RootLayout({
   children,
@@ -13,9 +19,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning style={{ height: "100%" }}>
-      <body style={{ height: "100%", margin: "0", padding: "0", overflow: "auto", backgroundColor: "#fff" }}>
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   )

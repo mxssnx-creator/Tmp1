@@ -34,6 +34,7 @@ export interface ComponentHealth {
 export class TradeEngineManager {
   private connectionId: string
   private isRunning = false
+  private isStarting = false // Guard against concurrent start() calls
   private indicationTimer?: NodeJS.Timeout
   private strategyTimer?: NodeJS.Timeout
   private realtimeTimer?: NodeJS.Timeout
@@ -79,10 +80,11 @@ export class TradeEngineManager {
    * Start the trade engine
    */
   async start(config: EngineConfig): Promise<void> {
-    if (this.isRunning) {
-      console.log("[v0] Trade engine already running for connection:", this.connectionId)
+    if (this.isRunning || this.isStarting) {
+      console.log("[v0] Trade engine already running/starting for connection:", this.connectionId)
       return
     }
+    this.isStarting = true
 
     console.log(`[v0] [EngineManager] Starting trade engine for connection: ${this.connectionId}`)
     console.log(`[v0] [EngineManager] Config: indication=${config.indicationInterval}s, strategy=${config.strategyInterval}s, realtime=${config.realtimeInterval}s`)
@@ -267,6 +269,7 @@ export class TradeEngineManager {
       // Phase 6: Live trading ready - final phase update
       this.startHeartbeat()
       this.isRunning = true
+      this.isStarting = false
       this.startTime = new Date()
       
       // Final progression update - LIVE TRADING ACTIVE
@@ -315,9 +318,17 @@ export class TradeEngineManager {
       if (error instanceof Error) {
         console.error(`[v0] [EngineManager] Stack:`, error.stack)
       }
+      // CRITICAL: Clean up any timers that were already started before the error
+      if (this.indicationTimer) { clearInterval(this.indicationTimer); this.indicationTimer = undefined }
+      if (this.strategyTimer) { clearInterval(this.strategyTimer); this.strategyTimer = undefined }
+      if (this.realtimeTimer) { clearInterval(this.realtimeTimer); this.realtimeTimer = undefined }
+      if (this.healthCheckTimer) { clearInterval(this.healthCheckTimer); this.healthCheckTimer = undefined }
+      if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = undefined }
+      
       await this.updateProgressionPhase("error", 0, errorMsg)
       await this.updateEngineState("error", errorMsg)
       await this.setRunningFlag(false)
+      this.isStarting = false
       await logProgressionEvent(this.connectionId, "engine_error", "error", "Engine failed to start", {
         error: errorMsg,
         stack: error instanceof Error ? error.stack : undefined,
@@ -414,7 +425,9 @@ export class TradeEngineManager {
         const client = getRedisClient()
         for (const symbol of symbols) {
           await client.sadd(`prehistoric:${this.connectionId}:symbols`, symbol)
+          await client.expire(`prehistoric:${this.connectionId}:symbols`, 86400) // 24h TTL
           await client.set(`prehistoric:${this.connectionId}:${symbol}:loaded`, "true")
+          await client.expire(`prehistoric:${this.connectionId}:${symbol}:loaded`, 86400) // 24h TTL
         }
         console.log(`[v0] [Prehistoric] Stored ${symbols.length} symbols in Redis for dashboard`)
       } catch (e) {
@@ -580,11 +593,11 @@ export class TradeEngineManager {
           // Silently fail - non-critical for engine operation
         }
 
-        // Track intervals processed in Redis for dashboard display (every cycle)
+        // Track intervals processed in Redis for dashboard display (counter, not unbounded set)
         try {
           const client = getRedisClient()
-          const intervalId = `${this.connectionId}:${Date.now()}`
-          await client.sadd(`intervals:${this.connectionId}:processed`, intervalId)
+          await client.incr(`intervals:${this.connectionId}:processed_count`)
+          await client.expire(`intervals:${this.connectionId}:processed_count`, 86400) // 24h TTL
         } catch { /* ignore Redis errors */ }
 
         // Track detailed performance metrics
@@ -799,9 +812,9 @@ export class TradeEngineManager {
         }
       } catch (error) {
         errorCount++
-        this.componentHealth.strategies.errorCount++
-        console.error(`[v0] [StrategyProcessor] ERROR in cycle ${cycleCount}:`, error)
-        await logProgressionEvent(this.connectionId, "strategies", "error", `Processor error: ${error instanceof Error ? error.message : String(error)}`, {
+        this.componentHealth.realtime.errorCount++
+        console.error(`[v0] [RealtimeProcessor] ERROR in cycle ${cycleCount}:`, error)
+        await logProgressionEvent(this.connectionId, "realtime", "error", `Processor error: ${error instanceof Error ? error.message : String(error)}`, {
           errorType: error instanceof Error ? error.name : "unknown",
           cycleCount,
           errorCount,

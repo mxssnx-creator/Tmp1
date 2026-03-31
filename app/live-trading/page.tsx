@@ -4,380 +4,345 @@
 export const dynamic = "force-dynamic"
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TradingOverview } from "@/components/live-trading/trading-overview"
-import { TradeEngineProgression } from "@/components/live-trading/trade-engine-progression"
-import { PositionCard } from "@/components/live-trading/position-card"
-import type { TradingPosition, TradingStats, TimeRangeStats } from "@/lib/trading"
-import { TradingEngine } from "@/lib/trading"
-import { Activity, RefreshCw, BarChart3, History } from "lucide-react"
+import { PositionRowCompact } from "@/components/live-trading/position-row-compact"
+import { Activity, TrendingUp, TrendingDown, RefreshCw, Play, Pause, AlertCircle, BarChart3 } from "lucide-react"
 import { toast } from "@/lib/simple-toast"
 import { useExchange } from "@/lib/exchange-context"
-import { PageHeader } from "@/components/page-header"
+import { usePositionUpdates } from "@/lib/use-websocket"
+
+interface Position {
+  id: string
+  symbol: string
+  side: "LONG" | "SHORT"
+  entryPrice: number
+  currentPrice: number
+  quantity: number
+  leverage: number
+  unrealizedPnl: number
+  unrealizedPnlPercent: number
+  takeProfitPrice?: number
+  stopLossPrice?: number
+  createdAt: string
+  status: "open" | "closing" | "closed"
+}
 
 export default function LiveTradingPage() {
-  const { selectedExchange } = useExchange()
-  const [activeTab, setActiveTab] = useState("overview")
-  const [selectedConnection, setSelectedConnection] = useState<string>("")
-  const [tradingEngine] = useState(() => new TradingEngine())
-  const [openPositions, setOpenPositions] = useState<TradingPosition[]>([])
-  const [closedPositions, setClosedPositions] = useState<TradingPosition[]>([])
-  const [tradingStats, setTradingStats] = useState<TradingStats>({
-    total_positions: 0,
-    open_positions: 0,
-    closed_positions: 0,
-    total_volume: 0,
-    total_pnl: 0,
-    win_rate: 0,
-    avg_hold_time: 0,
-    largest_win: 0,
-    largest_loss: 0,
-    balance: 10000,
-    equity: 10000,
-    margin: 0,
-    free_margin: 10000,
-  })
-  const [timeRangeStats, setTimeRangeStats] = useState<{
-    "4h": TimeRangeStats
-    "12h": TimeRangeStats
-    "24h": TimeRangeStats
-    "48h": TimeRangeStats
-  }>({
-    "4h": { positions_count: 0, total_pnl: 0, win_rate: 0, avg_profit: 0, balance_change: 0 },
-    "12h": { positions_count: 0, total_pnl: 0, win_rate: 0, avg_profit: 0, balance_change: 0 },
-    "24h": { positions_count: 0, total_pnl: 0, win_rate: 0, avg_profit: 0, balance_change: 0 },
-    "48h": { positions_count: 0, total_pnl: 0, win_rate: 0, avg_profit: 0, balance_change: 0 },
-  })
-
-  // State to track if real connections exist
-  const [hasRealConnections, setHasRealConnections] = useState(false)
-  const [connections, setConnections] = useState<Array<{ id: string; name: string; is_enabled: boolean }>>([])
+  const { selectedConnectionId } = useExchange()
+  const [positions, setPositions] = useState<Position[]>([])
+  const [isDemo, setIsDemo] = useState(false)
   const [isEngineRunning, setIsEngineRunning] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [sortBy, setSortBy] = useState<"pnl" | "entry" | "time">("pnl")
+  const [filterSide, setFilterSide] = useState<"all" | "long" | "short">("all")
 
-  const handleStartEngine = async () => {
-    if (!selectedConnection) {
-      toast.error("Please select a connection")
-      return
-    }
-
-    try {
-      const response = await fetch("/api/trade-engine/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId: selectedConnection }),
-      })
-
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || "Failed to start engine")
-
-      setIsEngineRunning(true)
-      toast.success(`Trade engine started for ${result.connectionName}`)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to start trade engine")
-    }
-  }
-
-  const loadConnections = async () => {
-    try {
-      const url = selectedExchange 
-        ? `/api/settings/connections?enabled=true&exchange=${selectedExchange}`
-        : "/api/settings/connections?enabled=true"
-      
-      console.log("[v0] [Live Trading] Loading connections for exchange:", selectedExchange || "all")
-      const response = await fetch(url)
-      if (response.ok) {
-        const data = await response.json()
-        const connectionsList = data.connections || []
-        setConnections(connectionsList)
-        setHasRealConnections(connectionsList.length > 0)
-        
-        if (connectionsList.length > 0 && !selectedConnection) {
-          setSelectedConnection(connectionsList[0].id)
-        }
-      }
-    } catch (error) {
-      console.error("[v0] [Live Trading] Failed to load connections:", error)
-    }
-  }
-
+  // Load positions on mount and when connection changes
   useEffect(() => {
-    loadConnections()
-  }, [selectedExchange])
-
-  useEffect(() => {
-    if (!hasRealConnections) {
-      tradingEngine.generateMockPositions(selectedConnection, 25)
-      refreshData()
-
-      // Simulate real-time price updates
-      const interval = setInterval(() => {
-        const positions = tradingEngine.getOpenPositions(selectedConnection)
-        positions.forEach((position) => {
-          const priceChange = (Math.random() - 0.5) * 100
-          const newPrice = position.current_price + priceChange
-          tradingEngine.updatePositionPrice(position.id, Math.max(newPrice, 100))
-        })
-        refreshData()
-      }, 3000)
-
-      return () => clearInterval(interval)
-    } else {
-      console.log("[v0] Loading real trading data from connected exchanges")
-      
-      // Load real positions from API
-      const loadRealData = async () => {
-        try {
-          const response = await fetch(`/api/trading/positions?connectionId=${selectedConnection}`)
-          if (response.ok) {
-            const positions = await response.json()
-            console.log("[v0] Loaded", positions.length, "real positions")
-            const connectionPositions = positions.filter((p: any) => 
-              !selectedConnection || p.connection_id === selectedConnection
-            ) as TradingPosition[]
-            setOpenPositions(connectionPositions)
-          }
-        } catch (error) {
-          console.error("[v0] Failed to load real positions:", error)
-        }
-      }
-      
-      loadRealData()
-      const interval = setInterval(loadRealData, 5000) // Refresh every 5 seconds
-      return () => clearInterval(interval)
-    }
-  }, [selectedConnection, hasRealConnections])
-
-  const refreshData = async () => {
-    if (!hasRealConnections) {
-      const openPos = tradingEngine.getOpenPositions(selectedConnection)
-      const closedPos = tradingEngine.getClosedPositions(selectedConnection)
-      const stats = tradingEngine.getTradingStats(selectedConnection)
-
-      setOpenPositions(openPos)
-      setClosedPositions(closedPos)
-      setTradingStats(stats)
-
-      setTimeRangeStats({
-        "4h": tradingEngine.getTimeRangeStats(4, selectedConnection),
-        "12h": tradingEngine.getTimeRangeStats(12, selectedConnection),
-        "24h": tradingEngine.getTimeRangeStats(24, selectedConnection),
-        "48h": tradingEngine.getTimeRangeStats(48, selectedConnection),
-      })
-    } else {
+    const loadPositions = async () => {
+      setIsLoading(true)
       try {
-        console.log("[v0] Fetching real trading data from API")
-        
-        // Fetch positions
-        const posResponse = await fetch("/api/positions")
-        if (posResponse.ok) {
-          const positions = await posResponse.json()
-          console.log(`[v0] Fetched ${positions.length} real positions`)
-          // Filter to connection-specific positions if needed
-          const connectionPositions = positions.filter((p: any) => 
-            !selectedConnection || p.connection_id === selectedConnection
-          ) as TradingPosition[]
-          setOpenPositions(connectionPositions)
+        // Determine which connection to use (fallback to demo if none selected)
+        const connectionToUse = selectedConnectionId || "demo-mode"
+
+        const response = await fetch(`/api/data/positions?connectionId=${encodeURIComponent(connectionToUse)}`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch positions: ${response.statusText}`)
         }
-        
-        // Fetch stats
-        const statsResponse = await fetch("/api/trading/stats")
-        if (statsResponse.ok) {
-          const stats = await statsResponse.json()
-          console.log("[v0] Fetched real trading stats:", stats)
-          setTradingStats(stats)
+
+        const data = await response.json()
+        if (data.success) {
+          setPositions(data.data || [])
+          setIsDemo(data.isDemo)
+        } else {
+          throw new Error(data.error || "Unknown error")
         }
       } catch (error) {
-        console.error("[v0] Failed to fetch real trading data:", error)
+        console.error("[Live Trading] Failed to load:", error)
+        toast.error("Failed to load positions")
+        setPositions([])
+      } finally {
+        setIsLoading(false)
       }
     }
-  }
 
-  const handleClosePosition = async (positionId: string) => {
-    const closed = await tradingEngine.closePosition(positionId)
-    if (closed) {
-      toast.success(`Position ${closed.symbol} closed with P&L: $${closed.profit_loss.toFixed(2)}`)
-      refreshData()
+    loadPositions()
+  }, [selectedConnectionId])
+
+  // Handle real-time position updates via SSE
+  const handlePositionUpdate = useCallback((update: any) => {
+    setPositions((prev) => {
+      // Find existing position and update it, or add new one
+      const existingIndex = prev.findIndex((p) => p.id === update.id)
+      if (existingIndex >= 0) {
+        // Update existing position
+        const updated = [...prev]
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          currentPrice: update.currentPrice,
+          unrealizedPnl: update.unrealizedPnl,
+          unrealizedPnlPercent: update.unrealizedPnlPercent,
+          status: update.status || updated[existingIndex].status,
+        }
+        return updated
+      } else {
+        // Add new position if not in demo mode
+        if (!isDemo) {
+          return [
+            ...prev,
+            {
+              id: update.id,
+              symbol: update.symbol,
+              side: 'LONG',
+              entryPrice: update.currentPrice,
+              currentPrice: update.currentPrice,
+              quantity: 1,
+              leverage: 1,
+              unrealizedPnl: 0,
+              unrealizedPnlPercent: 0,
+              createdAt: new Date().toISOString(),
+              status: update.status || 'open',
+            },
+          ]
+        }
+        return prev
+      }
+    })
+  }, [isDemo])
+
+  // Subscribe to position updates via SSE
+  useEffect(() => {
+    if (!selectedConnectionId || selectedConnectionId === 'demo-mode') return
+    
+    usePositionUpdates(selectedConnectionId, handlePositionUpdate)
+  }, [selectedConnectionId, handlePositionUpdate])
+
+  // Simulate real-time price updates (fallback for demo mode)
+  useEffect(() => {
+    if (!isEngineRunning) return
+
+    const interval = setInterval(() => {
+      setPositions((prev) =>
+        prev.map((pos) => {
+          const priceChange = (Math.random() - 0.5) * 50
+          const newPrice = Math.max(1, pos.currentPrice + priceChange)
+          const newPnl = (newPrice - pos.entryPrice) * pos.quantity * pos.leverage
+          const newPnlPercent = ((newPrice - pos.entryPrice) / pos.entryPrice) * 100
+
+          return {
+            ...pos,
+            currentPrice: newPrice,
+            unrealizedPnl: newPnl,
+            unrealizedPnlPercent: newPnlPercent,
+          }
+        })
+      )
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [isEngineRunning])
+
+  // Apply filters and sorting
+  const filteredAndSortedPositions = useMemo(() => {
+    let result = [...positions]
+
+    // Filter by side
+    if (filterSide !== "all") {
+      result = result.filter((p) => p.side.toLowerCase() === filterSide)
     }
-  }
 
-  const handleCloseProfitablePositions = async () => {
-    const closed = await tradingEngine.closeProfitablePositions(selectedConnection)
-    toast.success(`Closed ${closed.length} profitable positions`)
-    refreshData()
-  }
+    // Sort
+    switch (sortBy) {
+      case "pnl":
+        result.sort((a, b) => b.unrealizedPnl - a.unrealizedPnl)
+        break
+      case "entry":
+        result.sort((a, b) => b.entryPrice - a.entryPrice)
+        break
+      case "time":
+        result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        break
+    }
 
-  const handleCloseAllPositions = async () => {
-    const closed = await tradingEngine.closeAllPositions(selectedConnection)
-    toast.success(`Closed ${closed.length} positions`)
-    refreshData()
+    return result
+  }, [positions, sortBy, filterSide])
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const total = positions.length
+    const longs = positions.filter((p) => p.side === "LONG").length
+    const shorts = positions.filter((p) => p.side === "SHORT").length
+    const totalPnl = positions.reduce((sum, p) => sum + p.unrealizedPnl, 0)
+    const profitablePositions = positions.filter((p) => p.unrealizedPnl > 0).length
+    const totalCapital = positions.reduce((sum, p) => sum + p.entryPrice * p.quantity, 0)
+
+    return { total, longs, shorts, totalPnl, profitablePositions, totalCapital }
+  }, [positions])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border border-slate-600 border-t-cyan-400 mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading positions...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      {/* Real Trading Status Banner */}
-      {hasRealConnections && (
-        <div className="sticky top-0 z-50 w-full bg-gradient-to-r from-green-900/20 to-emerald-900/20 border-b border-green-700/30 px-4 py-3">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-              <div className="space-y-0.5">
-                <p className="text-sm font-semibold text-green-300">Real Trading Active</p>
-                <p className="text-xs text-green-300/70">
-                  {connections.filter(c => c.is_enabled).length} enabled connection(s) • {isEngineRunning ? "Engine Running" : "Ready to Start"}
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={handleStartEngine}
-              disabled={!selectedConnection || isEngineRunning}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              size="sm"
-            >
-              {isEngineRunning ? "Engine Running" : "Start Engine"}
-            </Button>
+    <div className="space-y-4 p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Live Trading</h1>
+          <p className="text-xs text-slate-400 mt-1">Real-time position monitoring and management</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={isEngineRunning ? "default" : "outline"}
+            size="sm"
+            onClick={() => setIsEngineRunning(!isEngineRunning)}
+            className="h-8 text-xs"
+          >
+            {isEngineRunning ? (
+              <>
+                <Pause className="h-3 w-3 mr-1" />
+                Stop Simulation
+              </>
+            ) : (
+              <>
+                <Play className="h-3 w-3 mr-1" />
+                Start Simulation
+              </>
+            )}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="h-8 text-xs">
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Engine status */}
+      {isEngineRunning && (
+        <div className="bg-green-500/10 border border-green-500/20 rounded p-3">
+          <div className="flex items-center gap-2 text-sm">
+            <Activity className="h-4 w-4 text-green-400 animate-pulse flex-shrink-0" />
+            <span className="text-green-200">Live trading engine running - prices updating in real-time</span>
           </div>
         </div>
       )}
 
-      {/* Page Content */}
-      <div className="container mx-auto p-6 space-y-6">
-        {!hasRealConnections && (
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
-            <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-yellow-500" />
-              <div>
-                <div className="font-semibold text-yellow-900 dark:text-yellow-100">Using Mock Data</div>
-                <div className="text-sm text-yellow-700 dark:text-yellow-300">
-                  No active exchange connections found. Enable a connection in Settings to see real trading data.
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+        {[
+          { icon: BarChart3, label: "Open", value: stats.total, color: "text-blue-400" },
+          { icon: TrendingUp, label: "Long", value: stats.longs, color: "text-green-400" },
+          { icon: TrendingDown, label: "Short", value: stats.shorts, color: "text-red-400" },
+          { icon: Activity, label: "Profitable", value: stats.profitablePositions, color: "text-yellow-400" },
+          { icon: AlertCircle, label: "Total PnL", value: stats.totalPnl.toFixed(2) + " USDT", color: stats.totalPnl >= 0 ? "text-green-400" : "text-red-400" },
+          { icon: BarChart3, label: "Capital", value: "$" + (stats.totalCapital / 1000).toFixed(0) + "k", color: "text-cyan-400" },
+        ].map((stat) => (
+          <Card key={stat.label} className="border-slate-700/50 bg-slate-900/30">
+            <CardContent className="p-2">
+              <div className="flex items-center gap-2">
+                <stat.icon className={`h-3 w-3 ${stat.color}`} />
+                <div className="min-w-0">
+                  <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
+                  <div className="text-xs text-slate-500">{stat.label}</div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Live Trading</h1>
-            <p className="text-muted-foreground">Monitor active positions and trading activity</p>
+      {/* Filters and controls */}
+      <div className="flex items-center justify-between text-xs px-3 py-2 bg-slate-900/30 rounded border border-slate-700/50">
+        <div className="text-slate-400">
+          Showing <span className="font-semibold text-cyan-400">{filteredAndSortedPositions.length}</span> positions
+        </div>
+        <div className="flex gap-2">
+          <div className="flex gap-1">
+            <Button
+              variant={filterSide === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterSide("all")}
+              className="h-7 text-xs"
+            >
+              All
+            </Button>
+            <Button
+              variant={filterSide === "long" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterSide("long")}
+              className="h-7 text-xs"
+            >
+              Long
+            </Button>
+            <Button
+              variant={filterSide === "short" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterSide("short")}
+              className="h-7 text-xs"
+            >
+              Short
+            </Button>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Connection</label>
-              <Select value={selectedConnection} onValueChange={setSelectedConnection}>
-                <SelectTrigger className="w-72">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {connections.map((conn) => (
-                    <SelectItem key={conn.id} value={conn.id}>
-                      <div className="flex items-center gap-2">
-                        {conn.is_enabled && <div className="w-2 h-2 bg-green-500 rounded-full" />}
-                        {conn.name}
-                        {!conn.is_enabled && <span className="text-xs text-muted-foreground">(Mock)</span>}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={refreshData} variant="outline" size="sm" className="mt-5 bg-transparent">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+          <div className="border-l border-slate-700 pl-2 flex gap-1">
+            <Button
+              variant={sortBy === "pnl" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSortBy("pnl")}
+              className="h-7 text-xs"
+            >
+              PnL
+            </Button>
+            <Button
+              variant={sortBy === "entry" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSortBy("entry")}
+              className="h-7 text-xs"
+            >
+              Entry
+            </Button>
+            <Button
+              variant={sortBy === "time" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSortBy("time")}
+              className="h-7 text-xs"
+            >
+              Time
             </Button>
           </div>
         </div>
-
-        {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="positions" className="flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Open Positions ({openPositions.length})
-            </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center gap-2">
-              <History className="h-4 w-4" />
-              Position History
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Activity
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
-            <TradingOverview
-              stats={tradingStats}
-              timeRangeStats={timeRangeStats}
-              onCloseProfitablePositions={handleCloseProfitablePositions}
-              onCloseAllPositions={handleCloseAllPositions}
-            />
-          </TabsContent>
-
-          <TabsContent value="positions" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Open Positions ({openPositions.length})</h2>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleCloseProfitablePositions}>
-                  Close Profitable
-                </Button>
-                <Button variant="destructive" onClick={handleCloseAllPositions}>
-                  Close All
-                </Button>
-              </div>
-            </div>
-
-            {openPositions.length === 0 ? (
-              <div className="text-center py-12">
-                <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Open Positions</h3>
-                <p className="text-muted-foreground">All positions are currently closed or no trading activity.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {openPositions.map((position) => (
-                  <PositionCard
-                    key={position.id}
-                    position={position}
-                    onClose={handleClosePosition}
-                    showCloseButton={true}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="history" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Position History ({closedPositions.length})</h2>
-              <p className="text-sm text-muted-foreground">Last 50 closed positions</p>
-            </div>
-
-            {closedPositions.length === 0 ? (
-              <div className="text-center py-12">
-                <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Trading History</h3>
-                <p className="text-muted-foreground">No closed positions found for this connection.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {closedPositions.map((position) => (
-                  <PositionCard key={position.id} position={position} showCloseButton={false} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="activity" className="space-y-6">
-            <TradeEngineProgression />
-          </TabsContent>
-        </Tabs>
       </div>
-    </main>
+
+      {/* Positions list */}
+      <div className="space-y-1.5 max-h-[calc(100vh-350px)] overflow-y-auto">
+        {filteredAndSortedPositions.length > 0 ? (
+          filteredAndSortedPositions.map((position, index) => (
+            <PositionRowCompact
+              key={position.id}
+              position={position}
+              onClose={(id) => {
+                setPositions((prev) => prev.filter((p) => p.id !== id))
+                toast.success("Position closed")
+              }}
+              onModify={(id) => {
+                toast.info("Position modification UI would open here")
+              }}
+              index={index}
+            />
+          ))
+        ) : (
+          <div className="text-center py-12 text-slate-500">
+            <div className="text-sm">No positions found</div>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

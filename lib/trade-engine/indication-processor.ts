@@ -206,7 +206,7 @@ export class IndicationProcessor {
    */
   async processIndication(symbol: string): Promise<any[]> {
     try {
-      const marketData = await this.getLatestMarketDataCached(symbol)
+      let marketData = await this.getLatestMarketDataCached(symbol)
       if (!marketData) {
         // Try to load market data if not available
         const redis = await getRedisHelpers()
@@ -224,7 +224,7 @@ export class IndicationProcessor {
         }
         console.log(`[v0] [IndicationProcessor] Market data loaded on-demand for ${symbol}`)
         // Continue with the loaded market data
-        const marketData = retryMarketData
+        marketData = retryMarketData
       }
 
       // Market data is a single candle object with fields: price, open, high, low, close, volume, timestamp

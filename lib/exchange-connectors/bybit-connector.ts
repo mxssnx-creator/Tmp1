@@ -1,6 +1,11 @@
-import { createHmac } from "crypto"
 import { BaseExchangeConnector, type ExchangeConnectorResult } from "./base-connector"
 import { safeParseResponse } from "@/lib/safe-response-parser"
+
+// Helper function to create HMAC signatures
+function createSignature(message: string, secret: string): string {
+  const crypto = require("crypto")
+  return crypto.createHmac("sha256", secret).update(message).digest("hex")
+}
 
 /**
  * Bybit Exchange Connector (V5 Unified API)
@@ -83,7 +88,7 @@ export class BybitConnector extends BaseExchangeConnector {
     try {
       const recvWindow = "5000"
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       this.log("Fetching account balance...")
       const accountType = this.getEffectiveAccountType()
@@ -179,7 +184,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/create?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -219,7 +224,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/cancel?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -252,7 +257,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const category = this.credentials.apiType === "spot" ? "spot" : "linear"
 
       const queryString = `api_key=${this.credentials.apiKey}&category=${category}&orderId=${orderId}&recv_window=${recvWindow}&symbol=${symbol}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/realtime?${queryString}&sign=${signature}`)
 
@@ -284,7 +289,7 @@ export class BybitConnector extends BaseExchangeConnector {
         queryString += `&symbol=${symbol}`
       }
 
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/realtime?${queryString}&sign=${signature}`)
 
@@ -316,7 +321,7 @@ export class BybitConnector extends BaseExchangeConnector {
         queryString += `&symbol=${symbol}`
       }
 
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/order/history?${queryString}&sign=${signature}`)
 
@@ -353,7 +358,7 @@ export class BybitConnector extends BaseExchangeConnector {
         queryString += `&symbol=${symbol}`
       }
 
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/list?${queryString}&sign=${signature}`)
 
@@ -402,7 +407,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/set-leverage?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -459,7 +464,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&coin=${coin}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/asset/deposit/query-address?${queryString}&sign=${signature}`)
 
@@ -496,7 +501,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/asset/withdraw/create?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -530,7 +535,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&limit=${limit}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/asset/transfer/query-inter-transfer-list?${queryString}&sign=${signature}`)
 
@@ -564,7 +569,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/set-leverage?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -602,7 +607,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/switch-mode?${queryString}&sign=${signature}`, {
         method: "POST",
@@ -639,7 +644,7 @@ export class BybitConnector extends BaseExchangeConnector {
       const recvWindow = "5000"
 
       const queryString = `api_key=${this.credentials.apiKey}&recv_window=${recvWindow}&timestamp=${timestamp}`
-      const signature = createHmac("sha256", this.credentials.apiSecret).update(queryString).digest("hex")
+      const signature = createSignature(queryString, this.credentials.apiSecret)
 
       const response = await this.rateLimitedFetch(`${baseUrl}/v5/position/switch-mode?${queryString}&sign=${signature}`, {
         method: "POST",

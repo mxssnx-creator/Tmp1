@@ -15,31 +15,6 @@ export default function HomePage() {
 
   return (
     <div style={{ 
-      display: "flex", 
-      justifyContent: "center", 
-      alignItems: "center", 
-      minHeight: "100vh",
-      backgroundColor: "#f5f5f5"
-    }}>
-      <div style={{ textAlign: "center" }}>
-        <div style={{
-          width: "40px",
-          height: "40px",
-          border: "3px solid #e0e0e0",
-          borderTop: "3px solid #3b82f6",
-          borderRadius: "50%",
-          animation: "spin 1s linear infinite",
-          margin: "0 auto 16px"
-        }} />
-        <h1 style={{ fontSize: "24px", fontWeight: "600", color: "#333" }}>
-          Loading CTS Dashboard...
-        </h1>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-    <div style={{
       minHeight: "100vh",
       display: "flex",
       alignItems: "center",
@@ -57,22 +32,6 @@ export default function HomePage() {
           Crypto Trading System - Professional Multi-Strategy Platform
         </p>
         <a
-          href="/"
-          style={{
-            display: "inline-block",
-            backgroundColor: "#0ea5e9",
-            color: "#fff",
-            padding: "12px 32px",
-            borderRadius: "8px",
-            textDecoration: "none",
-            fontWeight: "bold",
-            marginTop: "20px",
-            marginRight: "10px"
-          }}
-        >
-          Dashboard
-        </a>
-        <a
           href="/live-trading"
           style={{
             display: "inline-block",
@@ -88,6 +47,11 @@ export default function HomePage() {
           Launch Trading
         </a>
       </div>
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }

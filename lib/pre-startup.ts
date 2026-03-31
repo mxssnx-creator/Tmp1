@@ -17,6 +17,32 @@ async function getExchangeConnectorFactory() {
   const { createExchangeConnector } = await import("@/lib/exchange-connectors")
   return createExchangeConnector
 }
+
+// Market data seeding constants
+const symbols = [
+  "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT",
+  "DOGEUSDT", "LINKUSDT", "LITUSDT", "THETAUSDT", "AVAXUSDT",
+  "MATICUSDT", "SOLUSDT", "UNIUSDT", "APTUSDT", "ARBUSDT"
+]
+
+const basePrices: Record<string, number> = {
+  BTCUSDT: 42000,
+  ETHUSDT: 2500,
+  BNBUSDT: 600,
+  XRPUSDT: 2.5,
+  ADAUSDT: 0.9,
+  DOGEUSDT: 0.35,
+  LINKUSDT: 18,
+  LITUSDT: 120,
+  THETAUSDT: 2,
+  AVAXUSDT: 45,
+  MATICUSDT: 1.2,
+  SOLUSDT: 180,
+  UNIUSDT: 15,
+  APTUSDT: 12,
+  ARBUSDT: 2.8
+}
+
 let ran = false
 
 function shouldRunPreStartup(): boolean {
@@ -27,6 +53,13 @@ function shouldRunPreStartup(): boolean {
     VERCEL: process.env.VERCEL,
     VERCEL_ENV: process.env.VERCEL_ENV
   })
+  
+  return process.env.NEXT_RUNTIME === "nodejs" && !ran
+}
+
+async function seedMarketData() {
+  let totalDataPoints = 0
+  let seededCount = 0
   
   for (const symbol of symbols) {
     try {

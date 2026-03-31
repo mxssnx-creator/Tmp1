@@ -211,18 +211,27 @@ export function startPeriodicConnectionTesting() {
     return
   }
   
-  if (process.env.NEXT_RUNTIME !== "nodejs") return false
-  if (process.env.NODE_ENV === "development") return false
-  if (process.env.NEXT_PHASE?.includes("development")) return false
-  if (process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production") return false
+  if (process.env.NEXT_RUNTIME !== "nodejs") return
+  if (process.env.NODE_ENV === "development") return
+  if (process.env.NEXT_PHASE?.includes("development")) return
+  if (process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production") return
   
-  // Skip in ANY production environment to avoid server-only import issues
+  // Skip in production to avoid server-only import issues
   if (process.env.NODE_ENV === "production") {
-    console.log("[v0] Skipping pre-startup in production to avoid server-only import issues")
-    return false
+    console.log("[v0] Skipping periodic testing in production")
+    return
   }
   
-  return true
+  console.log("[v0] [Periodic] Starting connection testing interval...")
+  intervalStore.__cts_connection_testing_interval = setInterval(() => {
+    const date = new Date().toISOString()
+    console.log(`[v0] [Periodic] [${date}] Running scheduled connection tests...`)
+    testAllExchangeConnections().then(results => {
+      console.log(`[v0] [Periodic] [${date}] Completed: ${results.tested} tested, ${results.passed} passed, ${results.failed} failed`)
+    }).catch(err => {
+      console.warn(`[v0] [Periodic] [${date}] Error during testing:`, err)
+    })
+  }, 5 * 60 * 1000) // Every 5 minutes
 }
 
 export async function runPreStartup() {
@@ -283,21 +292,14 @@ export async function runPreStartup() {
     const testResults = await testAllExchangeConnections()
     console.log(`[v0] [7/10] ✓ Connection testing done: ${testResults?.passed || 0} passed, ${testResults?.failed || 0} failed`)
     
-    console.log("[v0] [8/10] Starting Global Trade Engine Coordinator...")
-    await autoStartGlobalEngine()
-    console.log("[v0] [8/10] ✓ Global Trade Engine Coordinator running")
-    
-    console.log("[v0] [9/10] Initializing Trade Engines for active connections...")
-    // Use coordinator's unified startAll() which includes auto-enable logic
+    console.log("[v0] [8/10] Initializing Trade Engine Coordinator...")
     const coordinator = getGlobalTradeEngineCoordinator()
-    await coordinator.startAll()
-    console.log("[v0] [9/10] ✓ Trade Engines initialized and auto-start activated")
+    console.log("[v0] [8/10] ✓ Global Trade Engine Coordinator initialized")
     
-    console.log("[v0] [10/10] Starting periodic connection monitoring...")
+    console.log("[v0] [9/10] Starting periodic connection monitoring...")
     startPeriodicConnectionTesting()
-    console.log("[v0] [10/10] ✓ Periodic testing active (every 5 minutes)")
+    console.log("[v0] [9/10] ✓ Periodic testing active (every 5 minutes)")
     
-    console.log("[v0] [1/1] ✓ Redis initialized")
     console.log("[v0] ==========================================")
     console.log("[v0] PRE-STARTUP COMPLETE - SAFE MODE")
     console.log("[v0] ==========================================")
@@ -307,8 +309,4 @@ export async function runPreStartup() {
     console.error("[v0]", error)
     console.error("[v0] ==========================================")
   }
-}
-
-export function startPeriodicConnectionTesting() {
-  console.log("[v0] Periodic connection testing disabled in safe bootstrap mode")
 }

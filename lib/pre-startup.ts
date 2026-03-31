@@ -209,6 +209,8 @@ export function startPeriodicConnectionTesting() {
   if (intervalStore.__cts_connection_testing_interval) {
     console.log("[v0] [Periodic] Connection testing already active - skipping duplicate start")
     return
+  }
+  
   if (process.env.NEXT_RUNTIME !== "nodejs") return false
   if (process.env.NODE_ENV === "development") return false
   if (process.env.NEXT_PHASE?.includes("development")) return false

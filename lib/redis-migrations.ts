@@ -599,11 +599,12 @@ const migrations: Migration[] = [
         if (!connData || Object.keys(connData).length === 0) continue
         
         if (baseExchangeIds.includes(connId)) {
-          // Base connection: ensure proper state
+          // Base connection: ensure proper state in BASE connections only
+          // NOTE: is_active_inserted is NOT set here - user must explicitly assign to main
           await client.hset(`connection:${connId}`, {
             is_inserted: "1",
             is_enabled: "1",
-            is_active_inserted: "1",
+            is_active_inserted: "0",      // NOT auto-assigned to main - user must explicitly do this
             is_enabled_dashboard: "0",    // UI toggle OFF by default
             is_active: "0",
             is_predefined: "1",
@@ -633,6 +634,133 @@ const migrations: Migration[] = [
     },
     down: async (client: any) => {
       await client.set("_schema_version", "16")
+    },
+  },
+  {
+    name: "018-remove-auto-assignment-from-main-connections",
+    version: 18,
+    up: async (client: any) => {
+      await client.set("_schema_version", "18")
+      
+      // Fix: Remove auto-assignment from main connections
+      // Connections should only be in main if user explicitly assigned them
+      const connections = await client.smembers("connections")
+      let fixed = 0
+      
+      for (const connId of connections) {
+        const connData = await client.hgetall(`connection:${connId}`)
+        if (!connData || Object.keys(connData).length === 0) continue
+        
+        // If connection has is_active_inserted="1" but no explicit user action,
+        // reset it to NOT assigned to main connections
+        // Only keep assignment if dashboard is enabled (user intent)
+        const isDashboardEnabled = connData.is_enabled_dashboard === "1" || connData.is_enabled_dashboard === "true"
+        const isActiveInserted = connData.is_active_inserted === "1" || connData.is_active_inserted === "true"
+        
+        if (isActiveInserted && !isDashboardEnabled) {
+          // Reset to not assigned - user must explicitly add to main
+          await client.hset(`connection:${connId}`, {
+            is_active_inserted: "0",
+            updated_at: new Date().toISOString(),
+          })
+          fixed++
+          console.log(`[v0] Migration 018: ✓ ${connId} -> removed auto-assignment (dashboard not enabled)`)
+        }
+      }
+      
+      console.log(`[v0] Migration 018: COMPLETE - fixed ${fixed} connections that were auto-assigned`)
+    },
+    down: async (client: any) => {
+      await client.set("_schema_version", "17")
+    },
+  },
+  {
+    name: "020-phase3-database-consolidation",
+    version: 20,
+    up: async (client: any) => {
+      await client.set("_schema_version", "20")
+      
+      console.log(`[v0] Migration 020: PHASE 3 - Database consolidation starting...`)
+      
+      // PHASE 3 FIX: Consolidate progression keys
+      const connections = await client.smembers("connections")
+      let consolidated = 0
+      
+      for (const connId of connections) {
+        try {
+          // Read from old scattered keys
+          const oldProgression = await client.hgetall(`progression:${connId}`)
+          const oldEngineState = await client.hgetall(`engine_state:${connId}`)
+          const oldTradeEngineState = await client.hgetall(`trade_engine_state:${connId}`)
+          
+          // Build unified structure
+          const unified = {
+            cycles_completed: oldProgression?.cycles_completed || "0",
+            successful_cycles: oldProgression?.successful_cycles || "0",
+            failed_cycles: oldProgression?.failed_cycles || "0",
+            phase: oldProgression?.phase || oldTradeEngineState?.phase || "idle",
+            phase_progress: oldProgression?.progress || oldEngineState?.progress || "0",
+            phase_message: oldProgression?.detail || oldEngineState?.detail || "",
+            engine_started: oldEngineState?.started_at || oldTradeEngineState?.started_at || "",
+            last_cycle: oldProgression?.last_cycle || "",
+            last_indication_count: oldProgression?.indication_count || "0",
+            last_strategy_count: oldProgression?.strategy_count || "0",
+            symbols_count: oldTradeEngineState?.symbols_count || "0",
+            updated_at: new Date().toISOString(),
+          }
+          
+          // Write unified structure
+          await client.hset(`progression:${connId}`, unified)
+          
+          // Set TTL on old keys for backward compatibility (24 hours)
+          await client.expire(`progression:${connId}:cycles`, 86400)
+          await client.expire(`progression:${connId}:indications`, 86400)
+          await client.expire(`engine_state:${connId}`, 86400)
+          
+          consolidated++
+        } catch (e) {
+          console.warn(`[v0] Migration 020: Error consolidating ${connId}:`, e)
+        }
+      }
+      
+      // PHASE 3 FIX: Create connection indexes
+      // Index 1: Main enabled connections
+      for (const connId of connections) {
+        const connData = await client.hgetall(`connection:${connId}`)
+        const isAssigned = connData?.is_assigned === "1" || connData?.is_assigned === "true"
+        const isDashboardEnabled = connData?.is_enabled_dashboard === "1" || connData?.is_enabled_dashboard === "true"
+        
+        if (isAssigned && isDashboardEnabled) {
+          await client.sadd("connections:main:enabled", connId)
+        }
+        
+        // Index 2: Exchange-specific
+        if (connData?.exchange) {
+          await client.sadd(`connections:exchange:${connData.exchange.toLowerCase()}`, connId)
+        }
+        
+        // Index 3: Base enabled
+        const isInserted = connData?.is_inserted === "1" || connData?.is_inserted === "true"
+        const isBaseEnabled = connData?.is_enabled === "1" || connData?.is_enabled === "true"
+        
+        if (isInserted && isBaseEnabled) {
+          await client.sadd("connections:base:enabled", connId)
+        }
+        
+        // Index 4: Working connections
+        if (connData?.last_test_status === "success") {
+          await client.sadd("connections:working", connId)
+        }
+      }
+      
+      console.log(`[v0] Migration 020: ✓ Consolidated ${consolidated} progression structures`)
+      console.log(`[v0] Migration 020: ✓ Created ${connections.length} connection indexes`)
+      console.log(`[v0] Migration 020: COMPLETE - Database consolidation done`)
+    },
+    down: async (client: any) => {
+      // Note: Rollback is not implemented for this migration (destructive)
+      // Users should restore from backup if needed
+      await client.set("_schema_version", "18")
     },
   },
 ]

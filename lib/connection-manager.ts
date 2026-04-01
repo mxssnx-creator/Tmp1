@@ -56,7 +56,7 @@ export class ConnectionManager {
           id: conn.id,
           name: conn.name,
           exchange: conn.exchange,
-          status: conn.is_enabled ? "active" : "inactive",
+          status: (conn.is_enabled === "1" || conn.is_enabled === true) ? "active" : "inactive",
           enabled: conn.is_enabled === "1" || conn.is_enabled === true,
           testPassed: conn.last_test_status === "success",
           lastTestTime: conn.last_test_at ? new Date(conn.last_test_at) : undefined,
@@ -99,10 +99,10 @@ export class ConnectionManager {
         throw new Error(`Connection not found: ${id}`)
       }
 
-      // Update Redis
+      // Update Redis - only change is_enabled if explicitly provided
       const updatedConnection: any = {
         ...connection,
-        is_enabled: updates.enabled ? "1" : "0",
+        ...(updates.enabled !== undefined ? { is_enabled: updates.enabled ? "1" : "0" } : {}),
         updated_at: new Date().toISOString(),
       }
 

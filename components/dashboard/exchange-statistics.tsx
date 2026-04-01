@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -13,7 +13,7 @@ interface ExchangeStatisticsProps {
   connectionName: string
 }
 
-export function ExchangeStatistics({ connectionId, connectionName }: ExchangeStatisticsProps) {
+const ExchangeStatisticsComponent = ({ connectionId, connectionName }: ExchangeStatisticsProps) => {
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -239,3 +239,5 @@ export function ExchangeStatistics({ connectionId, connectionName }: ExchangeSta
     </div>
   )
 }
+
+export const ExchangeStatistics = memo(ExchangeStatisticsComponent)

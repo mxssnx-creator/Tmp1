@@ -188,6 +188,18 @@ export class InlineLocalRedis {
     this.setKeyTTL(key, seconds)
   }
 
+  async incr(key: string): Promise<number> {
+    this.trackOperation()
+    if (this.isExpired(key)) {
+      this.data.strings.set(key, "1")
+      return 1
+    }
+    const current = parseInt(this.data.strings.get(key) || "0", 10)
+    const newValue = current + 1
+    this.data.strings.set(key, String(newValue))
+    return newValue
+  }
+
   async del(...keys: string[]): Promise<number> {
     this.trackOperation()
     let count = 0
@@ -468,6 +480,59 @@ export class InlineLocalRedis {
     return before - remaining.length
   }
 
+  /**
+   * Track database write operations for per-minute limit enforcement
+   * Uses a sliding 60-second window stored in memory
+   * Returns: { current: count, limit: max_allowed, exceeded: boolean }
+   */
+  async trackDatabaseOperation(limit: number): Promise<{ current: number; limit: number; exceeded: boolean }> {
+    const globalTracker = globalThis as unknown as { __db_ops_tracker?: { timestamp: number; count: number } }
+    const now = Date.now()
+    
+    // Initialize tracker on first call
+    if (!globalTracker.__db_ops_tracker) {
+      globalTracker.__db_ops_tracker = { timestamp: now, count: 0 }
+    }
+    
+    const tracker = globalTracker.__db_ops_tracker
+    const windowStart = now - 60000 // 60 second window in milliseconds
+    
+    // Reset counter if window has expired (new minute)
+    if (tracker.timestamp < windowStart) {
+      tracker.timestamp = now
+      tracker.count = 0
+    }
+    
+    // Increment operation count
+    tracker.count++
+    tracker.timestamp = now
+    
+    // Return current status
+    return {
+      current: tracker.count,
+      limit: limit,
+      exceeded: limit > 0 && tracker.count > limit,
+    }
+  }
+
+  /**
+   * Get current per-minute operation count
+   */
+  async getDatabaseOperationCount(): Promise<number> {
+    const globalTracker = globalThis as unknown as { __db_ops_tracker?: { timestamp: number; count: number } }
+    if (!globalTracker.__db_ops_tracker) return 0
+    
+    const now = Date.now()
+    const windowStart = now - 60000
+    
+    // If window has expired, count is 0
+    if (globalTracker.__db_ops_tracker.timestamp < windowStart) {
+      return 0
+    }
+    
+    return globalTracker.__db_ops_tracker.count
+  }
+
   async load(): Promise<void> {
     // No-op: data is already in global memory
   }
@@ -476,6 +541,7 @@ export class InlineLocalRedis {
 let redisInstance: InlineLocalRedis | null = null
 let isConnected = false
 let connectionsInitialized = false
+let migrationsRan = false
 
 export async function initRedis(): Promise<void> {
   if (isConnected) return
@@ -491,6 +557,20 @@ export async function initRedis(): Promise<void> {
   const pong = await redisInstance.ping()
   if (pong === "PONG") {
     console.log("[v0] [Redis] Connection test successful")
+  }
+
+  // Run migrations on first connection (lazy initialization)
+  if (!migrationsRan) {
+    try {
+      migrationsRan = true
+      console.log("[v0] [Redis] Running migrations...")
+      const { runMigrations } = await import("@/lib/redis-migrations")
+      await runMigrations()
+      console.log("[v0] [Redis] ✓ Migrations completed")
+    } catch (error) {
+      console.error("[v0] [Redis] Migration error (continuing anyway):", error)
+      migrationsRan = true // Prevent retry loop
+    }
   }
 
   // NOTE: Do NOT initialize user-created connections here
@@ -621,6 +701,14 @@ export async function saveMarketData(symbol: string, data: any): Promise<void> {
 
 export async function getMarketData(symbol: string): Promise<any | null> {
   const client = getClient()
+  
+  // Priority 1: Check hash format (used by market-data-loader.ts via hmset)
+  const hashData = await client.hgetall(`market_data:${symbol}`)
+  if (hashData && Object.keys(hashData).length > 0) {
+    return hashData
+  }
+  
+  // Priority 2: Check string format (fallback for older data)
   const value = await client.get(`market_data:${symbol}`)
   if (!value) return null
   try {
@@ -809,7 +897,7 @@ export async function getEnabledConnections(): Promise<any[]> {
   return allConnections.filter((c: any) => isEnabledFlag(c.is_enabled))
 }
 
-export async function getInsertedAndEnabledConnections(): Promise<any[]> {
+export async function getAssignedAndEnabledConnections(): Promise<any[]> {
   const allConnections = await getAllConnections()
   // Return connections that are:
   // 1. Active-inserted into Active panel (is_active_inserted="1")

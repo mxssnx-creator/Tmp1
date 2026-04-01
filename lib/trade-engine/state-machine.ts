@@ -58,6 +58,8 @@ export class TradeEngineStateMachine {
   private state: EngineState = "idle"
   private config: TradeEngineConfig | null = null
   private statePrefix = "engine:"
+  private monitoringTimer?: NodeJS.Timeout
+  private isCycleRunning = false
 
   /**
    * Initialize engine with config
@@ -89,13 +91,24 @@ export class TradeEngineStateMachine {
       throw new Error("Engine not initialized")
     }
 
+    // Prevent duplicate monitoring cycles
+    if (this.monitoringTimer) {
+      clearInterval(this.monitoringTimer)
+    }
+
     console.log(`[v0] [TradeEngine] Starting monitoring cycle (${intervalMs}ms interval)`)
 
-    const cycle = setInterval(async () => {
-      await this.executeCycle()
+    this.monitoringTimer = setInterval(async () => {
+      if (this.isCycleRunning) return // Prevent overlap
+      this.isCycleRunning = true
+      try {
+        await this.executeCycle()
+      } finally {
+        this.isCycleRunning = false
+      }
     }, intervalMs)
 
-    return cycle
+    return this.monitoringTimer
   }
 
   /**
@@ -292,6 +305,10 @@ export class TradeEngineStateMachine {
    * Stop engine gracefully
    */
   async stop(): Promise<void> {
+    if (this.monitoringTimer) {
+      clearInterval(this.monitoringTimer)
+      this.monitoringTimer = undefined
+    }
     this.state = "stopped"
     console.log(`[v0] [TradeEngine] Stopped`)
   }

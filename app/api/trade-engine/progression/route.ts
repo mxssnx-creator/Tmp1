@@ -40,10 +40,10 @@ export async function GET() {
           
           // Get cycle metrics from engine status if available
           const cycleMetrics = engineStatus ? {
-            indicationCycles: engineStatus.indication_cycle_count || 0,
-            strategyCycles: engineStatus.strategy_cycle_count || 0,
-            realtimeCycles: engineStatus.realtime_cycle_count || 0,
-            lastCycleAt: engineStatus.last_cycle_at || null,
+            indicationCycles: engineStatus.indication_cycle_count || engineStatus.engine_cycles_total || 0,
+            strategyCycles: engineStatus.strategy_cycle_count || engineStatus.engine_cycles_total || 0,
+            realtimeCycles: engineStatus.realtime_cycle_count || engineStatus.engine_cycles_total || 0,
+            lastCycleAt: engineStatus.last_cycle_at || engineStatus.last_realtime_run || null,
           } : null
           
           console.log(`[v0] ${conn.name}: ${engineState}, ${tradeCount} trades, ${pseudoCount} positions, running=${isEngineRunning}`)

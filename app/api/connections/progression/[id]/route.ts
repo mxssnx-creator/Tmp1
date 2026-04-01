@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { initRedis, getRedisClient, getSettings, getConnection } from "@/lib/redis-db"
 import { getProgressionLogs, forceFlushLogs } from "@/lib/engine-progression-logs"
 import { ProgressionStateManager } from "@/lib/progression-state-manager"
+import { getGlobalTradeEngineCoordinator } from "@/lib/trade-engine"
 
 export const dynamic = "force-dynamic"
 
@@ -31,19 +32,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const client = getRedisClient()
     const engineState = await getSettings(`trade_engine_state:${connectionId}`)
     
-    // Also check global state
+    // Also check global state (stored as Redis HASH via hset, not a string)
     let globalState: any = {}
     try {
-      const globalStateStr = await client.get("trade_engine:global")
-      globalState = globalStateStr ? JSON.parse(globalStateStr) : {}
+      const globalStateData = await client.hgetall("trade_engine:global")
+      globalState = globalStateData && Object.keys(globalStateData).length > 0 ? globalStateData : {}
     } catch {
       globalState = {}
     }
     const isGloballyRunning = globalState?.status === "running"
     
-    // Check running flag directly
-    const runningFlag = await getSettings(`engine_is_running:${connectionId}`)
-    const isEngineRunning = runningFlag === "true" || runningFlag === true
+     // PHASE 2 FIX: Check running flag directly from coordinator (most reliable)
+     // Get current engine running state from coordinator
+     let isEngineRunning = false
+     try {
+       const coordinator = getGlobalTradeEngineCoordinator()
+       isEngineRunning = coordinator.isEngineRunning(connectionId)
+       console.log(`[v0] [ProgressionAPI] ${connectionId}: Coordinator reports engine running = ${isEngineRunning}`)
+     } catch (e) {
+       console.warn(`[v0] [ProgressionAPI] ${connectionId}: Failed to check coordinator state, falling back to Redis flag`)
+       const runningFlag = await getSettings(`engine_is_running:${connectionId}`)
+       isEngineRunning = runningFlag === "true" || runningFlag === true
+     }
     
     // Check if this connection is currently active/dashboard enabled
     const isActive = connection?.is_enabled_dashboard === "1" || connection?.is_enabled_dashboard === true
@@ -220,7 +230,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         totalTrades: progressionState.totalTrades,
         successfulTrades: progressionState.successfulTrades,
         totalProfit: progressionState.totalProfit,
-        tradeSuccessRate: Math.round(progressionState.tradeSuccessRate * 10) / 10,
+        tradeSuccessRate: Math.round((progressionState.tradeSuccessRate ?? 0) * 10) / 10,
         lastCycleTime: progressionState.lastCycleTime?.toISOString() || null,
         prehistoricCyclesCompleted: progressionState.prehistoricCyclesCompleted,
         prehistoricPhaseActive: progressionState.prehistoricPhaseActive,

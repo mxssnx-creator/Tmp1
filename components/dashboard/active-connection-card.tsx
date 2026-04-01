@@ -37,6 +37,10 @@ import {
 import { ConnectionInfoDialog } from "@/components/settings/connection-info-dialog"
 import { ConnectionSettingsDialog } from "@/components/settings/connection-settings-dialog"
 import { ProgressionLogsDialog } from "@/components/dashboard/progression-logs-dialog"
+import { VolumeConfigurationPanel } from "@/components/dashboard/volume-configuration-panel"
+import { OrderSettingsPanel } from "@/components/dashboard/order-settings-panel"
+import { MainTradeCard } from "@/components/dashboard/main-trade-card"
+import { PresetTradeCard } from "@/components/dashboard/preset-trade-card"
 import type { Connection } from "@/lib/redis-db"
 import type { ActiveConnection } from "@/lib/active-connections"
 import { toast } from "@/lib/simple-toast"
@@ -100,6 +104,12 @@ export function ActiveConnectionCard({
   const [presetMode, setPresetMode] = useState(false)
   const [liveTradeLoading, setLiveTradeLoading] = useState(false)
   const [presetModeLoading, setPresetModeLoading] = useState(false)
+  const [liveVolumeFactor, setLiveVolumeFactor] = useState(1.0)
+  const [presetVolumeFactor, setPresetVolumeFactor] = useState(1.0)
+  const [orderType, setOrderType] = useState<"market" | "limit">("market")
+  const [volumeType, setVolumeType] = useState<"usdt" | "contract">("usdt")
+  const [mainTradeStatus, setMainTradeStatus] = useState<"idle" | "active" | "paused" | "stopped">("idle")
+  const [presetTradeStatus, setPresetTradeStatus] = useState<"idle" | "active" | "paused" | "stopped">("idle")
   const details = connection.details
 
   // Sync local toggle states from connection details
@@ -541,10 +551,12 @@ export function ActiveConnectionCard({
             </CardContent>
           )}
 
-          {/* Expanded details */}
+          {/* Expanded details with modern configuration panels */}
           <CollapsibleContent>
-            <CardContent className="pt-0 pb-4 px-4">
+            <CardContent className="pt-0 pb-4 px-4 space-y-4">
               <Separator className="mb-3" />
+
+              {/* Connection Details */}
               {details && (
                 <div className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-xs">
                   <div>
@@ -559,22 +571,106 @@ export function ActiveConnectionCard({
                     <div className="text-muted-foreground mb-0.5">Method</div>
                     <div className="font-medium capitalize">{details.connection_method || "-"}</div>
                   </div>
-                  <div>
-                    <div className="text-muted-foreground mb-0.5">Margin</div>
-                    <div className="font-medium capitalize">{details.margin_type || "-"}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground mb-0.5">Position Mode</div>
-                    <div className="font-medium capitalize">{details.position_mode?.replace(/-/g, " ") || "-"}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground mb-0.5">Mode</div>
-                    <Badge variant={details.is_testnet ? "secondary" : "default"} className="text-[10px]">
-                      {details.is_testnet ? "Testnet" : "Live"}
-                    </Badge>
-                  </div>
                 </div>
               )}
+
+              <Separator />
+
+              {/* Volume Configuration Panel */}
+              <VolumeConfigurationPanel
+                liveVolumeFactor={liveVolumeFactor}
+                presetVolumeFactor={presetVolumeFactor}
+                onLiveVolumeChange={setLiveVolumeFactor}
+                onPresetVolumeChange={setPresetVolumeFactor}
+                orderType={orderType}
+                onOrderTypeChange={setOrderType}
+                volumeType={volumeType}
+                onVolumeTypeChange={setVolumeType}
+              />
+
+              <Separator />
+
+              {/* Order Settings Panel */}
+              <OrderSettingsPanel
+                orderType={orderType}
+                marketSettings={{ slippageTolerance: 1, autoExecution: true }}
+                limitSettings={{ priceOffset: 0.5, timeoutSeconds: 300 }}
+              />
+
+              <Separator />
+
+              {/* Main Trade Card */}
+              <MainTradeCard
+                config={{
+                  enabled: true,
+                  status: mainTradeStatus,
+                  entrySettings: {
+                    indicationBased: true,
+                    confirmationRequired: 2,
+                    sizeCalculationMethod: "percentage",
+                  },
+                  exitSettings: {
+                    takeProfitPercent: 5,
+                    stopLossPercent: 2,
+                    trailingStopEnabled: false,
+                  },
+                  positionManagement: {
+                    maxPositionsTotal: 10,
+                    maxPerSymbol: 2,
+                    positionScaling: true,
+                    partialExitRules: "None",
+                  },
+                  statistics: {
+                    activePositions: 3,
+                    unrealizedPnL: 1245.5,
+                    unrealizedPnLPercent: 2.45,
+                    winRate: 65,
+                    maxDailyDrawdown: 1.2,
+                    averageEntryPrice: 0,
+                  },
+                }}
+                onStatusChange={setMainTradeStatus}
+              />
+
+              <Separator />
+
+              {/* Preset Trade Card */}
+              <PresetTradeCard
+                config={{
+                  enabled: true,
+                  status: presetTradeStatus,
+                  activePreset: "preset-1",
+                  presetType: "auto-optimal",
+                  availablePresets: [
+                    {
+                      id: "preset-1",
+                      name: "Auto-Optimal",
+                      description: "Auto-tuned indicators and strategies",
+                      type: "auto-optimal",
+                      createdDate: "2024-03-15",
+                      backtestScore: 87.5,
+                    },
+                    {
+                      id: "preset-2",
+                      name: "Conservative",
+                      description: "Low-risk conservative trading",
+                      type: "conservative",
+                      createdDate: "2024-03-10",
+                      backtestScore: 72.3,
+                    },
+                  ],
+                  autoUpdateEnabled: true,
+                  statistics: {
+                    coordinatedPositions: 5,
+                    testProgress: 0,
+                    activeTrades: 3,
+                    presetPnL: 2450.75,
+                    presetPnLPercent: 3.2,
+                    expectedWinRate: 72,
+                  },
+                }}
+                onStatusChange={setPresetTradeStatus}
+              />
 
               {/* Engine progression details when running */}
               {progression && phase !== "idle" && phase !== "stopped" && phase !== "disabled" && (

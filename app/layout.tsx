@@ -1,18 +1,17 @@
-import type React from "react"
 import type { Metadata } from "next"
-import "./globals.css"
-import { AuthProvider } from "@/lib/auth-context"
-import { ExchangeProvider } from "@/lib/exchange-context"
-import { ConnectionStateProvider } from "@/lib/connection-state"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/app-sidebar"
-import { Toaster } from "@/components/ui/sonner"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { Inter } from "next/font/google"
+// @ts-expect-error CSS import not typed
+import "@/app/globals.css"
+import { Providers } from "@/components/providers"
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "CTS v3 - Crypto Trading System",
-  description: "Advanced crypto trading system",
+  title: "CTS v3.2 Dashboard",
+  description: "Crypto Trading System Dashboard",
 }
+
+export const dynamic = "force-dynamic"
 
 export default function RootLayout({
   children,
@@ -21,22 +20,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-foreground">
-        <ErrorBoundary>
-          <AuthProvider>
-            <ConnectionStateProvider>
-              <ExchangeProvider>
-                <SidebarProvider defaultOpen={true}>
-                  <AppSidebar />
-                  <SidebarInset>
-                    {children}
-                  </SidebarInset>
-                </SidebarProvider>
-              </ExchangeProvider>
-            </ConnectionStateProvider>
-          </AuthProvider>
-        </ErrorBoundary>
-        <Toaster />
+      <body className={inter.className}>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   )

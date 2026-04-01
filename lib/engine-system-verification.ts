@@ -11,7 +11,7 @@
  * 6. Error handling across all phases
  */
 
-import { getAllConnections, getInsertedAndEnabledConnections, initRedis, getRedisClient } from "@/lib/redis-db"
+import { getAllConnections, getAssignedAndEnabledConnections, initRedis, getRedisClient } from "@/lib/redis-db"
 
 interface VerificationReport {
   timestamp: string
@@ -96,7 +96,7 @@ export async function verifyEngineSystem(): Promise<VerificationReport> {
     // ==============
     console.log("[v0] [Verification] Checking connections...")
     const allConnections = await getAllConnections()
-    const enabledConnections = await getInsertedAndEnabledConnections()
+    const enabledConnections = await getAssignedAndEnabledConnections()
     
     const connectionCheck: ConnectionCheck = {
       totalConnections: allConnections.length,

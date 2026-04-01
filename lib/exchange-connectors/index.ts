@@ -6,15 +6,10 @@
  */
 
 import type { BaseExchangeConnector, ExchangeCredentials } from "./base-connector"
-import { BybitConnector } from "./bybit-connector"
-import { BingXConnector } from "./bingx-connector"
-import { PionexConnector } from "./pionex-connector"
-import { OrangeXConnector } from "./orangex-connector"
-import { BinanceConnector } from "./binance-connector"
-import { OKXConnector } from "./okx-connector"
 import { EXCHANGE_API_TYPES } from "@/lib/connection-predefinitions"
 
 // All primary exchanges use dedicated connectors (no CCXT dependency)
+// Connectors are dynamically imported to prevent them from being bundled into the client
 
 export async function createExchangeConnector(
   exchange: string,
@@ -33,18 +28,30 @@ export async function createExchangeConnector(
   }
 
   switch (normalizedExchange) {
-    case "bybit":
+    case "bybit": {
+      const { BybitConnector } = await import("./bybit-connector")
       return new BybitConnector(credentials, "bybit")
-    case "bingx":
+    }
+    case "bingx": {
+      const { BingXConnector } = await import("./bingx-connector")
       return new BingXConnector(credentials, "bingx")
-    case "pionex":
+    }
+    case "pionex": {
+      const { PionexConnector } = await import("./pionex-connector")
       return new PionexConnector(credentials, "pionex")
-    case "orangex":
+    }
+    case "orangex": {
+      const { OrangeXConnector } = await import("./orangex-connector")
       return new OrangeXConnector(credentials, "orangex")
-    case "binance":
+    }
+    case "binance": {
+      const { BinanceConnector } = await import("./binance-connector")
       return new BinanceConnector(credentials, "binance")
-    case "okx":
+    }
+    case "okx": {
+      const { OKXConnector } = await import("./okx-connector")
       return new OKXConnector(credentials, "okx")
+    }
     default:
       throw new Error(
         `Unsupported exchange: ${exchange}. Supported exchanges: bybit, bingx, pionex, orangex, binance, okx`

@@ -38,8 +38,8 @@ export function GlobalTradeEngineControls() {
   useEffect(() => {
     // Load initial status immediately
     loadStatus()
-    // Poll every 1 second for faster updates after changes
-    const interval = setInterval(loadStatus, 1000)
+    // Optimized: Increased polling from 1s to 3s to reduce API load while keeping real-time feel
+    const interval = setInterval(loadStatus, 3000)
     
     // Listen for engine state change events (from quick-start button, etc)
     const handleEngineStateChange = () => {

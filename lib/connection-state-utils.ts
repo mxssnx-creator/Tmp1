@@ -15,12 +15,37 @@ export function hasConnectionCredentials(connection: any, minLength = 10, allowP
   return apiKey.length >= minLength && apiSecret.length >= minLength
 }
 
-export function isConnectionInActivePanel(connection: any): boolean {
-  return isTruthyFlag(connection?.is_active_inserted) || isTruthyFlag(connection?.is_dashboard_inserted)
+// ========== BASE CONNECTION STATE (Settings Panel) ==========
+export function isConnectionInBasePanel(connection: any): boolean {
+  return isTruthyFlag(connection?.is_inserted)
+}
+
+export function isConnectionBaseEnabled(connection: any): boolean {
+  return isTruthyFlag(connection?.is_enabled)
+}
+
+// ========== MAIN CONNECTION STATE (Dashboard Panel) ==========
+// NEW: Renamed from is_active_inserted → is_assigned for clarity
+export function isConnectionAssignedToMain(connection: any): boolean {
+  // Support both old and new naming during migration
+  return isTruthyFlag(connection?.is_assigned) || isTruthyFlag(connection?.is_active_inserted)
 }
 
 export function isConnectionDashboardEnabled(connection: any): boolean {
   return isTruthyFlag(connection?.is_enabled_dashboard)
+}
+
+// ========== COMBINED STATE CHECKS ==========
+export function isConnectionInActivePanel(connection: any): boolean {
+  // Deprecated: use isConnectionAssignedToMain instead
+  return isConnectionAssignedToMain(connection)
+}
+
+// PHASE 2 FIX: Add independent state check for main processing
+export function isConnectionMainProcessing(connection: any): boolean {
+  // Connection is processing if BOTH assigned AND dashboard-enabled
+  // These states are independent - removing from base doesn't affect main
+  return isConnectionAssignedToMain(connection) && isConnectionDashboardEnabled(connection)
 }
 
 export function isConnectionSystemEnabled(connection: any): boolean {
@@ -40,15 +65,21 @@ export function isConnectionWorking(connection: any): boolean {
   return status === "success" || status === "ok" || status === "connected"
 }
 
+// ========== ENGINE ELIGIBILITY ==========
 export function isConnectionEligibleForEngine(connection: any): boolean {
-  const isActiveInserted = isConnectionInActivePanel(connection)
+  // Connection must be:
+  // 1. Assigned to main panel (is_assigned = "1")
+  // 2. Enabled in dashboard (is_enabled_dashboard = "1")
+  // 3. Have valid credentials (real or testnet)
+  
+  const isAssigned = isConnectionAssignedToMain(connection)
   const isDashboardEnabled = isConnectionDashboardEnabled(connection)
   const hasCredentials = hasConnectionCredentials(connection, 10)
 
   const isTestnet = isTruthyFlag(connection?.is_testnet)
   const isDemoMode = isTruthyFlag(connection?.demo_mode)
 
-  return isActiveInserted && isDashboardEnabled && (hasCredentials || isTestnet || isDemoMode)
+  return isAssigned && isDashboardEnabled && (hasCredentials || isTestnet || isDemoMode)
 }
 
 export function isOpenPosition(position: any): boolean {

@@ -141,8 +141,8 @@ export function SystemOverview() {
     }
 
     loadStats()
-    // Poll every 2 seconds to match GlobalTradeEngineControls polling
-    const interval = setInterval(loadStats, 2000)
+    // Optimized: Increased polling from 2s to 5s to reduce API load
+    const interval = setInterval(loadStats, 5000)
 
     // Listen for connection and live trade toggle events and refresh immediately
     const handleConnectionToggled = () => {

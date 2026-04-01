@@ -11,16 +11,17 @@ export interface ProgressionState {
   cyclesCompleted: number
   successfulCycles: number
   failedCycles: number
+  cycleSuccessRate: number
   totalTrades: number
   successfulTrades: number
   totalProfit: number
-  cycleSuccessRate: number // percentage
-  tradeSuccessRate: number // percentage
-  lastCycleTime: Date | null
+  tradeSuccessRate?: number
   lastUpdate: Date
   prehistoricCyclesCompleted?: number
   prehistoricSymbolsProcessed?: string[]
   prehistoricPhaseActive?: boolean
+  engine_cycles_total?: number
+  lastCycleTime?: Date | null
 }
 
 export class ProgressionStateManager {
@@ -45,7 +46,7 @@ export class ProgressionStateManager {
           totalProfit: 0,
           cycleSuccessRate: 0,
           tradeSuccessRate: 0,
-          lastCycleTime: null,
+        lastCycleTime: undefined,
           lastUpdate: new Date(),
           prehistoricCyclesCompleted: 0,
           prehistoricSymbolsProcessed: [],
@@ -63,7 +64,7 @@ export class ProgressionStateManager {
         totalProfit: parseFloat(data.total_profit || "0"),
         cycleSuccessRate: parseFloat(data.cycle_success_rate || "0"),
         tradeSuccessRate: parseFloat(data.trade_success_rate || "0"),
-        lastCycleTime: data.last_cycle_time ? new Date(data.last_cycle_time) : null,
+        lastCycleTime: data.last_cycle_time ? new Date(data.last_cycle_time) : undefined,
         lastUpdate: new Date(data.last_update || new Date()),
         prehistoricCyclesCompleted: parseInt(data.prehistoric_cycles_completed || "0", 10),
         prehistoricSymbolsProcessed: data.prehistoric_symbols_processed ? JSON.parse(data.prehistoric_symbols_processed) : [],
@@ -82,7 +83,7 @@ export class ProgressionStateManager {
         totalProfit: 0,
         cycleSuccessRate: 0,
         tradeSuccessRate: 0,
-        lastCycleTime: null,
+        lastCycleTime: undefined,
         lastUpdate: new Date(),
         prehistoricCyclesCompleted: 0,
         prehistoricSymbolsProcessed: [],

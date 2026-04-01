@@ -23,19 +23,21 @@ export async function trackIndicationStats(
     console.warn(`[v0] [Stats] Failed to track indication in DB:`, e instanceof Error ? e.message : String(e))
   }
 
-  // Also track in Redis for dashboard counts
+  // Track in Redis using counters (not unbounded sets) for dashboard counts
   try {
     await initRedis()
     const client = getRedisClient()
-    const timestamp = Date.now()
-    const indicationId = `${connectionId}:${symbol}:${indicationType}:${timestamp}`
     
-    // Add to type-specific set
-    await client.sadd(`indications:${connectionId}:${indicationType}`, indicationId)
-    // Add to main indications set  
-    await client.sadd(`indications:${connectionId}`, indicationId)
+    // Use INCR counters instead of SADD with unique IDs to prevent unbounded growth
+    await client.incr(`indications:${connectionId}:${indicationType}:count`)
+    await client.expire(`indications:${connectionId}:${indicationType}:count`, 86400) // 24h TTL
+    await client.incr(`indications:${connectionId}:count`)
+    await client.expire(`indications:${connectionId}:count`, 86400) // 24h TTL
     
-    console.log(`[v0] [Stats] Tracked indication: ${connectionId} ${symbol} ${indicationType}`)
+    // Store latest value for dashboard display (single key, not growing set)
+    const latestKey = `indications:${connectionId}:${indicationType}:latest`
+    await client.set(latestKey, JSON.stringify({ symbol, value, confidence, timestamp: Date.now() }))
+    await client.expire(latestKey, 3600) // 1h TTL
   } catch (e) {
     console.error(`[v0] [Stats] Failed to track indication in Redis:`, e instanceof Error ? e.message : String(e))
   }

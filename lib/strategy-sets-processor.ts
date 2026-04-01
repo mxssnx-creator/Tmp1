@@ -6,6 +6,7 @@
 
 import { getRedisClient, initRedis, getSettings, setSettings } from "@/lib/redis-db"
 import { logProgressionEvent } from "@/lib/engine-progression-logs"
+import { emitStrategyUpdate } from "@/lib/broadcast-helpers"
 
 // Pre-cached client reference
 let cachedClient: any = null
@@ -309,6 +310,15 @@ export class StrategySetsProcessor {
         lastCalculated: new Date().toISOString(),
       }
       await setSettings(statsKey, stats)
+
+      // Broadcast strategy update to connected clients
+      emitStrategyUpdate(this.connectionId, {
+        id: entries[0].id,
+        symbol: setKey.split(':')[2], // Extract symbol from setKey
+        profit_factor: strategy.profitFactor || 0,
+        win_rate: strategy.confidence || 0,
+        active_positions: entries.length,
+      })
     } catch (error) {
       console.error(`[v0] [StrategySets] Failed to save to ${setKey}:`, error)
     }

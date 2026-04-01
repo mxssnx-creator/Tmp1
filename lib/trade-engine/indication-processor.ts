@@ -313,13 +313,15 @@ export class IndicationProcessor {
       
       // Disabled per-cycle logging - only store and return
 
-      // Store indications in Redis for progression tracking (batch save)
-      try {
-        const connKey = `${this.connectionId}:${symbol}:realtime`
-        // Batch save all indications at once instead of one-by-one
-        if (indications.length > 0) {
-          await saveIndication(connKey, indications[0]) // Single write with latest
-          console.log(`[v0] [IndicationProcessor] Saved ${indications.length} indications for ${symbol}`)
+        // Store indications in Redis for progression tracking (batch save)
+        try {
+          const connKey = `${this.connectionId}:${symbol}:realtime`
+          const client = getRedisClient()
+          // Store with proper key format - strategy processor reads from this key
+          if (indications.length > 0) {
+            await client.set(connKey, JSON.stringify(indications))
+            await client.expire(connKey, 3600) // 1 hour TTL
+            console.log(`[v0] [IndicationProcessor] Saved ${indications.length} indications for ${symbol} to key ${connKey}`)
           
           // Track each indication to database for statistics and historical analysis
           for (const indication of indications) {
